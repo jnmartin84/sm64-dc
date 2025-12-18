@@ -222,13 +222,13 @@ void *SPINNING_THREAD(UNUSED void *arg) {
         while (vblticker <= last_vbltick)
             genwait_wait((void*)&vblticker, NULL, 5, NULL);
         last_vbltick = vblticker;
-irq_disable();
+//irq_disable();
 //u32 num_audio_samples = 544;//even_frame ? SAMPLES_HIGH : SAMPLES_LOW;//448;
 //        int num_audio_samples = SAMPLES_LOW;
         int num_audio_samples = ((gSysFrameCount & 3) < 2) ? SAMPLES_HIGH : SAMPLES_LOW;
         create_next_audio_buffer(audio_buffer, num_audio_samples);
         audio_api->play((u8 *)audio_buffer, num_audio_samples * 2 * 2);// * 2);
-irq_enable();
+//irq_enable();
     }
     return NULL;
 }

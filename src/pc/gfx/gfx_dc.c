@@ -13,6 +13,12 @@
 #define SCR_WIDTH (640)
 #define SCR_HEIGHT (480)
 
+#undef bool
+#define bool uint8_t
+#define true 1
+#define false 0
+
+
 static int force_30fps = 1;
 static unsigned int last_time = 0;
 
@@ -106,6 +112,7 @@ uint8_t skip_debounce = 0;
 const unsigned int FRAME_TIME_MS = 33; // hopefully get right on target @ 33.3
 
 static bool gfx_dc_start_frame(void) {
+#if 0
     const unsigned int cur_time = GetSystemTimeLow();
     const unsigned int elapsed = cur_time - last_time;
 
@@ -119,6 +126,7 @@ static bool gfx_dc_start_frame(void) {
         last_time = cur_time;
         return false;
     }
+#endif
     return true;
 }
 
@@ -131,6 +139,9 @@ static void gfx_dc_swap_buffers_end(void) {
     const unsigned int elapsed = cur_time - last_time;
     last_time = cur_time;
 
+    /* Lets us yield to other threads*/
+    glKosSwapBuffers();
+
     if (force_30fps && elapsed < FRAME_TIME_MS) {
 #ifdef DEBUG
         printf("elapsed %d ms fps %f delay %d \n", elapsed, 1000.0f / elapsed, FRAME_TIME_MS - elapsed);
@@ -138,9 +149,6 @@ static void gfx_dc_swap_buffers_end(void) {
         DelayThread(FRAME_TIME_MS - elapsed);
         last_time += (FRAME_TIME_MS - elapsed);
     }
-
-    /* Lets us yield to other threads*/
-    glKosSwapBuffers();
 }
 
 /* Idk what this is for? */

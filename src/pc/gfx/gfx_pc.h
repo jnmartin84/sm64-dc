@@ -1,7 +1,11 @@
 #ifndef GFX_PC_H
 #define GFX_PC_H
 
-#include <stdbool.h>
+//#include <stdbool.h>
+#undef bool
+#define bool uint8_t
+#define true 1
+#define false 0
 
 struct GfxRenderingAPI;
 struct GfxWindowManagerAPI;

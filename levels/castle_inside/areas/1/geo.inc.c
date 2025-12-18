@@ -74,7 +74,7 @@ const GeoLayout castle_geo_001038[] = {
       GEO_DISPLAY_LIST(LAYER_OPAQUE, inside_castle_seg7_dl_07036D88),
       GEO_DISPLAY_LIST(LAYER_OPAQUE, inside_castle_seg7_dl_07037988),
       GEO_DISPLAY_LIST(LAYER_OPAQUE, inside_castle_seg7_dl_07037BF8),
-      GEO_DISPLAY_LIST(LAYER_TRANSPARENT, inside_castle_seg7_dl_07037DE8),
+//      GEO_DISPLAY_LIST(LAYER_TRANSPARENT, inside_castle_seg7_dl_07037DE8),
       GEO_DISPLAY_LIST(LAYER_TRANSPARENT, dl_castle_aquarium_light),
       GEO_DISPLAY_LIST(LAYER_ALPHA, inside_castle_seg7_dl_07038350),
       GEO_ASM(  0, geo_painting_update),

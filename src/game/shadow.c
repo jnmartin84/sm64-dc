@@ -194,7 +194,7 @@ f32 get_water_level_below_shadow(struct Shadow *s) {
     //! incidentally.
     return waterLevel;
 }
-
+#include "sh4zam.h"
 /**
  * Initialize a shadow. Return 0 on success, 1 on failure.
  *
@@ -247,7 +247,7 @@ s8 init_shadow(struct Shadow *s, f32 xPos, f32 yPos, f32 zPos, s16 shadowScale, 
 
     s->floorDownwardAngle = atan2_deg(s->floorNormalZ, s->floorNormalX);
 
-    floorSteepness = sqrtf(s->floorNormalX * s->floorNormalX + s->floorNormalZ * s->floorNormalZ);
+    floorSteepness = shz_sqrtf_fsrra(s->floorNormalX * s->floorNormalX + s->floorNormalZ * s->floorNormalZ);
 
     // This if-statement avoids dividing by 0.
     if (floorSteepness == 0.0) {
@@ -266,8 +266,8 @@ s8 init_shadow(struct Shadow *s, f32 xPos, f32 yPos, f32 zPos, s16 shadowScale, 
  *      6 = (0,  15)         7 = (7,  15)         8 = (15,  15)
  */
 void get_texture_coords_9_vertices(s8 vertexNum, s16 *textureX, s16 *textureY) {
-    *textureX = (vertexNum % 3) * 8 - !((vertexNum % 3) == 0);
-    *textureY = (vertexNum / 3) * 8 - !((vertexNum / 3) == 0);
+    *textureX = (s16)((vertexNum % 3) * 8) - (!((vertexNum % 3) == 0));
+    *textureY = (s16)((vertexNum / 3) * 8) - (!((vertexNum / 3) == 0));
 }
 
 /**

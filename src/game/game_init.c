@@ -37,10 +37,10 @@ OSMesgQueue D_80339CB8;
 OSMesg D_80339CD0;
 OSMesg D_80339CD4;
 struct VblankHandler gGameVblankHandler;
-#if !(defined(TARGET_DC) || defined(TARGET_PSP))
+//#if !(defined(TARGET_DC) || defined(TARGET_PSP))
 uintptr_t gPhysicalFrameBuffers[3];
 uintptr_t gPhysicalZBuffer;
-#endif
+//#endif
 void *D_80339CF0;
 void *D_80339CF4;
 struct MarioAnimation D_80339D10;
@@ -206,7 +206,7 @@ void my_rsp_init(void) {
 
 /** Clear the Z buffer. */
 void clear_z_buffer(void) {
-#if defined(TARGET_N64)
+//#if defined(TARGET_N64)
     gDPPipeSync(gDisplayListHead++);
 
     gDPSetDepthSource(gDisplayListHead++, G_ZS_PIXEL);
@@ -218,7 +218,7 @@ void clear_z_buffer(void) {
 
     gDPFillRectangle(gDisplayListHead++, 0, BORDER_HEIGHT, SCREEN_WIDTH - 1,
                      SCREEN_HEIGHT - 1 - BORDER_HEIGHT);
-#endif
+//#endif
 }
 
 /** Sets up the final framebuffer image. */
@@ -233,10 +233,11 @@ void display_frame_buffer(void) {
                   SCREEN_HEIGHT - BORDER_HEIGHT);
 #endif
 }
-
+    s32 clear_color;
 /** Clears the framebuffer, allowing it to be overwritten. */
 void clear_frame_buffer(s32 color) {
-#if defined(TARGET_N64)
+    clear_color = color;
+//#if defined(TARGET_N64)
     gDPPipeSync(gDisplayListHead++);
 
     gDPSetRenderMode(gDisplayListHead++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
@@ -250,14 +251,14 @@ void clear_frame_buffer(s32 color) {
     gDPPipeSync(gDisplayListHead++);
 
     gDPSetCycleType(gDisplayListHead++, G_CYC_1CYCLE);
-#else
-    (void)color;
-#endif
+//#else
+//    (void)color;
+//#endif
 }
 
 /** Clears and initializes the viewport. */
 void clear_viewport(Vp *viewport, s32 color) {
-#if defined(TARGET_N64)
+//#if defined(TARGET_N64)
     s16 vpUlx = (viewport->vp.vtrans[0] - viewport->vp.vscale[0]) / 4 + 1;
     s16 vpUly = (viewport->vp.vtrans[1] - viewport->vp.vscale[1]) / 4 + 1;
     s16 vpLrx = (viewport->vp.vtrans[0] + viewport->vp.vscale[0]) / 4 - 2;
@@ -279,10 +280,10 @@ void clear_viewport(Vp *viewport, s32 color) {
     gDPPipeSync(gDisplayListHead++);
 
     gDPSetCycleType(gDisplayListHead++, G_CYC_1CYCLE);
-#else
-    (void)viewport;
-    (void)color;
-#endif
+//#else
+ //   (void)viewport;
+  //  (void)color;
+//#endif
 }
 
 /** Draws the horizontal screen borders */

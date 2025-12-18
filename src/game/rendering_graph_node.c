@@ -1046,7 +1046,6 @@ void geo_process_node_and_siblings(struct GraphNode *firstNode) {
  */
 void geo_process_root(struct GraphNodeRoot *node, Vp *b, Vp *c, s32 clearColor) {
     UNUSED s32 unused;
-
     if (node->node.flags & GRAPH_RENDER_ACTIVE) {
         Mtx *initialMatrix;
         Vp *viewport = alloc_display_list(sizeof(*viewport));

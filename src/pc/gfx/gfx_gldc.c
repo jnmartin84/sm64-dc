@@ -2,7 +2,7 @@
 #if defined(TARGET_DC)
 
 #include <stdint.h>
-#include <stdbool.h>
+//#include <stdbool.h>
 #include <assert.h>
 #include <unistd.h>
 
@@ -48,6 +48,12 @@
 #include "gfx_rendering_api.h"
 #include "macros.h"
 #include "gl_fast_vert.h"
+
+#undef bool
+#define bool uint8_t
+#define true 1
+#define false 0
+
 
 enum MixType {
     SH_MT_NONE,
@@ -681,13 +687,35 @@ static inline bool gl_get_version(int *major, int *minor, bool *is_es) {
 #define sys_fatal printf
 
 extern void getRamStatus(void);
+
+extern int clear_color;
+
+#include <stdint.h>
+float clr, clg, clb;
+static inline void rgba5551_to_rgbf(uint16_t c,
+                                   float *r,
+                                   float *g,
+                                   float *b)
+{
+    // Extract 5-bit channels
+    uint32_t ri = (c >> 11) & 0x1F;
+    uint32_t gi = (c >> 6)  & 0x1F;
+    uint32_t bi = (c >> 1)  & 0x1F;
+
+    // Convert to [0,1]
+    const float inv31 = 1.0f / 31.0f;
+    *r = ri * inv31;
+    *g = gi * inv31;
+    *b = bi * inv31;
+}
+
 static void gfx_opengl_init(void) {
 #if FOR_WINDOWS || defined(OSX_BUILD)
     GLenum err;
     if ((err = glewInit()) != GLEW_OK)
         sys_fatal("could not init GLEW:\n%s", glewGetErrorString(err));
 #endif
-
+    clear_color = 0;
     GLdcConfig config;
     glKosInitConfig(&config);
     config.autosort_enabled = GL_TRUE;
@@ -732,14 +760,15 @@ static void gfx_opengl_init(void) {
     glDisable(GL_LIGHTING);
     glDisable(GL_CULL_FACE);
     // glDisable(GL_DITHER);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    rgba5551_to_rgbf(1, &clr, &clg, &clb);
+    glClearColor(clr, clg, clb, 1.0f);
     //glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
     glEnableClientState(GL_VERTEX_ARRAY);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     /*@Note: unsure */
     //glTexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, c_white);
 
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+//    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClearDepth(1.0);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
@@ -779,7 +808,9 @@ static void gfx_opengl_on_resize(void) {
 }
 
 static void gfx_opengl_start_frame(void) {
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+//    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    rgba5551_to_rgbf(1, &clr, &clg, &clb);
+    glClearColor(clr, clg, clb, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
