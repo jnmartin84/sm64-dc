@@ -1,3 +1,4 @@
+#define TARGET_DC 1
 #if defined(TARGET_DC)
 
 #include <stdint.h>
@@ -406,9 +407,10 @@ static void gfx_opengl_upload_texture(const uint8_t *rgba32_buf, int width, int 
 }
 
 static inline GLenum gfx_cm_to_opengl(uint32_t val) {
-    if (val & G_TX_CLAMP) return GL_CLAMP;
-   // return (val & G_TX_MIRROR) ? GL_MIRRORED_REPEAT : GL_REPEAT;
-    return  GL_REPEAT;
+    if (val & G_TX_CLAMP)
+        return GL_CLAMP;
+
+    return (val & G_TX_MIRROR) ? GL_MIRRORED_REPEAT : GL_REPEAT;
 }
 
 static inline void gfx_opengl_apply_tmu_state(const int tile) {
@@ -569,8 +571,8 @@ static void gfx_opengl_draw_triangles(float buf_vbo[], UNUSED size_t buf_vbo_len
         glDepthFunc(GL_LEQUAL);
         glDisable(GL_BLEND);
         glDisable(GL_FOG);
-        glPushMatrix();
-        glLoadIdentity();
+//        glPushMatrix();
+//        glLoadIdentity();
     }
 
     if (is_zmode_decal) {
@@ -598,7 +600,7 @@ static void gfx_opengl_draw_triangles(float buf_vbo[], UNUSED size_t buf_vbo_len
     }
     
     if(cur_shader->shader_id == 18874437){ // 0x1200045, skybox
-        glPopMatrix();
+//        glPopMatrix();
         glDepthMask(GL_TRUE);
         glDepthFunc(GL_LESS);
         glEnable(GL_BLEND);
@@ -641,7 +643,8 @@ void gfx_opengl_draw_triangles_2d(void *buf_vbo, UNUSED size_t buf_vbo_len, UNUS
         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     }
 
-    glDrawArrays(GL_TRIANGLES, 0, 3 * 2 /* 2 tri quad */);
+//    glDrawArrays(GL_TRIANGLES, 0, 3 * 2 /* 2 tri quad */);
+    glDrawArrays(GL_QUADS, 0, 4);
     gfx_opengl_reset_projection();
 }
 
