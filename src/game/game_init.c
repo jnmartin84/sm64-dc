@@ -206,7 +206,7 @@ void my_rsp_init(void) {
 
 /** Clear the Z buffer. */
 void clear_z_buffer(void) {
-//#if defined(TARGET_N64)
+#if defined(TARGET_N64)
     gDPPipeSync(gDisplayListHead++);
 
     gDPSetDepthSource(gDisplayListHead++, G_ZS_PIXEL);
@@ -218,7 +218,7 @@ void clear_z_buffer(void) {
 
     gDPFillRectangle(gDisplayListHead++, 0, BORDER_HEIGHT, SCREEN_WIDTH - 1,
                      SCREEN_HEIGHT - 1 - BORDER_HEIGHT);
-//#endif
+#endif
 }
 
 /** Sets up the final framebuffer image. */
@@ -281,8 +281,8 @@ void clear_viewport(Vp *viewport, s32 color) {
 
     gDPSetCycleType(gDisplayListHead++, G_CYC_1CYCLE);
 //#else
- //   (void)viewport;
-  //  (void)color;
+//    (void)viewport;
+//    (void)color;
 //#endif
 }
 

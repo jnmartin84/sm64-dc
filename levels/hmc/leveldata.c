@@ -59,3 +59,6 @@
 #include "levels/hmc/arrow_platform_button/collision.inc.c"
 #include "levels/hmc/areas/1/trajectory.inc.c"
 #include "levels/hmc/areas/1/movtext.inc.c"
+
+Gfx *g_hmc_seg7_dl_07014950 = hmc_seg7_dl_07014950;
+Gfx *g_hmc_seg7_dl_0700FDF0 = hmc_seg7_dl_0700FDF0;

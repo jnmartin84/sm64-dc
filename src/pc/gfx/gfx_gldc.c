@@ -93,6 +93,12 @@ static bool gl_blend = false;
 static bool gl_depth = false;
 static bool gl_npot = false;
 
+extern int16_t fog_mul;
+extern int16_t fog_ofs;
+extern float gProjectNear;
+extern float gProjectFar;
+
+
 #if !defined(TARGET_DC)
 static bool gl_multitexture = false;
 static void *scale_buf = NULL;
@@ -202,7 +208,26 @@ static inline GLenum texenv_set_texture_texture(UNUSED struct ShaderProgram *prg
     return GL_MODULATE;
 }
 
+extern int doing_hmc_thing;
+
+float gl_fog_start;
+float gl_fog_end;
+
+void gfx_opengl_change_fog(void) {
+    float fog_scale = 0.75f;
+
+    glFogi(GL_FOG_MODE, GL_LINEAR);
+    glFogf(GL_FOG_START, (GLfloat)gl_fog_start * fog_scale * 0.9f);
+    glFogf(GL_FOG_END, (GLfloat)gl_fog_end * fog_scale);
+}
+
 static void gfx_opengl_apply_shader(struct ShaderProgram *prg) {
+    // vertices are always there
+    glVertexPointer(3, GL_FLOAT, sizeof(dc_fast_t), &cur_buf[0].vert);
+    glTexCoordPointer(2, GL_FLOAT, sizeof(dc_fast_t), &cur_buf[0].texture);
+    glColorPointer(GL_BGRA, GL_UNSIGNED_BYTE, sizeof(dc_fast_t), &cur_buf[0].color);
+
+#if 0
     // vertices are always there
     glVertexPointer(3, GL_FLOAT, sizeof(dc_fast_t), &cur_buf[0].vert);
 
@@ -260,10 +285,21 @@ static void gfx_opengl_apply_shader(struct ShaderProgram *prg) {
     } else {
         glDisableClientState(GL_COLOR_ARRAY);
     }
+#endif
 
-    if (1) { //!prg->enabled) {
-        // we only need to do this once
-        //prg->enabled = true;
+    // have texture(s), specify same texcoords for every active texture
+    if (prg->texture_used[0] || prg->texture_used[1]) {
+        glEnable(GL_TEXTURE_2D);
+    } else {
+        glDisable(GL_TEXTURE_2D);
+    }
+
+    if (prg->shader_id & SHADER_OPT_FOG) {
+        glEnable(GL_FOG);
+        gfx_opengl_change_fog();
+    } else {
+        glDisable(GL_FOG);
+    }
 
         if (prg->shader_id & SHADER_OPT_TEXTURE_EDGE) {
             // (horrible) alpha discard
@@ -281,8 +317,11 @@ static void gfx_opengl_apply_shader(struct ShaderProgram *prg) {
             case SH_MT_TEXTURE_COLOR:   mode = texenv_set_texture_color(prg); break;
             default:                    mode = texenv_set_color(prg); break;
         }
+        
+//        if (doing_hmc_thing) mode = GL_DECAL;
+
         glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, mode);
-    }
+    
 }
 
 static void gfx_opengl_unload_shader(struct ShaderProgram *old_prg) {
@@ -534,6 +573,38 @@ static inline void gfx_opengl_pass_mix_texture(void) {
 #endif
 }
 
+// 0x01200200
+static void skybox_setup_pre(void) {
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glDepthFunc(GL_LEQUAL);
+    glDisable(GL_BLEND);
+    glDisable(GL_FOG);
+}
+
+// 0x01200200
+static void skybox_setup_post(void) {
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LESS);
+    glEnable(GL_BLEND);
+    glEnable(GL_FOG);
+}
+
+// 0x01a00200
+static void over_skybox_setup_pre(void) {
+    glEnable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE); // don’t write depth (so it won’t block later geometry)
+}
+
+static void over_skybox_setup_post(void) {
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LESS);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
 
 static void gfx_opengl_draw_triangles(float buf_vbo[], UNUSED size_t buf_vbo_len, size_t buf_vbo_num_tris) {
     cur_buf = (void*)buf_vbo;
@@ -629,28 +700,30 @@ static void gfx_opengl_draw_triangles(float buf_vbo[], UNUSED size_t buf_vbo_len
 extern void gfx_opengl_2d_projection(void);
 extern void gfx_opengl_reset_projection(void);
 void gfx_opengl_draw_triangles_2d(void *buf_vbo, UNUSED size_t buf_vbo_len, UNUSED size_t buf_vbo_num_tris) {
-    glDisable(GL_FOG);
-    gfx_opengl_2d_projection();
 
     dc_fast_t *tris = buf_vbo;
 
-    glEnable(GL_TEXTURE_2D);
-    glEnableClientState(GL_COLOR_ARRAY);
+    gfx_opengl_apply_shader(cur_shader);
+    gfx_opengl_2d_projection();
+    glDisable(GL_FOG);
+    glEnable(GL_BLEND);
+
     glVertexPointer(3, GL_FLOAT, sizeof(dc_fast_t), &tris[0].vert);
     glTexCoordPointer(2, GL_FLOAT, sizeof(dc_fast_t), &tris[0].texture);
     glColorPointer(GL_BGRA, GL_UNSIGNED_BYTE, sizeof(dc_fast_t), &tris[0].color);
 
-    if(buf_vbo_num_tris) {
-        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-        // if there's two textures, set primary texture first
-        if (cur_shader->texture_used[1])
+    if (buf_vbo_num_tris) {
+        glEnable(GL_TEXTURE_2D);
+        if (cur_shader->texture_used[0] || cur_shader->texture_used[1])
             glBindTexture(GL_TEXTURE_2D, tmu_state[cur_shader->texture_ord[0]].tex);
     } else {
-        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        glDisable(GL_TEXTURE_2D);
     }
 
 //    glDrawArrays(GL_TRIANGLES, 0, 3 * 2 /* 2 tri quad */);
-    glDrawArrays(GL_QUADS, 0, 4);
+        glDrawArrays(GL_QUADS, 0, 4);
+
+
     gfx_opengl_reset_projection();
 }
 
@@ -809,7 +882,7 @@ static void gfx_opengl_on_resize(void) {
 
 static void gfx_opengl_start_frame(void) {
 //    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    rgba5551_to_rgbf(1, &clr, &clg, &clb);
+    rgba5551_to_rgbf(clear_color, &clr, &clg, &clb);
     glClearColor(clr, clg, clb, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
