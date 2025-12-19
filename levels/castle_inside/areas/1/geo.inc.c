@@ -21,12 +21,16 @@ const GeoLayout castle_geo_000F70[] = {
    GEO_RETURN(),
 };
 
+
+
+extern const Gfx *fake_inside_castle_seg7_dl_07023DB0[];
+
 // 0x0E000F88
 const GeoLayout castle_geo_000F88[] = {
    GEO_NODE_START(),
    GEO_OPEN_NODE(),
       GEO_DISPLAY_LIST(LAYER_OPAQUE, inside_castle_seg7_dl_0702FD30),
-      GEO_DISPLAY_LIST(LAYER_OPAQUE, inside_castle_seg7_dl_07023DB0),
+      GEO_DISPLAY_LIST(LAYER_OPAQUE, fake_inside_castle_seg7_dl_07023DB0),
    GEO_CLOSE_NODE(),
    GEO_RETURN(),
 };
