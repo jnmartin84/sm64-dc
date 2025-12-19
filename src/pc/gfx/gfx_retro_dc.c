@@ -202,6 +202,10 @@ static struct RenderingState {
     bool depth_mask;
     bool decal_mode;
     bool alpha_blend;
+    // 28
+    uint8_t fog_change;
+    // 29
+    uint8_t fog_col_change;
 
 } rendering_state __attribute__((aligned(32)));
 
@@ -2549,6 +2553,8 @@ static void gfx_sp_moveword(uint8_t index, UNUSED uint16_t offset, uint32_t data
         case G_MW_FOG:
             rsp.fog_mul = (int16_t)(data >> 16);
             rsp.fog_offset = (int16_t)data;
+            if ((!rendering_state.fog_change)) {
+                rendering_state.fog_change = 1;
             float recip_fog_mul = shz_fast_invf(rsp.fog_mul);
             float n64_min = 500.0f * (1.0f - (float) rsp.fog_offset * recip_fog_mul);
             float n64_max = n64_min + 128000.0f * recip_fog_mul;
@@ -2556,6 +2562,7 @@ static void gfx_sp_moveword(uint8_t index, UNUSED uint16_t offset, uint32_t data
             gl_fog_start = /* gProjectNear  */10.0f + scale * exp_map_0_1000_f(n64_min);
             gl_fog_end = /* gProjectNear  */10.0f  + scale * exp_map_0_1000_f(n64_max);
                 //fog_dirty = 1;
+            }
                             break;
     }
 }
@@ -2737,11 +2744,13 @@ static void gfx_dp_set_fog_color(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     rdp.fog_color.g = g;
     rdp.fog_color.b = b;
     rdp.fog_color.a = a;
+    if ((!rendering_state.fog_col_change)) {
+        rendering_state.fog_col_change = 1;
 
             float fog_color[4] = { rdp.fog_color.r * recip255, rdp.fog_color.g * recip255, rdp.fog_color.b * recip255,
                                1.0f };
         glFogfv(GL_FOG_COLOR, fog_color);
-
+            }
 }
 
 static void gfx_dp_set_fill_color(uint32_t packed_color) {
@@ -3187,6 +3196,13 @@ static void gfx_sp_reset() {
     rsp.modelview_matrix_stack_size = 1;
     rsp.current_num_lights = 2;
     rsp.lights_changed = true;
+    rendering_state.textures[0]->cms = 6;
+    rendering_state.textures[0]->cmt = 6;
+    rendering_state.textures[1]->cms = 6;
+    rendering_state.textures[1]->cmt = 6;
+
+rendering_state.fog_col_change = 0;
+rendering_state.fog_change = 0;
 }
 
 void gfx_get_dimensions(uint32_t *width, uint32_t *height) {

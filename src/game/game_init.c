@@ -237,7 +237,7 @@ void display_frame_buffer(void) {
 /** Clears the framebuffer, allowing it to be overwritten. */
 void clear_frame_buffer(s32 color) {
     clear_color = color;
-//#if defined(TARGET_N64)
+#if defined(TARGET_N64)
     gDPPipeSync(gDisplayListHead++);
 
     gDPSetRenderMode(gDisplayListHead++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
@@ -251,14 +251,14 @@ void clear_frame_buffer(s32 color) {
     gDPPipeSync(gDisplayListHead++);
 
     gDPSetCycleType(gDisplayListHead++, G_CYC_1CYCLE);
-//#else
-//    (void)color;
-//#endif
+#else
+    (void)color;
+#endif
 }
 
 /** Clears and initializes the viewport. */
 void clear_viewport(Vp *viewport, s32 color) {
-//#if defined(TARGET_N64)
+#if defined(TARGET_N64)
     s16 vpUlx = (viewport->vp.vtrans[0] - viewport->vp.vscale[0]) / 4 + 1;
     s16 vpUly = (viewport->vp.vtrans[1] - viewport->vp.vscale[1]) / 4 + 1;
     s16 vpLrx = (viewport->vp.vtrans[0] + viewport->vp.vscale[0]) / 4 - 2;
@@ -280,10 +280,10 @@ void clear_viewport(Vp *viewport, s32 color) {
     gDPPipeSync(gDisplayListHead++);
 
     gDPSetCycleType(gDisplayListHead++, G_CYC_1CYCLE);
-//#else
-//    (void)viewport;
-//    (void)color;
-//#endif
+#else
+    (void)viewport;
+    (void)color;
+#endif
 }
 
 /** Draws the horizontal screen borders */
