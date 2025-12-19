@@ -88,10 +88,9 @@ const char *gNoControllerMsg[] = {
     "CONTROLLER FEHLT",
 };
 #endif
-
+extern s32 clear_color;
 void override_viewport_and_clip(Vp *a, Vp *b, u8 c, u8 d, u8 e) {
     u16 sp6 = ((c >> 3) << 11) | ((d >> 3) << 6) | ((e >> 3) << 1) | 1;
-
     gFBSetColor = (sp6 << 16) | sp6;
     D_8032CE74 = a;
     D_8032CE78 = b;

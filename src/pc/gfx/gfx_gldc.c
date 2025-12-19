@@ -452,6 +452,8 @@ static void gfx_opengl_upload_texture(const uint8_t *rgba32_buf, int width, int 
 }
 
 static inline GLenum gfx_cm_to_opengl(uint32_t val) {
+    if (val & G_TX_MIRROR) return GL_MIRRORED_REPEAT;
+
     if (val & G_TX_CLAMP)
         return GL_CLAMP;
 
@@ -879,9 +881,12 @@ static void gfx_opengl_init(void) {
 
 static void gfx_opengl_on_resize(void) {
 }
-
+extern s16 gCurrLevelNum;
 static void gfx_opengl_start_frame(void) {
-//    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+//if (gCurrLevelNum == 7){ //LEVEL_HMC) {
+//clear_color = 0;
+//}
+    //    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     rgba5551_to_rgbf(clear_color, &clr, &clg, &clb);
     glClearColor(clr, clg, clb, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

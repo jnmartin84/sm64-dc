@@ -233,10 +233,14 @@ void display_frame_buffer(void) {
                   SCREEN_HEIGHT - BORDER_HEIGHT);
 #endif
 }
+
+//#include <stdio.h>
+
     s32 clear_color;
 /** Clears the framebuffer, allowing it to be overwritten. */
 void clear_frame_buffer(s32 color) {
     clear_color = color;
+  //  printf("clear color now %08x\n", clear_color);
 #if defined(TARGET_N64)
     gDPPipeSync(gDisplayListHead++);
 
@@ -258,6 +262,9 @@ void clear_frame_buffer(s32 color) {
 
 /** Clears and initializes the viewport. */
 void clear_viewport(Vp *viewport, s32 color) {
+    clear_color = color;
+//        printf("clear color now %08x\n", clear_color);
+
 #if defined(TARGET_N64)
     s16 vpUlx = (viewport->vp.vtrans[0] - viewport->vp.vscale[0]) / 4 + 1;
     s16 vpUly = (viewport->vp.vtrans[1] - viewport->vp.vscale[1]) / 4 + 1;
@@ -404,6 +411,7 @@ void rendering_init(void) {
     gDisplayListHead = gGfxPool->buffer;
     gGfxPoolEnd = (u8 *) (gGfxPool->buffer + GFX_POOL_SIZE);
     init_render_image();
+    clear_color = 0;
     clear_frame_buffer(0);
     end_master_display_list();
     send_display_list(&gGfxPool->spTask);
