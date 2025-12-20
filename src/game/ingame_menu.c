@@ -2021,7 +2021,7 @@ void print_peach_letter_message(void) {
 
     str = segmented_to_virtual(dialog->str);
 
-    create_dl_translation_matrix(MENU_MTX_PUSH, 97.0f, 118.0f, 0);
+    create_dl_translation_matrix(MENU_MTX_PUSH, 97.0f, 118.0f, 0.0f);
 
     gDPSetEnvColor(gDisplayListHead++, 255, 255, 255, gCutsceneMsgFade);
     gSPDisplayList(gDisplayListHead++, castle_grounds_seg7_dl_0700EA58);

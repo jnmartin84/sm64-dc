@@ -3,18 +3,18 @@ UNUSED static const u64 castle_grounds_unused_2 = 0;
 
 // 0x0700C968 - 0x0700C9A8
 static const Vtx castle_grounds_seg7_vertex_0700C968[] = {
-    {{{     0,     82,      0}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   -71,    -81,      0}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{     0,    -81,      0}, 0, {   990,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   -71,     82,      0}, 0, {     0,      0}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{     0,     82,      -20}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{   -71,    -81,      -20}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{     0,    -81,      -20}, 0, {   990,   2012}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{   -71,     82,      -20}, 0, {     0,      0}, {0xff, 0xff, 0xff, 0xff}}},
 };
 
 // 0x0700C9A8 - 0x0700C9E8
 static const Vtx castle_grounds_seg7_vertex_0700C9A8[] = {
-    {{{    72,     82,      0}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{     0,    -81,      0}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{    72,    -81,      0}, 0, {   990,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{     0,     82,      0}, 0, {     0,      0}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{    72,     82,      -20}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{     0,    -81,      -20}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{    72,    -81,      -20}, 0, {   990,   2012}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{     0,     82,      -20}, 0, {     0,      0}, {0xff, 0xff, 0xff, 0xff}}},
 };
 
 // 0x0700C9E8 - 0x0700D9E8
