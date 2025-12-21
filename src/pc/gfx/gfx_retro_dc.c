@@ -3208,7 +3208,6 @@ extern Gfx dl_ia_text_begin[];
 extern Gfx dl_ia_text_end[];
 
 static void gfx_run_dl(Gfx* cmd) {
-
     if (cmd == mr_i_eyeball_seg6_dl_06002080) {
         eyeball_guy = 1;
     } else {

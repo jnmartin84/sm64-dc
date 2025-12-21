@@ -658,10 +658,12 @@ extern uint8_t trilerp_a;
 extern int in_peach_scene;
 extern int font_draw;
 int doing_letter = 0;
+
 static void gfx_opengl_draw_triangles(float buf_vbo[], UNUSED size_t buf_vbo_len, size_t buf_vbo_num_tris) {
     cur_buf = (void*)buf_vbo;
 
     gfx_opengl_apply_shader(cur_shader);
+
     if (in_peach_scene) {
 //        printf("%08x\n", cur_shader->shader_id);
         if (cur_shader->shader_id == 0x01045045 || cur_shader->shader_id == 0x01045a00) {
@@ -672,7 +674,6 @@ static void gfx_opengl_draw_triangles(float buf_vbo[], UNUSED size_t buf_vbo_len
     } else {
         doing_letter = 0;
     }
-
 
     // if there's two textures, set primary texture first
     if (cur_shader->texture_used[1])
