@@ -183,7 +183,7 @@ static inline GLenum texenv_set_texture(UNUSED struct ShaderProgram *prg) {
 }
 
 static inline GLenum texenv_set_texture_color(struct ShaderProgram *prg) {
-#if 1
+#if 0
     GLenum mode;
 
     // HACK: lord forgive me for this, but this is easier
