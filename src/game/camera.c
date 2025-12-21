@@ -9592,10 +9592,13 @@ BAD_RETURN(s32) cutscene_intro_peach_mario_appears(struct Camera *c) {
     sStatusFlags |= CAM_FLAG_UNUSED_CUTSCENE_ACTIVE;
 }
 
+int in_peach_scene = 0;
+
 /**
  * Reset the fov. This gives the effect of peach zooming out as she fades.
  */
 BAD_RETURN(s32) cutscene_intro_peach_reset_fov(UNUSED struct Camera *c) {
+    in_peach_scene = 0;
     set_fov_function(CAM_FOV_DEFAULT);
 }
 
@@ -9603,6 +9606,7 @@ BAD_RETURN(s32) cutscene_intro_peach_reset_fov(UNUSED struct Camera *c) {
  * Peach reads the letter to Mario.
  */
 BAD_RETURN(s32) cutscene_intro_peach_letter(struct Camera *c) {
+    in_peach_scene = 1;
     cutscene_spawn_obj(5, 0);
     cutscene_event(cutscene_intro_peach_zoom_fov, c, 0, 0);
     cutscene_event(cutscene_intro_peach_start_letter_music, c, 65, 65);

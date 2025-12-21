@@ -39,6 +39,7 @@ int doing_bowser = 0;
 int aquarium_draw = 0;
 int water_bomb = 0;
 int doing_skybox = 0;
+int font_draw = 0;
 // SCALE_M_N: upscale/downscale M-bit integer to N-bit
 #define SCALE_5_8(VAL_) (((VAL_) * 0xFF) / 0x1F)
 #define SCALE_8_5(VAL_) ((((VAL_) + 4) * 0x1F) / 0xFF)
@@ -3202,6 +3203,10 @@ extern Gfx dl_draw_text_bg_box[];
 
 extern Gfx mr_i_eyeball_seg6_dl_06002080[];
 extern Gfx water_bubble_seg5_dl_05010D30[];
+
+extern Gfx dl_ia_text_begin[];
+extern Gfx dl_ia_text_end[];
+
 static void gfx_run_dl(Gfx* cmd) {
 
     if (cmd == mr_i_eyeball_seg6_dl_06002080) {
@@ -3224,7 +3229,13 @@ static void gfx_run_dl(Gfx* cmd) {
 
     for (;;) {
         uint32_t opcode = cmd->words.w0 >> 24;
-        
+        if (cmd == dl_ia_text_begin) {
+            font_draw = 1;
+        }
+        if (cmd == dl_ia_text_end) {
+            font_draw = 0;
+        }
+
         if (cmd->words.w0 == 0x424C4E44) {
                 if (cmd->words.w1 == 0x12345678) {
                     doing_skybox ^= 1;

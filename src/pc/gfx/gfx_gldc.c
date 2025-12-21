@@ -315,10 +315,10 @@ static void gfx_opengl_apply_shader(struct ShaderProgram *prg) {
         // configure texenv
         GLenum mode;
         switch (prg->mix) {
-            case SH_MT_TEXTURE:         mode = texenv_set_texture(prg); break;
-            case SH_MT_TEXTURE_TEXTURE: mode = texenv_set_texture_texture(prg); break;
-            case SH_MT_TEXTURE_COLOR:   mode = texenv_set_texture_color(prg); break;
-            default:                    mode = texenv_set_color(prg); break;
+//            case SH_MT_TEXTURE:         mode = texenv_set_texture(prg); break;
+  //          case SH_MT_TEXTURE_TEXTURE: mode = texenv_set_texture_texture(prg); break;
+    //        case SH_MT_TEXTURE_COLOR:   mode = texenv_set_texture_color(prg); break;
+            default:                    mode = texenv_set_texture_color(prg); break; //texenv_set_color(prg); break;
         }
         
         glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, mode);
@@ -655,11 +655,24 @@ extern int in_trilerp;
 extern int doing_peach;
 extern int doing_bowser;
 extern uint8_t trilerp_a;
-
+extern int in_peach_scene;
+extern int font_draw;
+int doing_letter = 0;
 static void gfx_opengl_draw_triangles(float buf_vbo[], UNUSED size_t buf_vbo_len, size_t buf_vbo_num_tris) {
     cur_buf = (void*)buf_vbo;
 
     gfx_opengl_apply_shader(cur_shader);
+    if (in_peach_scene) {
+//        printf("%08x\n", cur_shader->shader_id);
+        if (cur_shader->shader_id == 0x01045045 || cur_shader->shader_id == 0x01045a00) {
+            doing_letter = 1;
+        } else {
+            doing_letter = 0;
+        }
+    } else {
+        doing_letter = 0;
+    }
+
 
     // if there's two textures, set primary texture first
     if (cur_shader->texture_used[1])
@@ -701,7 +714,8 @@ if (doing_skybox) {
         glDisable(GL_BLEND);
         glDisable(GL_FOG);
 } else {
-        glEnable(GL_BLEND);
+//        glDepthMask(GL_FALSE);
+  //      glEnable(GL_BLEND);
 
 }
 //        glPushMatrix();
@@ -740,8 +754,36 @@ if (doing_skybox) {
         }
     }
 
+if (doing_letter) {
+    //        glDisable(GL_DEPTH_TEST);
+  //      glDepthMask(GL_FALSE);
+    //    glDepthFunc(GL_LEQUAL);
+        dc_fast_t *fast_vbo = (dc_fast_t*)buf_vbo;
+            for(unsigned int i=0;i<3*buf_vbo_num_tris;i++) {
+//                fast_vbo[i].vert.y = 0.1f;
+                fast_vbo[i].vert.z -= 10000.0f;
+            }
+
+}
+
+if (font_draw) {
+    dc_fast_t *fast_vbo = (dc_fast_t*)buf_vbo;
+            for(unsigned int i=0;i<3*buf_vbo_num_tris;i++) {
+//                fast_vbo[i].vert.y = 0.1f;
+                fast_vbo[i].vert.z += 2.0f;
+            }
+}
+
     glDrawArrays(GL_TRIANGLES, 0, 3 * buf_vbo_num_tris);
 
+
+if (doing_letter) {
+//            glEnable(GL_DEPTH_TEST);
+  //      glDepthMask(GL_TRUE);
+    //    glDepthFunc(GL_LESS);
+
+}
+    
     if (water_bomb)
         over_skybox_setup_pre();
         
@@ -764,6 +806,9 @@ if (doing_skybox) {
         glDepthFunc(GL_LESS);
         glEnable(GL_BLEND);
         glEnable(GL_FOG);
+} else {
+//            glDepthMask(GL_TRUE);
+
 }
     }
 

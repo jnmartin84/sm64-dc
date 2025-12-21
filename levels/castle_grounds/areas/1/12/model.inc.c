@@ -3,18 +3,18 @@ UNUSED static const u64 castle_grounds_unused_2 = 0;
 
 // 0x0700C968 - 0x0700C9A8
 static const Vtx castle_grounds_seg7_vertex_0700C968[] = {
-    {{{     0,     82,      -20}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   -71,    -81,      -20}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{     0,    -81,      -20}, 0, {   990,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   -71,     82,      -20}, 0, {     0,      0}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{     0,     82,      0}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{   -71,    -81,      0}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{     0,    -81,      0}, 0, {   990,   2012}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{   -71,     82,      0}, 0, {     0,      0}, {0xff, 0xff, 0xff, 0xff}}},
 };
 
 // 0x0700C9A8 - 0x0700C9E8
 static const Vtx castle_grounds_seg7_vertex_0700C9A8[] = {
-    {{{    72,     82,      -20}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{     0,    -81,      -20}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{    72,    -81,      -20}, 0, {   990,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{     0,     82,      -20}, 0, {     0,      0}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{    72,     82,      0}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{     0,    -81,      0}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{    72,    -81,      0}, 0, {   990,   2012}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{     0,     82,      0}, 0, {     0,      0}, {0xff, 0xff, 0xff, 0xff}}},
 };
 
 // 0x0700C9E8 - 0x0700D9E8
@@ -51,7 +51,7 @@ static const Gfx castle_grounds_seg7_dl_0700EA20[] = {
 const Gfx castle_grounds_seg7_dl_0700EA58[] = {
     gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_DECALFADEA, G_CC_DECALFADEA),
-    gsDPSetRenderMode(G_RM_XLU_SURF, G_RM_XLU_SURF2),
+    gsDPSetRenderMode(G_RM_ZB_XLU_SURF, G_RM_ZB_XLU_SURF2),
     gsDPSetTextureFilter(G_TF_BILERP),
     gsSPClearGeometryMode(G_LIGHTING),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0, G_TX_LOADTILE, 0, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD),
