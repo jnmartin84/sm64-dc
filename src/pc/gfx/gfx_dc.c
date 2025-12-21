@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <kos.h>
 #include <dc/video.h>
 #include <kos/thread.h>
 #include <assert.h>

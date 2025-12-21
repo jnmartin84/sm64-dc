@@ -315,10 +315,10 @@ static void gfx_opengl_apply_shader(struct ShaderProgram *prg) {
         // configure texenv
         GLenum mode;
         switch (prg->mix) {
-//            case SH_MT_TEXTURE:         mode = texenv_set_texture(prg); break;
-  //          case SH_MT_TEXTURE_TEXTURE: mode = texenv_set_texture_texture(prg); break;
-    //        case SH_MT_TEXTURE_COLOR:   mode = texenv_set_texture_color(prg); break;
-            default:                    mode = texenv_set_texture_color(prg); break; //texenv_set_color(prg); break;
+            case SH_MT_TEXTURE:         mode = texenv_set_texture(prg); break;
+            case SH_MT_TEXTURE_TEXTURE: mode = texenv_set_texture_texture(prg); break;
+            case SH_MT_TEXTURE_COLOR:   mode = texenv_set_texture_color(prg); break;
+            default:                    mode = texenv_set_color(prg); break;
         }
         
         glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, mode);
