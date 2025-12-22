@@ -1565,17 +1565,38 @@ extern void get_mario_pos(float *x, float *y, float *z);
     float n = 4.0f;                  // tweak 4..10
     return 0.25f + 0.75f * powf(t, n);
 } */
-
 static inline float clamp01(float v) {
     if (v < 0.0f) return 0.0f;
     if (v > 1.0f) return 1.0f;
     return v;
 }
 
+#if 0
 float late_ramp(float x) {
-    float t = clamp01((x - 0.8975f) / 0.1f);   // 0 until x=0.9, 1 at x=1.0
-    float n = 2.0f;                         // tweak 3..10
+    float t = clamp01((x - 0.905f) / 0.1f);   // 0 until x=0.9, 1 at x=1.0
+    float n = 8.0f;                         // tweak 3..10
     return 0.25f + 0.75f * powf(t, n);
+}
+#endif
+#if 0
+float smootherstep(float t) {
+    return t*t*t*(t*(t*6.0f - 15.0f) + 10.0f);
+}
+
+float late_ramp(float x) {
+    float t = clamp01((x - 0.9f) / 0.1f);
+    float s = smootherstep(t);
+    float k = 2.0f;              // 1..4
+    return 0.25f + 0.75f * powf(s, k);
+}
+#endif
+
+float step_ramp_pow(float x, float param, float n) {
+    if (param >= 1.0f) return 0.0f;          // degenerate: never ramps
+    if (param <= 0.0f) param = 0.0f;
+
+    float t = clamp01((x - param) / (1.0f - param));
+    return powf(t, n);
 }
 
 int eyeball_guy = 0;
@@ -1643,12 +1664,13 @@ static void gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx) {
                 w = v1->x / v1->_x;
             }
  */
-            float distance_frac = mz / -4000.0f;// 07317;
+            float distance_frac = mz / -4400.0f;// 07317;
+            printf("distance frac %f\n", distance_frac);
 			if (distance_frac < 0.0f)
 				distance_frac = 0.0f;
 			if (distance_frac > 1.0f)
     			distance_frac = 1.0f;
-            distance_frac = 1.0f - late_ramp(distance_frac);
+            distance_frac = 1.0f - step_ramp_pow(distance_frac, 0.9375f, 1.5f);//late_ramp(distance_frac);
             trilerp_a = (uint8_t)(distance_frac * 255.0f);
       //  trilerp_a = (trilerp_a + 1) & 0xff;
         //    printf("peach w is %f trilerp a is %d\n", w, trilerp_a);
