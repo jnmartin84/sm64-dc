@@ -281,8 +281,9 @@ void thread4_sound(UNUSED void *arg) {
 
     // Zero-out unused vector
     vec3f_copy(unused80339DC0, gVec3fZero);
-
+#if 0
     osCreateMesgQueue(&sSoundMesgQueue, sSoundMesgBuf, ARRAY_COUNT(sSoundMesgBuf));
+
     set_vblank_handler(1, &sSoundVblankHandler, &sSoundMesgQueue, (OSMesg) 512);
 
     while (TRUE) {
@@ -301,4 +302,5 @@ void thread4_sound(UNUSED void *arg) {
             profiler_log_thread4_time();
         }
     }
+#endif
 }

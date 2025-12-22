@@ -394,266 +394,63 @@ static void import_texture_rgba16(int tile) {
 			uint16_t col16 = inbuf[i];
             col16 = (col16 << 8) | ((col16 >> 8) & 0xff);
             rgba16_buf[i] = ((col16 & 1) << 15) | (col16 >> 1);
-			/*col16 = (col16 << 8) | ((col16 >> 8) & 0xff);
-			const uint8_t a = col16 & 1;
-			const uint8_t r = (col16 >> 11) & 0x1f;
-			const uint8_t g = (col16 >> 6) & 0x1f;
-			const uint8_t b = (col16 >> 1) & 0x1f;
-			rgba16_buf[i] = (a << 15)  | (r << 10)  | (g << 5) | (b);*/
 		}
 
 		gfx_rapi->upload_texture((uint8_t*) rgba16_buf, width, height, GL_UNSIGNED_SHORT_1_5_5_5_REV);
 }
 
 static void import_texture_rgba32(int tile) {
-#if 0
     uint32_t width = rdp.texture_tile.line_size_bytes / 2;
-	uint32_t height = (rdp.loaded_texture[tile].size_bytes / 2) / rdp.texture_tile.line_size_bytes;
+    uint32_t height = (rdp.loaded_texture[tile].size_bytes / 2) / rdp.texture_tile.line_size_bytes;
 
-
-
-    memset(rgba16_buf, 0, width*height);
-
-	// mk64 has one 32-bit texture and it is "Mario Kart 64" on the title screen
-	// it only needs one bit of alpha, just make it argb1555
-	for (uint32_t i = 0; i < width * height; i++) {
-		uint8_t r = rdp.loaded_texture[tile].addr[(4 * i) + 0] >> 3;
-		uint8_t g = rdp.loaded_texture[tile].addr[(4 * i) + 1] >> 3;
-		uint8_t b = rdp.loaded_texture[tile].addr[(4 * i) + 2] >> 3;
-		uint8_t a = !!rdp.loaded_texture[tile].addr[(4 * i) + 3];
-		rgba16_buf[i] = (a << 15) | (r << 10) | (g << 5) | (b);
-	}
-
-//	if (!last_cl_rv) {
-		gfx_rapi->upload_texture((uint8_t*) rgba16_buf, width, height, GL_UNSIGNED_SHORT_1_5_5_5_REV);
-/* 	} else {
-		int rv = gfx_opengl_replace_texture((uint8_t*) rgba16_buf, width, height, GL_UNSIGNED_SHORT_1_5_5_5_REV);
-		if (rv) {
-			gfx_texture_cache_failed((void*)rdp.loaded_texture[tile].addr);
-			import_texture(tile);
-		}
-	} */
-#endif
-//    MEM_BARRIER_PREF(table16);
-    uint32_t width = rdp.texture_tile.line_size_bytes >> 1;
-    uint32_t height =
-        (uint32_t) ((float) (rdp.loaded_texture[tile].size_bytes >> 1) / (float) rdp.texture_tile.line_size_bytes);
-    uint32_t* startaddr = (uint8_t*) ((uintptr_t) rdp.loaded_texture[tile].addr & ~3);
-    uint32_t wxh = width * height;
-    for (uint32_t i = 0; i < wxh; i++) {
-        uint32_t p = startaddr[i];
-        uint8_t r = (p >> 28) & 0x0f;
-        uint8_t g = (p >> 20) & 0x0f;
-        uint8_t b = (p >> 12) & 0x0f;
-        uint8_t a = (p >> 4) & 0x0f;
-
+    for (uint32_t i = 0; i < width * height; i++) {
+        uint8_t r = (rdp.loaded_texture[tile].addr[(4 * i) + 0] >> 4) & 0x0f;
+        uint8_t g = (rdp.loaded_texture[tile].addr[(4 * i) + 1] >> 4) & 0x0f;
+        uint8_t b = (rdp.loaded_texture[tile].addr[(4 * i) + 2] >> 4) & 0x0f;
+        uint8_t a = (rdp.loaded_texture[tile].addr[(4 * i) + 3] >> 4) & 0x0f;
         rgba16_buf[i] = (a << 12) | (r << 8) | (g << 4) | (b);
     }
-		gfx_rapi->upload_texture((uint8_t*) rgba16_buf, width, height, GL_UNSIGNED_SHORT_1_5_5_5_REV);
 
+    gfx_rapi->upload_texture((uint8_t *) rgba16_buf, width, height, GL_UNSIGNED_SHORT_4_4_4_4_REV);
 }
 
-#if 0
-static void import_texture_ia4(int tile) {
-	uint32_t width = rdp.texture_tile.line_size_bytes * 2;
-	uint32_t height = rdp.loaded_texture[tile].size_bytes / rdp.texture_tile.line_size_bytes;
-	uint32_t i;
-//memset(rgba16_buf, 0, rdp.loaded_texture[tile].size_bytes * 2);
-
-	for (i = 0; i < rdp.loaded_texture[tile].size_bytes * 2; i++) {
-		uint8_t byte = rdp.loaded_texture[tile].addr[i / 2];
-		uint8_t part = (byte >> (4 - (i % 2) * 4)) & 0xf;
-		uint8_t intensity = (SCALE_3_8(part >> 1) >> 3) & 0x1f;
-		uint8_t alpha = part & 1;
-		uint8_t r = intensity;
-		uint8_t g = intensity;
-		uint8_t b = intensity;
-		uint16_t col16 = (alpha << 15) | (r << 10) | (g << 5) | (b);
-		rgba16_buf[i] = col16;
-	}
-
-	gfx_rapi->upload_texture((uint8_t*) rgba16_buf, width, height, GL_UNSIGNED_SHORT_1_5_5_5_REV);
-}
-
-static void import_texture_ia8(int tile) {
-	uint32_t width = rdp.texture_tile.line_size_bytes;
-	uint32_t height = rdp.loaded_texture[tile].size_bytes / rdp.texture_tile.line_size_bytes;
-//memset(rgba16_buf, 0, width*height);
-
-    for (uint32_t i=0;i<width*height;i++) {
-			uint8_t val = rdp.loaded_texture[tile]
-						 .addr[i];
-			uint8_t in = ((val >> 4) & 0xf);
-			uint8_t al = (val & 0xf);
-			rgba16_buf[i] = (al << 12) | (in << 8) | (in << 4) | in;
-	}
-	gfx_rapi->upload_texture((uint8_t*) rgba16_buf, width, height, GL_UNSIGNED_SHORT_4_4_4_4_REV);
-}
-
-static void import_texture_ia16(int tile) {
-	uint32_t i;
-//memset(rgba16_buf, 0,rdp.loaded_texture[tile].size_bytes / 2);
-
-	for (i = 0; i < rdp.loaded_texture[tile].size_bytes / 2; i++) {
-		uint8_t in = (rdp.loaded_texture[tile].addr[2 * i] >> 4) & 0xf;
-		uint8_t al = (rdp.loaded_texture[tile].addr[2 * i + 1] >> 4) & 0xf;
-		rgba16_buf[i] = (al << 12) | (in << 8) | (in << 4) | in;
-	}
-
-	uint32_t width = rdp.texture_tile.line_size_bytes / 2;
-	uint32_t height = rdp.loaded_texture[tile].size_bytes / rdp.texture_tile.line_size_bytes;
-
-	gfx_rapi->upload_texture((uint8_t*) rgba16_buf, width, height, GL_UNSIGNED_SHORT_4_4_4_4_REV);
-}
-
-static void import_texture_i4(int tile) {
-	uint32_t i;
-
-	uint32_t width = rdp.texture_tile.line_size_bytes * 2;
-	uint32_t height = rdp.loaded_texture[tile].size_bytes / rdp.texture_tile.line_size_bytes;
-//memset(rgba16_buf, 0, width*height);
-
-	height = (height + 3) & ~3;
-
-		for (i = 0; i < rdp.loaded_texture[tile].size_bytes; i++) {
-			uint16_t idx = (i<<1);
-			uint8_t byte = rdp.loaded_texture[tile].addr[i];
-			uint8_t part1,part2;
-			part1 = (byte >> 4) & 0xf;
-			part2 = byte & 0xf;
-			rgba16_buf[idx  ] = (part1 << 12) | (part1 << 8) | (part1 << 4) | part1;
-			rgba16_buf[idx+1] = (part2 << 12) | (part2 << 8) | (part2 << 4) | part2;
-		}
-
-		gfx_rapi->upload_texture((uint8_t*) rgba16_buf, width, height, GL_UNSIGNED_SHORT_4_4_4_4_REV);
-}
-
-static void import_texture_i8(int tile) {
-	uint32_t width = rdp.texture_tile.line_size_bytes;
-	uint32_t height = rdp.loaded_texture[tile].size_bytes / rdp.texture_tile.line_size_bytes;
-
-	uint8_t xform_buf[8192];
-    memset(xform_buf, 0, width*height*2);
-//memset(rgba16_buf, 0, width*height);
-
-	uint8_t* start = (uint8_t*) &rdp.loaded_texture[tile]
-						 .addr[((rdp.texture_tile.ult >> G_TEXTURE_IMAGE_FRAC) * (last_set_texture_image_width + 1)) +
-							   (rdp.texture_tile.uls >> G_TEXTURE_IMAGE_FRAC)];
-
-	u32 src_width;
-	if (last_set_texture_image_width) {
-		src_width = last_set_texture_image_width + 1;
-	} else {
-		src_width = width;
-	}
-	for (uint32_t i = 0; i < height; i++) {
-		for (uint32_t x = 0; x < src_width; x++) {
-			xform_buf[(i * width) + x] = start[x];
-		}
-		start += (src_width);
-	}
-
-	for (uint32_t i = 0; i < rdp.loaded_texture[tile].size_bytes; i++) {
-		uint8_t in = (xform_buf[i] >> 4) & 0xf;
-		rgba16_buf[i] = (in << 12) | (in << 8) | (in << 4) | in;
-	}
-
-//	if (!last_cl_rv) {
-		gfx_rapi->upload_texture((uint8_t*) rgba16_buf, width, height, GL_UNSIGNED_SHORT_4_4_4_4_REV);
-/* 	} else {
-		int rv = gfx_opengl_replace_texture((uint8_t*) rgba16_buf, width, height, GL_UNSIGNED_SHORT_4_4_4_4_REV);
-		if (rv) {
-			gfx_texture_cache_failed((void*)rdp.loaded_texture[tile].addr);
-			import_texture(tile);
-		}
-	} */
-}
-#endif
 uint8_t __attribute__((aligned(32))) xform_buf[8192];
 
 static void import_texture_ia4(int tile) {
-	uint32_t width = rdp.texture_tile.line_size_bytes << 1;
-	uint32_t height = rdp.loaded_texture[tile].size_bytes / rdp.texture_tile.line_size_bytes;
-	uint32_t i;
+    uint32_t width = rdp.texture_tile.line_size_bytes << 1;
+    uint32_t height = rdp.loaded_texture[tile].size_bytes / rdp.texture_tile.line_size_bytes;
+    uint32_t i;
 
-	if (last_set_texture_image_width == 0) {
-		for (i = 0; i < rdp.loaded_texture[tile].size_bytes * 2; i++) {
-			uint8_t byte = rdp.loaded_texture[tile].addr[i / 2];
-			uint8_t part = (byte >> (4 - (i % 2) * 4)) & 0xf;
-			uint8_t intensity = (SCALE_3_8(part >> 1) >> 3) & 0x1f;
-			uint8_t alpha = part & 1;
-			uint8_t r = intensity;
-			uint8_t g = intensity;
-			uint8_t b = intensity;
-			uint16_t col16 = (alpha << 15) | (r << 10) | (g << 5) | (b);
-			rgba16_buf[i] = col16;
-		}
-	} else {
-		memset(xform_buf, 0, 8192);
-		uint8_t* start =
-			(uint8_t*) &rdp.loaded_texture[tile]
-				.addr[(((rdp.texture_tile.ult >> G_TEXTURE_IMAGE_FRAC) >> 1) * (last_set_texture_image_width + 1)) +
-					  ((rdp.texture_tile.uls >> G_TEXTURE_IMAGE_FRAC) >> 1)];
-		uint8_t *tex8 = xform_buf;
-		for (uint32_t i = 0; i < height; i++) {
-			for (uint32_t x = 0; x < (last_set_texture_image_width + 1) * 2; x += 2) {
-				uint32_t sidx = x>>1;
-				if (i & 1) {
-					tex8[(x)] = (start[(sidx)] & 0xf);
-					tex8[(x) + 1] = (start[(sidx)] >> 4) & 0xf;
+    for (i = 0; i < rdp.loaded_texture[tile].size_bytes * 2; i++) {
+        uint8_t byte = rdp.loaded_texture[tile].addr[i / 2];
+        uint8_t part = (byte >> (4 - (i % 2) * 4)) & 0xf;
 
-				} else {
-					tex8[(x)] = (start[(sidx)] >> 4) & 0xf;
-					tex8[(x) + 1] = (start[(sidx)] & 0xf);
-				}
-			}
-			start += (last_set_texture_image_width + 1);
-			tex8 += (last_set_texture_image_width + 1);
-		}
-		for (uint32_t i = 0; i < rdp.loaded_texture[tile].size_bytes * 2; i++) {
-			uint8_t byte = xform_buf[i];
-			uint8_t intensity = (SCALE_3_8(byte >> 1) >> 3) & 0x1f;
-			uint8_t alpha = byte & 1;
-			uint8_t r = intensity;
-			uint8_t g = intensity;
-			uint8_t b = intensity;
-			uint16_t col16 = (alpha << 15) | (r << 10) | (g << 5) | (b);
-			rgba16_buf[i] = col16;
-		}
-	}
+//SCALE_3_8(VAL_) ((VAL_) << 5)
+//((part >> 1) << 5) >> 3
+        uint8_t intensity = (part & 0xE) << 1;//(SCALE_3_8(part >> 1) >> 3) & 0x1f;
+        uint8_t alpha = part & 1;
+        uint8_t r = intensity;
+        uint8_t g = intensity;
+        uint8_t b = intensity;
+        uint16_t col16 = (alpha << 15) | (r << 10) | (g << 5) | (b);
+        rgba16_buf[i] = col16;
+    }
 
-	gfx_rapi->upload_texture((uint8_t*) rgba16_buf, width, height, GL_UNSIGNED_SHORT_1_5_5_5_REV);
+    gfx_rapi->upload_texture((uint8_t *) rgba16_buf, width, height, GL_UNSIGNED_SHORT_1_5_5_5_REV);
 }
 
 static void import_texture_ia8(int tile) {
-	uint32_t width = rdp.texture_tile.line_size_bytes;
-	uint32_t height = rdp.loaded_texture[tile].size_bytes / rdp.texture_tile.line_size_bytes;
-	memset(rgba16_buf, 0, width*height*2);//8192*2);
+    uint32_t width = rdp.texture_tile.line_size_bytes;
+    uint32_t height = rdp.loaded_texture[tile].size_bytes / rdp.texture_tile.line_size_bytes;
 
-	uint8_t* start = (uint8_t*) &rdp.loaded_texture[tile]
-						 .addr[((rdp.texture_tile.ult >> G_TEXTURE_IMAGE_FRAC) * (last_set_texture_image_width + 1)) +
-							   (rdp.texture_tile.uls >> G_TEXTURE_IMAGE_FRAC)];
+    for (uint32_t i = 0; i < width * height; i++) {
+        uint8_t val = rdp.loaded_texture[tile].addr[i];
+        uint8_t in = ((val >> 4) & 0xf);
+        uint8_t al = (val & 0xf);
+        rgba16_buf[i] = (al << 12) | (in << 8) | (in << 4) | in;
+    }
 
-	u32 src_width;
-	if (last_set_texture_image_width) {
-		src_width = last_set_texture_image_width + 1;
-	} else {
-		src_width = width;
-	}
-
-	uint16_t *tex16 = rgba16_buf;
-	for (uint32_t i = 0; i < height; i++) {
-		for (uint32_t x = 0; x < src_width; x++) {
-			uint8_t val = start[x];
-			uint8_t in = ((val >> 4) & 0xf);
-			uint8_t al = (val & 0xf);
-			tex16[x] = (al << 12) | (in << 8) | (in << 4) | in;
-		}
-		start += src_width;
-		tex16 += src_width;
-	}
-
-	gfx_rapi->upload_texture((uint8_t*) rgba16_buf, width, height, GL_UNSIGNED_SHORT_4_4_4_4_REV);
+    gfx_rapi->upload_texture((uint8_t *) rgba16_buf, width, height, GL_UNSIGNED_SHORT_4_4_4_4_REV);
 }
 
 static void import_texture_ia16(int tile) {
@@ -1410,6 +1207,10 @@ static float gfx_adjust_x_for_aspect_ratio(float x) {
     return x * (4.0f / 3.0f) / ((float)gfx_current_dimensions.width / (float)gfx_current_dimensions.height);
 }
 
+float __attribute__((aligned(32))) ENV_MTX[3][3];
+float __attribute__((aligned(32))) COEFF_MTX[3][3];
+float __attribute__((aligned(32))) COLOR_MTX[3][3];
+
 inline static uint8_t trivial_reject(float x, float y, float z, float w) {
     uint8_t cr = 0;
 
@@ -1471,6 +1272,30 @@ static void gfx_sp_vertex(size_t n_vertices, size_t dest_index, const Vtx *verti
                 calculate_normal_dir(&lookat_x, rsp.current_lookat_coeffs[0]);
                 calculate_normal_dir(&lookat_y, rsp.current_lookat_coeffs[1]);
                 rsp.lights_changed = false;
+
+        ENV_MTX[0][0] = rsp.current_lookat_coeffs[1][0] * recip127;
+        ENV_MTX[1][0] = rsp.current_lookat_coeffs[1][1] * recip127;
+        ENV_MTX[2][0] = rsp.current_lookat_coeffs[1][2] * recip127;
+        ENV_MTX[0][1] = rsp.current_lookat_coeffs[0][0] * recip127;
+        ENV_MTX[1][1] = rsp.current_lookat_coeffs[0][1] * recip127;
+        ENV_MTX[2][1] = rsp.current_lookat_coeffs[0][2] * recip127;
+
+        COEFF_MTX[0][0] = rsp.current_lights_coeffs[0][0];
+        COEFF_MTX[1][0] = rsp.current_lights_coeffs[0][1];
+        COEFF_MTX[2][0] = rsp.current_lights_coeffs[0][2];
+        COEFF_MTX[0][1] = rsp.current_lights_coeffs[4][0];
+        COEFF_MTX[1][1] = rsp.current_lights_coeffs[4][1];
+        COEFF_MTX[2][1] = rsp.current_lights_coeffs[4][2];
+
+        COLOR_MTX[0][0] = rsp.current_lights[0].col[0];
+        COLOR_MTX[1][0] = rsp.current_lights[4].col[0];
+        COLOR_MTX[2][0] = rsp.current_lights[rsp.current_num_lights - 1].col[0];
+        COLOR_MTX[0][1] = rsp.current_lights[0].col[1];
+        COLOR_MTX[1][1] = rsp.current_lights[4].col[1];
+        COLOR_MTX[2][1] = rsp.current_lights[rsp.current_num_lights - 1].col[1];
+        COLOR_MTX[0][2] = rsp.current_lights[0].col[2];
+        COLOR_MTX[1][2] = rsp.current_lights[4].col[2];
+        COLOR_MTX[2][2] = rsp.current_lights[rsp.current_num_lights - 1].col[2];
             }
             
             int r = rsp.current_lights[rsp.current_num_lights - 1].col[0];
@@ -1665,12 +1490,12 @@ static void gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx) {
             }
  */
             float distance_frac = mz / -4400.0f;// 07317;
-            printf("distance frac %f\n", distance_frac);
+//            printf("distance frac %f\n", distance_frac);
 			if (distance_frac < 0.0f)
 				distance_frac = 0.0f;
 			if (distance_frac > 1.0f)
     			distance_frac = 1.0f;
-            distance_frac = 1.0f - step_ramp_pow(distance_frac, 0.9375f, 1.5f);//late_ramp(distance_frac);
+            distance_frac = 1.0f - step_ramp_pow(distance_frac, 0.9275f, 2.0f);//late_ramp(distance_frac);
             trilerp_a = (uint8_t)(distance_frac * 255.0f);
       //  trilerp_a = (trilerp_a + 1) & 0xff;
         //    printf("peach w is %f trilerp a is %d\n", w, trilerp_a);
@@ -2875,6 +2700,12 @@ static void gfx_dp_load_tlut(UNUSED uint8_t tile, UNUSED uint32_t high_index) {
 //    SUPPORT_CHECK(tile == G_TX_LOADTILE);
   //  SUPPORT_CHECK(rdp.texture_to_load.siz == G_IM_SIZ_16b);
     rdp.palette = rdp.texture_to_load.addr;
+    uint16_t *p = (uint16_t *)rdp.palette;
+    for (int i=0;i<256;i++) {
+		uint16_t col16 = p[i];
+        col16 = (col16 << 8) | ((col16 >> 8) & 0xff);
+        tlut[i] = ((col16 & 1) << 15) | (col16 >> 1);
+    }
 }
 
 static void gfx_dp_load_block(uint8_t tile, UNUSED uint32_t uls, UNUSED uint32_t ult, uint32_t lrs, UNUSED uint32_t dxt) {

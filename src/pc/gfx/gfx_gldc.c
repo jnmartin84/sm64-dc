@@ -695,12 +695,15 @@ static void gfx_opengl_draw_triangles(float buf_vbo[], UNUSED size_t buf_vbo_len
 
         glDrawArrays(GL_TRIANGLES, 0, 3 * buf_vbo_num_tris);
 
-        // after submitting, set all of the vertex colors to solid white
+        // after submitting, set all of the vertex colors to 
+        // used to be solid white
+        // now more of a gray
+        // reduce intensity of the highlight
         dc_fast_t *fast_vbo = (dc_fast_t*)buf_vbo;
 	    for(unsigned int i=0;i<3*buf_vbo_num_tris;i++) {
-		    fast_vbo[i].color.packed = 0xffffffff;
+		    fast_vbo[i].color.packed = 0xff888888; //ffffffff;
 	    }
-        // enable texture/blend and set blend to ONE+ONE
+        // enable texture/blend and set dest blend to ONE
         // it will draw again, applying the specular highlights
         glEnable(GL_TEXTURE_2D);
         glEnable(GL_BLEND);

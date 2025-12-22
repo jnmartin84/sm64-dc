@@ -115,15 +115,10 @@ void *SPINNING_THREAD(UNUSED void *arg) {
             genwait_wait((void*)&vblticker, NULL, 5, NULL);
         last_vbltick = vblticker;
 //irq_disable();
-//u32 num_audio_samples = 544;//even_frame ? SAMPLES_HIGH : SAMPLES_LOW;//448;
-//        int num_audio_samples = SAMPLES_LOW;
         int num_audio_samples = ((gSysFrameCount & 3) < 2) ? SAMPLES_HIGH : SAMPLES_LOW;
         create_next_audio_buffer(audio_buffer[0],audio_buffer[1], num_audio_samples);
-        audio_api->play((u8 *)audio_buffer[0], (u8 *)audio_buffer[1],num_audio_samples * 2 * 2);// * 2);
+        audio_api->play((u8 *)audio_buffer[0], (u8 *)audio_buffer[1],num_audio_samples * 2 * 2);
 //irq_enable();
-//udio_buffer[0], audio_buffer[1], samplecount);
-  //      audio_api->play((u8*) audio_buffer[0], (u8*) audio_buffer[1], samplecount * 4);
-
     }
     return NULL;
 }
@@ -290,7 +285,7 @@ void main_func(void) {
     main_attr.create_detached = 1;
 	main_attr.stack_size = 32768;
 	main_attr.stack_ptr = NULL;
-	main_attr.prio = PRIO_DEFAULT;
+	main_attr.prio = PRIO_DEFAULT - 1;
 	main_attr.label = "spinthread";
     thd_create_ex(&main_attr, &SPINNING_THREAD, NULL);
 #endif
@@ -327,7 +322,9 @@ int WINAPI WinMain(UNUSED HINSTANCE hInstance, UNUSED HINSTANCE hPrevInstance, U
 #else
 #include <kos.h>
 int main(UNUSED int argc, UNUSED char *argv[]) {
-              
+    //mmu_init_basic();
+    //mmu_page_map_static(0, 0x0C000000, PAGE_SIZE_1M, MMU_ALL_RDWR, true);
+
     main_func();
     return 0;
 }

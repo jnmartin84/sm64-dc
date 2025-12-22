@@ -343,12 +343,12 @@ void thread3_main(UNUSED void *arg) {
     alloc_pool();
     load_engine_code_segment();
 
-    create_thread(&gSoundThread, 4, thread4_sound, NULL, gThread4Stack + 0x2000, 20);
-    osStartThread(&gSoundThread);
-
-    create_thread(&gGameLoopThread, 5, thread5_game_loop, NULL, gThread5Stack + 0x2000, 10);
-    osStartThread(&gGameLoopThread);
-
+//    create_thread(&gSoundThread, 4, thread4_sound, NULL, gThread4Stack + 0x2000, 20);
+//    osStartThread(&gSoundThread);
+thread4_sound(NULL);
+//    create_thread(&gGameLoopThread, 5, thread5_game_loop, NULL, gThread5Stack + 0x2000, 10);
+//osStartThread(&gGameLoopThread);
+#if 0
     while (1) {
         OSMesg msg;
 
@@ -372,6 +372,8 @@ void thread3_main(UNUSED void *arg) {
         }
         stub_main_2();
     }
+#endif
+thread5_game_loop(NULL);
 }
 
 void set_vblank_handler(s32 index, struct VblankHandler *handler, OSMesgQueue *queue, OSMesg *msg) {
@@ -464,8 +466,10 @@ void thread1_idle(UNUSED void *arg) {
 void main_func(void) {
     UNUSED u8 pad[64]; // needed to pad the stack
 
-    osInitialize();
-    stub_main_1();
-    create_thread(&gIdleThread, 1, thread1_idle, NULL, gIdleThreadStack + 0x800, 100);
-    osStartThread(&gIdleThread);
+//    osInitialize();
+  //  stub_main_1();
+   // create_thread(&gIdleThread, 1, thread1_idle, NULL, gIdleThreadStack + 0x800, 100);
+    //osStartThread(&gIdleThread);
+thread3_main(NULL);
 }
+

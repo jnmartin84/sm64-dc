@@ -1973,9 +1973,9 @@ void func_801A0478(s32 idx, // material GdDl number; offsets into hilite array
     sp40.z = cam->unkE8[0][2] + arg4->x;
     sp40.y = cam->unkE8[1][2] + arg4->y;
     sp40.x = cam->unkE8[2][2] + arg4->z;
-    sp3C = shz_vec3_magnitude_inv(shz_vec3_deref(&sp40));
+    sp3C = shz_vec3_magnitude_inv(shz_vec3_deref(&sp40.x));
 //    sp3C = sqrtf(SQ(sp40.z) + SQ(sp40.y) + SQ(sp40.x));
-    if (sp3C/*  > 10.0f */) { //0.1) {
+    if (sp3C < 10.0f) { //0.1) {
 //        sp3C = 1.0 / sp3C; //? 1.0f
         sp40.z *= sp3C;
         sp40.y *= sp3C;
