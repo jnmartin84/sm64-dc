@@ -948,8 +948,10 @@ void aEnvMixerImpl(uint8_t flags, ENVMIX_STATE state) {
             vols[1][i] = clamp32((int64_t)(rspa.vol[1] << 16) + step_diff[1] * (i + 1));
         }
     } else {
-        n64_memcpy(vols[0], state, 32);
-        n64_memcpy(vols[1], state + 16, 32);
+//        n64_memcpy(vols[0], state, 32);
+//        n64_memcpy(vols[1], state + 16, 32);
+        shz_copy_16_shorts(vols[0], state);//, 32);
+        shz_copy_16_shorts(vols[1], state + 16);//, 32);
         target[0] = state[32];
         target[1] = state[35];
         rate[0] = (state[33] << 16) | (uint16_t)state[34];
