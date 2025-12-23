@@ -658,6 +658,10 @@ extern uint8_t trilerp_a;
 extern int in_peach_scene;
 extern int font_draw;
 int doing_letter = 0;
+extern int drawing_hand;
+extern int do_radar_mark;
+void gfx_opengl_2d_projection(void);
+void gfx_opengl_reset_projection(void);
 
 static void gfx_opengl_draw_triangles(float buf_vbo[], UNUSED size_t buf_vbo_len, size_t buf_vbo_num_tris) {
     cur_buf = (void*)buf_vbo;
@@ -737,8 +741,16 @@ if (doing_skybox) {
         glTranslatef(0.0f, 2.1f, 0.9f);  // magic values need fine tuning. 
     }
 
-    if (water_bomb)
+    if (drawing_hand || water_bomb)
         over_skybox_setup_pre();
+    if (drawing_hand) {
+        glDepthFunc(GL_ALWAYS);
+    dc_fast_t *fast_vbo = (dc_fast_t*)buf_vbo;
+        for(unsigned int i=0;i<3*buf_vbo_num_tris;i++) {
+//                fast_vbo[i].vert.y = 0.1f;
+                fast_vbo[i].vert.z -= 10.0f;
+            }
+    }
 
     if (in_trilerp) {
         dc_fast_t *fast_vbo = (dc_fast_t*)buf_vbo;
@@ -777,9 +789,15 @@ if (font_draw) {
                 fast_vbo[i].vert.z += 2.0f;
             }
 }
+    if(do_radar_mark) {
+        gfx_opengl_2d_projection();
+    }
 
     glDrawArrays(GL_TRIANGLES, 0, 3 * buf_vbo_num_tris);
 
+    if(do_radar_mark) {
+        gfx_opengl_reset_projection();
+    }
 
 if (doing_letter) {
 //            glEnable(GL_DEPTH_TEST);
@@ -788,8 +806,8 @@ if (doing_letter) {
 
 }
     
-    if (water_bomb)
-        over_skybox_setup_pre();
+    if (drawing_hand || water_bomb)
+        over_skybox_setup_post();
         
     if (is_zmode_decal) {
         glPopMatrix();

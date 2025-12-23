@@ -1460,22 +1460,25 @@ void gd_rdp_init(void) {
 
 /* 24BB30 -> 24BED8; orig name: func_8019D360 */
 void gd_draw_rect(f32 ulx, f32 uly, f32 lrx, f32 lry) {
+#if 0
     bound_on_active_view(&ulx, &uly);
     bound_on_active_view(&lrx, &lry);
 
-    if (lrx > ulx && lry > uly) {
+  //  if (lrx > ulx && lry > uly) {
 //        gDPFillRectangle(next_gfx(), (u32)(sActiveView->upperLeft.x + ulx),
   //                       (u32)(uly + sActiveView->upperLeft.y), (u32)(sActiveView->upperLeft.x + lrx),
     //                     (u32)(lry + sActiveView->upperLeft.y));
-    }
+    //}
 
-    gDPPipeSync(next_gfx());
-    gDPSetCycleType(next_gfx(), G_CYC_1CYCLE);
-    gDPSetRenderMode(next_gfx(), G_RM_AA_ZB_OPA_INTER, G_RM_NOOP2);
+    //gDPPipeSync(next_gfx());
+    //gDPSetCycleType(next_gfx(), G_CYC_1CYCLE);
+    //gDPSetRenderMode(next_gfx(), G_RM_AA_ZB_OPA_INTER, G_RM_NOOP2);
+#endif
 }
 
 /* 24BED8 -> 24CAC8; orig name: func_8019D708 */
 void gd_draw_border_rect(f32 ulx, f32 uly, f32 lrx, f32 lry) {
+#if 0
     bound_on_active_view(&ulx, &uly);
     bound_on_active_view(&lrx, &lry);
 
@@ -1497,6 +1500,7 @@ void gd_draw_border_rect(f32 ulx, f32 uly, f32 lrx, f32 lry) {
     gDPPipeSync(next_gfx());
     gDPSetCycleType(next_gfx(), G_CYC_1CYCLE);
     gDPSetRenderMode(next_gfx(), G_RM_AA_ZB_OPA_INTER, G_RM_NOOP2);
+#endif
 }
 
 /* 24CAC8 -> 24CDB4; orig name: func_8019E2F8 */

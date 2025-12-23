@@ -424,8 +424,19 @@ ALIGNED8 static const u8 texture_menu_grabbing_hand[] = {
 #include "levels/menu/main_menu_seg7.06B28.rgba16.inc.c"
 };
 
+
+
+#define gSPRadarMark(pkt)          \
+    {                              \
+        Gfx* _g = (Gfx*) (pkt);    \
+                                   \
+        _g->words.w0 = 0x424C4E44; \
+        _g->words.w1 = 0x87654321; \
+    }
+
 // 0x07007328 - 0x070073A0
-static const Gfx dl_menu_hand[] = {
+/* static */ const Gfx dl_menu_hand[] = {
+    {0x424C4E44, 0x87654321},
     gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
     gsDPSetRenderMode(G_RM_AA_TEX_EDGE, G_RM_AA_TEX_EDGE2),
     gsSPTexture(0x8000, 0x8000, 0, G_TX_RENDERTILE, G_ON),
@@ -439,6 +450,7 @@ static const Gfx dl_menu_hand[] = {
     gsSPTexture(0x0001, 0x0001, 0, G_TX_RENDERTILE, G_OFF),
     gsDPSetRenderMode(G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
+    {0x424C4E44, 0x87654321},
     gsSPEndDisplayList(),
 };
 

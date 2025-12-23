@@ -604,7 +604,7 @@ Gfx *create_shadow_player(f32 xPos, f32 yPos, f32 zPos, s16 shadowScale, u8 soli
             ret = init_shadow(&shadow, xPos, yPos, zPos, shadowScale, /* overwriteSolidity */ 0);
             break;
         case SHADOW_SOLIDITY_NOT_YET_SET:
-            ret = init_shadow(&shadow, xPos, yPos, zPos, shadowScale, solidity);
+            ret = init_shadow(&shadow, xPos, yPos, zPos, shadowScale, solidity*4/5);
             break;
     }
     if (ret != 0) {

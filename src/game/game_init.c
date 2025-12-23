@@ -439,19 +439,19 @@ void config_gfx_pool(void) {
 /** Handles vsync. */
 void display_and_vsync(void) {
     profiler_log_thread5_time(BEFORE_DISPLAY_LISTS);
-    osRecvMesg(&D_80339CB8, &D_80339BEC, OS_MESG_BLOCK);
+    //osRecvMesg(&D_80339CB8, &D_80339BEC, OS_MESG_BLOCK);
     if (D_8032C6A0 != NULL) {
         D_8032C6A0();
         D_8032C6A0 = NULL;
     }
     send_display_list(&gGfxPool->spTask);
     profiler_log_thread5_time(AFTER_DISPLAY_LISTS);
-    osRecvMesg(&gGameVblankQueue, &D_80339BEC, OS_MESG_BLOCK);
+    //osRecvMesg(&gGameVblankQueue, &D_80339BEC, OS_MESG_BLOCK);
 #if !(defined(TARGET_DC) || defined(TARGET_PSP))
     osViSwapBuffer((void *) PHYSICAL_TO_VIRTUAL(gPhysicalFrameBuffers[sCurrFBNum]));
 #endif
     profiler_log_thread5_time(THREAD5_END);
-    osRecvMesg(&gGameVblankQueue, &D_80339BEC, OS_MESG_BLOCK);
+    //osRecvMesg(&gGameVblankQueue, &D_80339BEC, OS_MESG_BLOCK);
     if (++sCurrFBNum == 3) {
         sCurrFBNum = 0;
     }

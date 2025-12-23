@@ -107,7 +107,7 @@ void vblfunc(uint32_t c, void *d) {
 #define SAMPLES_LOW 432
 s16 audio_buffer[2][SAMPLES_HIGH * 2 * 2 * 3] __attribute__((aligned(64)));
 
-void *SPINNING_THREAD(UNUSED void *arg) {
+void *AudioSynthesisThread(UNUSED void *arg) {
     uint64_t last_vbltick = vblticker;
 
     while (1) {
@@ -281,15 +281,14 @@ void main_func(void) {
 
 #if defined(TARGET_DC)
     vblank_handler_add(&vblfunc, NULL);
-    kthread_attr_t main_attr;
-    main_attr.create_detached = 1;
-	main_attr.stack_size = 32768;
-	main_attr.stack_ptr = NULL;
-	main_attr.prio = PRIO_DEFAULT - 1;
-	main_attr.label = "spinthread";
-    thd_create_ex(&main_attr, &SPINNING_THREAD, NULL);
+    kthread_attr_t audio_attr;
+    audio_attr.create_detached = 1;
+	audio_attr.stack_size = 32768;
+	audio_attr.stack_ptr = NULL;
+	audio_attr.prio = PRIO_DEFAULT;
+	audio_attr.label = "AudioSynthesis";
+    thd_create_ex(&audio_attr, &AudioSynthesisThread, NULL);
 #endif
-
 
     thread5_game_loop(NULL);
 #ifdef TARGET_WEB
