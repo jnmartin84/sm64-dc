@@ -15,6 +15,20 @@
 #include "save_file.h"
 #include "thread6.h"
 
+static inline void sincoss(s16 arg0, f32* s, f32* c) {
+    register float __s __asm__("fr2");
+    register float __c __asm__("fr3");
+
+    asm("lds    %2,fpul\n\t"
+        "fsca    fpul,dr2\n\t"
+        : "=f"(__s), "=f"(__c)
+        : "r"(arg0)
+        : "fpul");
+
+    *s = __s;
+    *c = __c;
+}
+
 void play_flip_sounds(struct MarioState *m, s16 frame1, s16 frame2, s16 frame3) {
     s32 animFrame = m->marioObj->header.gfx.unk38.animFrame;
     if (animFrame == frame1 || animFrame == frame2 || animFrame == frame3) {
@@ -273,7 +287,7 @@ void update_lava_boost_or_twirling(struct MarioState *m) {
 }
 
 void update_flying_yaw(struct MarioState *m) {
-    s16 targetYawVel = -(s16)(m->controller->stickX * (m->forwardVel / 4.0f));
+    s16 targetYawVel = -(s16)(m->controller->stickX * (m->forwardVel * 0.25f /* / 4.0f */));
 
     if (targetYawVel > 0) {
         if (m->angleVel[1] < 0) {
@@ -302,7 +316,7 @@ void update_flying_yaw(struct MarioState *m) {
 }
 
 void update_flying_pitch(struct MarioState *m) {
-    s16 targetPitchVel = -(s16)(m->controller->stickY * (m->forwardVel / 5.0f));
+    s16 targetPitchVel = -(s16)(m->controller->stickY * (m->forwardVel *0.2f/* / 5.0f */));
 
     if (targetPitchVel > 0) {
         if (m->angleVel[0] < 0) {
@@ -326,6 +340,9 @@ void update_flying_pitch(struct MarioState *m) {
         m->angleVel[0] = approach_s32(m->angleVel[0], 0, 0x40, 0x40);
     }
 }
+#define recip16k 0.00006104f
+
+
 
 void update_flying(struct MarioState *m) {
     UNUSED u32 unused;
@@ -333,12 +350,17 @@ void update_flying(struct MarioState *m) {
     update_flying_pitch(m);
     update_flying_yaw(m);
 
-    m->forwardVel -= 2.0f * ((f32) m->faceAngle[0] / 0x4000) + 0.1f;
+    m->forwardVel -= 2.0f * ((f32) m->faceAngle[0] * recip16k/* / 0x4000 */) + 0.1f;
     m->forwardVel -= 0.5f * (1.0f - coss(m->angleVel[1]));
 
     if (m->forwardVel < 0.0f) {
         m->forwardVel = 0.0f;
     }
+
+    f32 a0s, a0c;
+    f32 a1s, a1c;
+
+    sincoss(m->faceAngle[1], &a1s, &a1c);
 
     if (m->forwardVel > 16.0f) {
         m->faceAngle[0] += (m->forwardVel - 32.0f) * 6.0f;
@@ -356,10 +378,15 @@ void update_flying(struct MarioState *m) {
     if (m->faceAngle[0] < -0x2AAA) {
         m->faceAngle[0] = -0x2AAA;
     }
+//static inline void sincoss(s16 arg0, f32* s, f32* c) {
+    sincoss(m->faceAngle[0], &a0s, &a0c);
 
-    m->vel[0] = m->forwardVel * coss(m->faceAngle[0]) * sins(m->faceAngle[1]);
-    m->vel[1] = m->forwardVel * sins(m->faceAngle[0]);
-    m->vel[2] = m->forwardVel * coss(m->faceAngle[0]) * coss(m->faceAngle[1]);
+    m->vel[0] = m->forwardVel * a1s;//coss(m->faceAngle[0]) * sins(m->faceAngle[1]);
+    m->vel[2] = m->forwardVel * a1c;// coss(m->faceAngle[0]) * coss(m->faceAngle[1]);
+    
+    m->vel[0] *= a0c;//coss(m->faceAngle[0]) * sins(m->faceAngle[1]);
+    m->vel[1] = m->forwardVel * a0s;//sins(m->faceAngle[0]);
+    m->vel[2] *= a0c;// coss(m->faceAngle[0]) * coss(m->faceAngle[1]);
 
     m->slideVelX = m->vel[0];
     m->slideVelZ = m->vel[2];

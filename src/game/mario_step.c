@@ -9,6 +9,8 @@
 #include "interaction.h"
 #include "mario_step.h"
 
+#include "sh4zam.h"
+
 static s16 sMovingSandSpeeds[] = { 12, 8, 4, 0 };
 
 struct Surface gWaterSurfacePseudoFloor = {
@@ -385,6 +387,8 @@ u32 check_ledge_grab(struct MarioState *m, struct Surface *wall, Vec3f intendedP
     return 1;
 }
 
+
+
 s32 perform_air_quarter_step(struct MarioState *m, Vec3f intendedPos, u32 stepArg) {
     s16 wallDYaw;
     Vec3f nextPos;
@@ -505,7 +509,7 @@ void apply_twirl_gravity(struct MarioState *m) {
     f32 heaviness = 1.0f;
 
     if (m->angleVel[1] > 1024) {
-        heaviness = 1024.0f / m->angleVel[1];
+        heaviness = shz_divf(1024.0f, (f32)m->angleVel[1]);
     }
 
     terminalVelocity = -75.0f * heaviness;
@@ -557,7 +561,7 @@ void apply_gravity(struct MarioState *m) {
             m->vel[1] = -75.0f;
         }
     } else if (should_strengthen_gravity_for_jump_ascent(m)) {
-        m->vel[1] /= 4.0f;
+        m->vel[1] *= 0.25f;///= 4.0f;
     } else if (m->action & ACT_FLAG_METAL_WATER) {
         m->vel[1] -= 1.6f;
         if (m->vel[1] < -16.0f) {
@@ -589,13 +593,13 @@ void apply_vertical_wind(struct MarioState *m) {
 
         if (m->floor->type == SURFACE_VERTICAL_WIND && -3000.0f < offsetY && offsetY < 2000.0f) {
             if (offsetY >= 0.0f) {
-                maxVelY = 10000.0f / (offsetY + 200.0f);
+                maxVelY = shz_divf(10000.0f, (f32)(offsetY + 200.0f));// 10000.0f / (offsetY + 200.0f);
             } else {
                 maxVelY = 50.0f;
             }
 
             if (m->vel[1] < maxVelY) {
-                if ((m->vel[1] += maxVelY / 8.0f) > maxVelY) {
+                if ((m->vel[1] += maxVelY * 0.125f) > maxVelY) {
                     m->vel[1] = maxVelY;
                 }
             }
@@ -616,9 +620,9 @@ s32 perform_air_step(struct MarioState *m, u32 stepArg) {
     m->wall = NULL;
 
     for (i = 0; i < 4; i++) {
-        intendedPos[0] = m->pos[0] + m->vel[0] / 4.0f;
-        intendedPos[1] = m->pos[1] + m->vel[1] / 4.0f;
-        intendedPos[2] = m->pos[2] + m->vel[2] / 4.0f;
+        intendedPos[0] = m->pos[0] + m->vel[0]*0.25f;// / 4.0f;
+        intendedPos[1] = m->pos[1] + m->vel[1]*0.25f;// / 4.0f;
+        intendedPos[2] = m->pos[2] + m->vel[2]*0.25f;// / 4.0f;
 
         quarterStepResult = perform_air_quarter_step(m, intendedPos, stepArg);
 

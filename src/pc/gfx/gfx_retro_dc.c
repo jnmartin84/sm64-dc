@@ -1434,6 +1434,13 @@ static void gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx) {
     uint8_t c2 = l_clip_rej[2];
     MEM_BARRIER_PREF(v3);
 
+    if (matrix_dirty) {
+        gfx_flush();
+        glMatrixMode(GL_PROJECTION);
+        glLoadMatrixf((const float*) rsp.MP_matrix);
+        matrix_dirty = 0;
+    }
+
     if ((c0 & c1 & c2) & 0x3f) {
         // The whole triangle lies outside the visible area
         return;
@@ -1482,17 +1489,11 @@ static void gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx) {
         }
     }
 
-    if (matrix_dirty) {
-        gfx_flush();
-        glMatrixMode(GL_PROJECTION);
-        glLoadMatrixf((const float*) rsp.MP_matrix);
-        matrix_dirty = 0;
-    }
     if (do_radar_mark)
         gfx_flush();
-    if (do_radar_mark) {
+//    if (do_radar_mark) {
 //        screen_2d_z += 1.0f;
-    }
+//    }
 
     bool depth_test = (rsp.geometry_mode & G_ZBUFFER) == G_ZBUFFER;
 
@@ -1988,7 +1989,7 @@ int do_ext_fill = 0;
 static void __attribute__((noinline)) gfx_sp_quad_2d(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx,
                                                      uint8_t vtx1_idx2, uint8_t vtx2_idx2, uint8_t vtx3_idx2) {
     dc_fast_t* v2d = &rsp.loaded_vertices_2D[0];
-
+    gfx_flush();
     uint8_t depth_test = (rsp.geometry_mode & G_ZBUFFER) == G_ZBUFFER;
     if (depth_test != rendering_state.depth_test) {
         gfx_rapi->set_depth_test(depth_test);
@@ -2186,8 +2187,10 @@ static void __attribute__((noinline)) gfx_sp_quad_2d(uint8_t vtx1_idx, uint8_t v
                     rectcolor = PACK_ARGB8888(rdp.prim_color.r, rdp.prim_color.g, rdp.prim_color.b, k ? rdp.prim_color.a : 255);
                     break;
                 case CC_SHADE:
-                    if (!use_alpha)
-                        v2d[0].color.array.a = 255;
+//                    if (!use_alpha)
+//                        v2d[0].color.array.a = 255;
+//                    else 
+                    v2d[0].color.array.a = k ? v2d[0].color.array.a : 255;
                     rectcolor = v2d[0].color.packed;
                     break;
                 case CC_ENV:
@@ -2803,9 +2806,13 @@ static void gfx_run_dl(Gfx* cmd) {
         }
 
         switch (opcode) {
+            case G_RDPPIPESYNC:
+                gfx_flush();
+                break;
+
             // RSP commands:
             case G_MTX:
-                gfx_flush();
+//                gfx_flush();
 #ifdef F3DEX_GBI_2
                 gfx_sp_matrix(C0(0, 8) ^ G_MTX_PUSH, (const int32_t *) seg_addr(cmd->words.w1));
 #else
@@ -2813,7 +2820,7 @@ static void gfx_run_dl(Gfx* cmd) {
 #endif
                 break;
             case (uint8_t)G_POPMTX:
-                gfx_flush();
+//                gfx_flush();
 #ifdef F3DEX_GBI_2
                 gfx_sp_pop_matrix(cmd->words.w1 / 64);
 #else
@@ -3029,7 +3036,7 @@ void gfx_init(struct GfxWindowManagerAPI *wapi, struct GfxRenderingAPI *rapi, co
     gfx_rapi = rapi;
     gfx_wapi->init(game_name, start_in_fullscreen);
     gfx_rapi->init();
-
+#if 0
     // Used in the 120 star TAS
     static uint32_t precomp_shaders[] = {
         0x01200200,
@@ -3062,6 +3069,7 @@ void gfx_init(struct GfxWindowManagerAPI *wapi, struct GfxRenderingAPI *rapi, co
     for (i = 0; i < sizeof(precomp_shaders) / sizeof(uint32_t); i++) {
         gfx_lookup_or_create_shader_program(precomp_shaders[i]);
     }
+#endif
     gfx_wapi->get_dimensions(&gfx_current_dimensions.width, &gfx_current_dimensions.height);
     if (gfx_current_dimensions.height == 0) {
         // Avoid division by zero

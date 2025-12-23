@@ -6,6 +6,33 @@
 #include "surface_collision.h"
 
 #include "trig_tables.inc.c"
+static inline void sincoss(s16 arg0, f32* s, f32* c) {
+    register float __s __asm__("fr2");
+    register float __c __asm__("fr3");
+
+    asm("lds    %2,fpul\n\t"
+        "fsca    fpul,dr2\n\t"
+        : "=f"(__s), "=f"(__c)
+        : "r"(arg0)
+        : "fpul");
+
+    *s = __s;
+    *c = __c;
+}
+
+static inline void scaled_sincoss(s16 arg0, f32* s, f32* c, f32 scale) {
+    register float __s __asm__("fr2");
+    register float __c __asm__("fr3");
+
+    asm("lds    %2,fpul\n\t"
+        "fsca    fpul,dr2\n\t"
+        : "=f"(__s), "=f"(__c)
+        : "r"(arg0)
+        : "fpul");
+
+    *s = __s * scale;
+    *c = __c * scale;
+}
 
 // Variables for a spline curve animation (used for the flight path in the grand star cutscene)
 Vec4s *gSplineKeyframe;
@@ -597,11 +624,16 @@ void mtxf_to_mtx(Mtx *dest, Mat4 src) {
 void mtxf_rotate_xy(Mtx *mtx, s16 angle) {
     Mat4 temp;
 
+    f32 ac,as;
+    sincoss(angle, &as, &ac);
+
     mtxf_identity(temp);
-    temp[0][0] = coss(angle);
-    temp[0][1] = sins(angle);
+//    temp[0][0] = coss(angle);
+//    temp[0][1] = sins(angle);
     temp[1][0] = -temp[0][1];
     temp[1][1] = temp[0][0];
+    temp[0][0] = ac;//coss(angle);
+    temp[0][1] = as;//sins(angle);
     mtxf_to_mtx(mtx, temp);
 }
 
@@ -614,16 +646,27 @@ void mtxf_rotate_xy(Mtx *mtx, s16 angle) {
  * the camera position.
  */
 void get_pos_from_transform_mtx(Vec3f dest, Mat4 objMtx, Mat4 camMtx) {
-    f32 camX = camMtx[3][0] * camMtx[0][0] + camMtx[3][1] * camMtx[0][1] + camMtx[3][2] * camMtx[0][2];
-    f32 camY = camMtx[3][0] * camMtx[1][0] + camMtx[3][1] * camMtx[1][1] + camMtx[3][2] * camMtx[1][2];
-    f32 camZ = camMtx[3][0] * camMtx[2][0] + camMtx[3][1] * camMtx[2][1] + camMtx[3][2] * camMtx[2][2];
+    f32 camX = shz_dot6f(camMtx[3][0], camMtx[3][1], camMtx[3][2], camMtx[0][0], camMtx[0][1], camMtx[0][2]);
+    f32 camY = shz_dot6f(camMtx[3][0], camMtx[3][1], camMtx[3][2], camMtx[1][0], camMtx[1][1], camMtx[1][2]);
+    f32 camZ = shz_dot6f(camMtx[3][0], camMtx[3][1], camMtx[3][2], camMtx[2][0], camMtx[2][1], camMtx[2][2]);
 
-    dest[0] =
-        objMtx[3][0] * camMtx[0][0] + objMtx[3][1] * camMtx[0][1] + objMtx[3][2] * camMtx[0][2] - camX;
-    dest[1] =
-        objMtx[3][0] * camMtx[1][0] + objMtx[3][1] * camMtx[1][1] + objMtx[3][2] * camMtx[1][2] - camY;
-    dest[2] =
-        objMtx[3][0] * camMtx[2][0] + objMtx[3][1] * camMtx[2][1] + objMtx[3][2] * camMtx[2][2] - camZ;
+//    f32 camX = camMtx[3][0] * camMtx[0][0] + camMtx[3][1] * camMtx[0][1] + camMtx[3][2] * camMtx[0][2];
+//    f32 camY = camMtx[3][0] * camMtx[1][0] + camMtx[3][1] * camMtx[1][1] + camMtx[3][2] * camMtx[1][2];
+//    f32 camZ = camMtx[3][0] * camMtx[2][0] + camMtx[3][1] * camMtx[2][1] + camMtx[3][2] * camMtx[2][2];
+
+    dest[0] = shz_dot8f(objMtx[3][0], objMtx[3][1], objMtx[3][2], camX,
+                        camMtx[0][0], camMtx[0][1], camMtx[0][2], -1.0f);
+    dest[1] = shz_dot8f(objMtx[3][0], objMtx[3][1], objMtx[3][2], camY,
+                        camMtx[1][0], camMtx[1][1], camMtx[1][2], -1.0f);
+    dest[2] = shz_dot8f(objMtx[3][0], objMtx[3][1], objMtx[3][2], camZ,
+                        camMtx[2][0], camMtx[2][1], camMtx[2][2], -1.0f);
+
+//    dest[0] =
+//        objMtx[3][0] * camMtx[0][0] + objMtx[3][1] * camMtx[0][1] + objMtx[3][2] * camMtx[0][2] - camX;
+//    dest[1] =
+//        objMtx[3][0] * camMtx[1][0] + objMtx[3][1] * camMtx[1][1] + objMtx[3][2] * camMtx[1][2] - camY;
+//    dest[2] =
+//        objMtx[3][0] * camMtx[2][0] + objMtx[3][1] * camMtx[2][1] + objMtx[3][2] * camMtx[2][2] - camZ;
 }
 #include "sh4zam.h"
 /**
@@ -645,11 +688,39 @@ void vec3f_get_dist_and_angle(Vec3f from, Vec3f to, f32 *dist, s16 *pitch, s16 *
  * Construct the 'to' point which is distance 'dist' away from the 'from' position,
  * and has the angles pitch and yaw.
  */
+
+
+//static inline void scaled_sincoss(u16 arg0, f32* s, f32* c, f32 scale) {
+
+#if 1
 void vec3f_set_dist_and_angle(Vec3f from, Vec3f to, f32 dist, s16 pitch, s16 yaw) {
-    to[0] = from[0] + dist * coss(pitch) * sins(yaw);
-    to[1] = from[1] + dist * sins(pitch);
-    to[2] = from[2] + dist * coss(pitch) * coss(yaw);
+    f32 ps,pc;
+    f32 ys,yc;
+
+    scaled_sincoss(pitch, &ps, &pc, dist);
+    to[0] = from[0];// + dist * coss(pitch) * sins(yaw);
+    to[1] = from[1];// + dist * sins(pitch);
+    to[2] = from[2];// + dist * coss(pitch) * coss(yaw);
+
+    sincoss(yaw, &ys, &yc);
+
+    to[1] += ps;//from[1] + dist * sins(pitch);
+    to[0] += pc * ys;//from[0] + dist * coss(pitch) * sins(yaw);
+    to[2] += pc * yc;//from[2] + dist * coss(pitch) * coss(yaw);
 }
+#endif
+#if 0
+void vec3f_set_dist_and_angle(Vec3f from, Vec3f to, f32 dist, s16 pitch, s16 yaw) {
+    f32 ps,pc;
+    f32 ys,yc;
+    scaled_sincos(pitch, &ps, &pc, dist);
+    sincos(yaw, &ys, &yc);
+
+    to[0] = from[0] + pc * ys;//dist * coss(pitch) * sins(yaw);
+    to[1] = from[1] + ps;//dist * sins(pitch);
+    to[2] = from[2] + pc * yc;//dist * coss(pitch) * coss(yaw);
+}
+#endif
 
 /**
  * Return the value 'current' after it tries to approach target, going up at
@@ -704,7 +775,7 @@ f32 approach_f32(f32 current, f32 target, f32 inc, f32 dec) {
 #define twopi_i754 6.283185482025146484375f
 static inline float bump_atan2f(const float y, const float x)
 {
-    if (x == 0.0f && y == 0.0f) return 0.0f;
+    if (x == 0.0) return 0.0f;
 	float abs_y = fabsf(y);
 	float absy_plus_absx = abs_y + fabsf(x);
 	float inv_absy_plus_absx = approx_recip(absy_plus_absx);
@@ -731,6 +802,14 @@ static u16 atan2_lookup(f32 y, f32 x) {
 #else
     return (u16)bump_atan2f(y,x); 
 #endif
+}
+#include <stdio.h>
+void atan_tester(void) {
+    for (f32 y=0.0f;y<6.0f;y+=0.1f) {
+        for (f32 x=0.0f;x<6.0f;x+=0.1f) {
+            printf("y %.2f x %.2f %04x %04x %04x\n", y, x, atan2_lookup(y,x), bump_atan2f(y,x), atan2_lookup(y,x) - bump_atan2f(y,x));
+        }
+    }
 }
 
 /**
@@ -775,12 +854,14 @@ s16 atan2s(f32 y, f32 x) {
     return ret;
 }
 
+#if 0
 /**
  * Compute the atan2 in radians by calling atan2s and converting the result.
  */
 f32 atan2f(f32 y, f32 x) {
     return (f32) atan2s(y, x) * M_PI / 0x8000;
 }
+#endif
 
 #define CURVE_BEGIN_1 1
 #define CURVE_BEGIN_2 2
@@ -813,7 +894,7 @@ f32 atan2f(f32 y, f32 x) {
  * TODO: verify the classification of the spline / figure out how polynomials were computed
  */
 void spline_get_weights(Vec4f result, f32 t, UNUSED s32 c) {
-    f32 tinv = 1 - t;
+    f32 tinv = 1.0f - t;
     f32 tinv2 = tinv * tinv;
     f32 tinv3 = tinv2 * tinv;
     f32 t2 = t * t;
@@ -822,32 +903,32 @@ void spline_get_weights(Vec4f result, f32 t, UNUSED s32 c) {
     switch (gSplineState) {
         case CURVE_BEGIN_1:
             result[0] = tinv3;
-            result[1] = t3 * 1.75f - t2 * 4.5f + t * 3.0f;
-            result[2] = -t3 * (11 / 12.0f) + t2 * 1.5f;
-            result[3] = t3 * (1 / 6.0f);
+            result[1] = shz_dot6f(t3, t2, t, 1.75f, -4.5f, 3.0f);
+            result[2] = t3 * 0.91666667f + t2 * 1.5f;
+            result[3] = t3 * 0.16666667f; 
             break;
         case CURVE_BEGIN_2:
+            result[1] = shz_dot8f(t3, t2, t, 1.0f, 0.58333333f, -1.25f, 0.25f, 0.58333333f);
             result[0] = tinv3 * 0.25f;
-            result[1] = t3 * (7 / 12.0f) - t2 * 1.25f + t * 0.25f + (7 / 12.0f);
-            result[2] = -t3 * 0.5f + t2 * 0.5f + t * 0.5f + (1 / 6.0f);
-            result[3] = t3 * (1 / 6.0f);
+            result[2] = shz_dot8f(t3, t2, t, 1.0f, -0.5f, 0.5f, 0.5f, 0.16666667f);
+            result[3] = t3 * 0.16666667f;
             break;
         case CURVE_MIDDLE:
-            result[0] = tinv3 * (1 / 6.0f);
-            result[1] = t3 * 0.5f - t2 + (4 / 6.0f);
-            result[2] = -t3 * 0.5f + t2 * 0.5f + t * 0.5f + (1 / 6.0f);
-            result[3] = t3 * (1 / 6.0f);
+            result[0] = tinv3 * 0.16666667f;
+            result[1] = t3 * 0.5f - t2 + 0.66666667f;
+            result[2] = shz_dot8f(t3, t2, t, 1.0f, -0.5f, 0.5f, 0.5f, 0.16666667f);
+            result[3] = t3 * 0.16666667f;
             break;
         case CURVE_END_1:
-            result[0] = tinv3 * (1 / 6.0f);
-            result[1] = -tinv3 * 0.5f + tinv2 * 0.5f + tinv * 0.5f + (1 / 6.0f);
-            result[2] = tinv3 * (7 / 12.0f) - tinv2 * 1.25f + tinv * 0.25f + (7 / 12.0f);
+            result[1] = shz_dot8f(tinv3, tinv2, tinv, 1.0f, -0.5f, 0.5f, 0.5f, 0.16666667f);
+            result[0] = tinv3 * 0.16666667f;
+            result[2] = shz_dot8f(tinv3, tinv2, tinv, 1.0f, 0.58333333f, -1.25f, 0.25f, 0.58333333f);
             result[3] = t3 * 0.25f;
             break;
         case CURVE_END_2:
-            result[0] = tinv3 * (1 / 6.0f);
-            result[1] = -tinv3 * (11 / 12.0f) + tinv2 * 1.5f;
-            result[2] = tinv3 * 1.75f - tinv2 * 4.5f + tinv * 3.0f;
+            result[0] = tinv3 * 0.16666667f;
+            result[1] = -tinv3 * 0.91666667f + tinv2 * 1.5f;
+            result[2] = shz_dot6f(tinv3, tinv2, tinv, 1.75f, -4.5f, 3.0f);
             result[3] = t3;
             break;
     }
@@ -885,7 +966,7 @@ s32 anim_spline_poll(Vec3f result) {
         result[2] += weights[i] * gSplineKeyframe[i][3];
     }
 
-    if ((gSplineKeyframeFraction += gSplineKeyframe[0][0] / 1000.0f) >= 1) {
+    if ((gSplineKeyframeFraction += gSplineKeyframe[0][0]*0.001f  /* / 1000.0f */) >= 1) {
         gSplineKeyframe++;
         gSplineKeyframeFraction--;
         switch (gSplineState) {

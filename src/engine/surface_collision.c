@@ -8,6 +8,8 @@
 #include "surface_collision.h"
 #include "surface_load.h"
 
+#include "sh4zam.h"
+
 /**************************************************
  *                      WALLS                     *
  **************************************************/
@@ -44,7 +46,9 @@ static s32 find_wall_collisions_from_list(struct SurfaceNode *surfaceNode,
             continue;
         }
 
-        offset = surf->normal.x * x + surf->normal.y * y + surf->normal.z * z + surf->originOffset;
+        offset = shz_dot8f(surf->normal.x, surf->normal.y, surf->normal.z, surf->originOffset,
+        x, y, z, 1.0f);
+        //surf->normal.x * x + surf->normal.y * y + surf->normal.z * z + surf->originOffset;
 
         if (offset < -radius || offset > radius) {
             continue;
@@ -199,8 +203,8 @@ s32 find_wall_collisions(struct WallCollisionData *colData) {
 
     // World (level) consists of a 16x16 grid. Find where the collision is on
     // the grid (round toward -inf)
-    cellX = ((x + LEVEL_BOUNDARY_MAX) / CELL_SIZE) & 0x0F;
-    cellZ = ((z + LEVEL_BOUNDARY_MAX) / CELL_SIZE) & 0x0F;
+    cellX = ((x + LEVEL_BOUNDARY_MAX) >> 10/* / CELL_SIZE */) & 0x0F;
+    cellZ = ((z + LEVEL_BOUNDARY_MAX) >> 10/* / CELL_SIZE */) & 0x0F;
 
     // Check for surfaces belonging to objects.
     node = gDynamicSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_WALLS].next;
@@ -279,7 +283,7 @@ static struct Surface *find_ceil_from_list(struct SurfaceNode *surfaceNode, s32 
             }
 
             // Find the ceil height at the specific point.
-            height = -(x * nx + nz * z + oo) / ny;
+            height = shz_divf( -(x * nx + nz * z + oo), ny);// / ny;
 
             // Checks for ceiling interaction with a 78 unit buffer.
             //! (Exposed Ceilings) Because any point above a ceiling counts
@@ -327,8 +331,8 @@ f32 find_ceil(f32 posX, f32 posY, f32 posZ, struct Surface **pceil) {
     }
 
     // Each level is split into cells to limit load, find the appropriate cell.
-    cellX = ((x + LEVEL_BOUNDARY_MAX) / CELL_SIZE) & 0xF;
-    cellZ = ((z + LEVEL_BOUNDARY_MAX) / CELL_SIZE) & 0xF;
+    cellX = ((x + LEVEL_BOUNDARY_MAX) >> 10/* / CELL_SIZE */) & 0xF;
+    cellZ = ((z + LEVEL_BOUNDARY_MAX) >> 10/* / CELL_SIZE */) & 0xF;
 
     // Check for surfaces belonging to objects.
     surfaceList = gDynamicSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_CEILS].next;
@@ -450,7 +454,7 @@ static struct Surface *find_floor_from_list(struct SurfaceNode *surfaceNode, s32
         }
 
         // Find the height of the floor at a given location.
-        height = -(x * nx + nz * z + oo) / ny;
+        height = shz_divf( -(x * nx + nz * z + oo), ny);
         // Checks for floor interaction with a 78 unit buffer.
         if (y - (height + -78.0f) < 0.0f) {
             continue;
@@ -492,8 +496,8 @@ f32 unused_find_dynamic_floor(f32 xPos, f32 yPos, f32 zPos, struct Surface **pfl
     s16 z = (s16) zPos;
 
     // Each level is split into cells to limit load, find the appropriate cell.
-    s16 cellX = ((x + LEVEL_BOUNDARY_MAX) / CELL_SIZE) & 0x0F;
-    s16 cellZ = ((z + LEVEL_BOUNDARY_MAX) / CELL_SIZE) & 0x0F;
+    s16 cellX = ((x + LEVEL_BOUNDARY_MAX) >> 10/* / CELL_SIZE */) & 0x0F;
+    s16 cellZ = ((z + LEVEL_BOUNDARY_MAX) >> 10/* / CELL_SIZE */) & 0x0F;
 
     surfaceList = gDynamicSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_FLOORS].next;
     floor = find_floor_from_list(surfaceList, x, y, z, &floorHeight);
@@ -532,8 +536,8 @@ f32 find_floor(f32 xPos, f32 yPos, f32 zPos, struct Surface **pfloor) {
     }
 
     // Each level is split into cells to limit load, find the appropriate cell.
-    cellX = ((x + LEVEL_BOUNDARY_MAX) / CELL_SIZE) & 0xF;
-    cellZ = ((z + LEVEL_BOUNDARY_MAX) / CELL_SIZE) & 0xF;
+    cellX = ((x + LEVEL_BOUNDARY_MAX) >> 10/* / CELL_SIZE */) & 0xF;
+    cellZ = ((z + LEVEL_BOUNDARY_MAX) >> 10/* / CELL_SIZE */) & 0xF;
 
     // Check for surfaces belonging to objects.
     surfaceList = gDynamicSurfacePartition[cellZ][cellX][SPATIAL_PARTITION_FLOORS].next;
@@ -684,8 +688,8 @@ void debug_surface_list_info(f32 xPos, f32 zPos) {
     s32 numWalls = 0;
     s32 numCeils = 0;
 
-    s32 cellX = (xPos + LEVEL_BOUNDARY_MAX) / CELL_SIZE;
-    s32 cellZ = (zPos + LEVEL_BOUNDARY_MAX) / CELL_SIZE;
+    s32 cellX = (s32)(xPos + LEVEL_BOUNDARY_MAX) >> 10;// / CELL_SIZE;
+    s32 cellZ = (s32)(zPos + LEVEL_BOUNDARY_MAX) >> 10;// / CELL_SIZE;
 
     list = gStaticSurfacePartition[cellZ & 0x0F][cellX & 0x0F][SPATIAL_PARTITION_FLOORS].next;
     numFloors += surface_list_length(list);
@@ -759,7 +763,7 @@ s32 unused_resolve_floor_or_ceil_collisions(s32 checkCeil, f32 *px, f32 *py, f32
     nz = (*psurface)->normal.z;
     oo = (*psurface)->originOffset;
 
-    offset = nx * x + ny * y + nz * z + oo;
+    offset = shz_dot8f(nx, ny, nz, oo, x, y, z, 1.0f);//nx * x + ny * y + nz * z + oo;
     distance = offset >= 0 ? offset : -offset;
 
     // Interesting surface interaction that should be surf type independent.

@@ -694,19 +694,18 @@ void game_loop_one_iteration(void) {
             return;
 #endif
         }
-//        profiler_log_thread5_time(THREAD5_START);
+        profiler_log_thread5_time(THREAD5_START);
 
         // if any controllers are plugged in, start read the data for when
         // read_controller_inputs is called later.
-      //  if (gControllerBits) {
+        if (gControllerBits) {
 #ifdef VERSION_SH
-        //    block_until_rumble_pak_free();
+            block_until_rumble_pak_free();
 #endif
-          //  osContStartReadData(&gSIEventMesgQueue);
-       // }
+            osContStartReadData(&gSIEventMesgQueue);
+       }
 
         audio_game_loop_tick();
-//    sGameLoopTicked = 1;
         config_gfx_pool();
         read_controller_inputs();
         levelCommandAddr = level_script_execute(levelCommandAddr);
