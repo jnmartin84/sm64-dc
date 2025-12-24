@@ -13,6 +13,8 @@
 #include "seq_ids.h"
 #include "dialog_ids.h"
 
+#include "sh4zam.h"
+
 #ifdef VERSION_EU
 #define EU_FLOAT(x) x ## f
 #else
@@ -643,7 +645,7 @@ void sequence_player_fade_out_internal(s32 player, FadeT fadeOutTime) {
     }
 #endif
 
-    seqPlayer->fadeVelocity = -(seqPlayer->fadeVolume / fadeOutTime);
+    seqPlayer->fadeVelocity = -shz_divf((f32)seqPlayer->fadeVolume, (f32)fadeOutTime); //-(seqPlayer->fadeVolume / fadeOutTime);
     seqPlayer->state = SEQUENCE_PLAYER_STATE_FADE_OUT;
     seqPlayer->fadeTimer = fadeOutTime;
 }
@@ -676,14 +678,14 @@ void func_8031D6E4(s32 player, FadeT fadeTimer, u8 fadePercentage) {
     }
 #endif
 
-    fadeVolume = (FLOAT_CAST(fadePercentage) / EU_FLOAT(100.0) * seqPlayer->fadeVolume);
+    fadeVolume = (FLOAT_CAST(fadePercentage) * 0.01f /* / EU_FLOAT(100.0) */ * seqPlayer->fadeVolume);
     seqPlayer->volume = seqPlayer->fadeVolume;
     seqPlayer->fadeTimer = 0;
     if (fadeTimer == 0) {
         seqPlayer->fadeVolume = fadeVolume;
         return;
     }
-    seqPlayer->fadeVelocity = (fadeVolume - seqPlayer->fadeVolume) / fadeTimer;
+    seqPlayer->fadeVelocity =shz_divf((f32) (fadeVolume - seqPlayer->fadeVolume), (f32) fadeTimer);
 #ifdef VERSION_EU
     seqPlayer->state = 0;
 #else
@@ -710,7 +712,8 @@ void func_8031D7B0(s32 player, FadeT fadeTimer) {
         seqPlayer->fadeVolume = seqPlayer->volume;
         return;
     }
-    seqPlayer->fadeVelocity = (seqPlayer->volume - seqPlayer->fadeVolume) / fadeTimer;
+    seqPlayer->fadeVelocity = shz_divf((f32) (seqPlayer->volume - seqPlayer->fadeVolume), (f32) fadeTimer);
+    //= (seqPlayer->volume - seqPlayer->fadeVolume) / fadeTimer;
 #ifdef VERSION_EU
     seqPlayer->state = 0;
 #else
@@ -730,11 +733,11 @@ void func_8031D838(s32 player, FadeT fadeInTime, u8 targetVolume) {
 
     seqPlayer->fadeTimer = 0;
     if (fadeInTime == 0) {
-        seqPlayer->fadeVolume = (FLOAT_CAST(targetVolume) / EU_FLOAT(127.0));
+        seqPlayer->fadeVolume = (FLOAT_CAST(targetVolume)*0.00787402f /* / EU_FLOAT(127.0) */);
         return;
     }
     seqPlayer->fadeVelocity =
-        (((f32)(FLOAT_CAST(targetVolume) / EU_FLOAT(127.0)) - seqPlayer->fadeVolume) / (f32) fadeInTime);
+   shz_divf    (((f32)(FLOAT_CAST(targetVolume)*0.00787402f /* / EU_FLOAT(127.0) */) - seqPlayer->fadeVolume) , (f32) fadeInTime);
 #ifdef VERSION_EU
     seqPlayer->state = 0;
 #else
@@ -1039,7 +1042,7 @@ void func_8031E16C(u8 bankIndex) {
             } else if (*gSoundBanks[bankIndex][soundIndex].z > 0.0f) {
                 gSoundBanks[bankIndex][soundIndex].priority =
                     (u32) gSoundBanks[bankIndex][soundIndex].distance
-                    + (u32)(*gSoundBanks[bankIndex][soundIndex].z / US_FLOAT(6.0))
+                    + (u32)(*gSoundBanks[bankIndex][soundIndex].z *0.16666667f/* / US_FLOAT(6.0) */)
                     + 0x4c * (0xff - val);
             } else {
                 gSoundBanks[bankIndex][soundIndex].priority =
@@ -1159,13 +1162,13 @@ f32 get_sound_pan(f32 x, f32 z) {
         pan = US_FLOAT(0.5);
     } else if (x >= US_FLOAT(0.0) && absX >= absZ) {
         // far right pan
-        pan = US_FLOAT(1.0) - (US_FLOAT(44000.0) - absX) / (US_FLOAT(3.0) * (US_FLOAT(44000.0) - absZ));
+        pan = US_FLOAT(1.0) - shz_divf((US_FLOAT(44000.0) - absX) , (US_FLOAT(3.0) * (US_FLOAT(44000.0) - absZ)));
     } else if (x < 0 && absX > absZ) {
         // far left pan
-        pan = (US_FLOAT(44000.0) - absX) / (US_FLOAT(3.0) * (US_FLOAT(44000.0) - absZ));
+        pan = shz_divf((US_FLOAT(44000.0) - absX) , (US_FLOAT(3.0) * (US_FLOAT(44000.0) - absZ)));
     } else {
         // center pan
-        pan = 0.5 + x / (US_FLOAT(6.0) * absZ);
+        pan = 0.5 + shz_divf(x , (US_FLOAT(6.0) * absZ));
     }
 
     return pan;
@@ -1190,13 +1193,13 @@ f32 get_sound_dynamics(u8 bankIndex, u8 item, f32 arg2) {
         if (gSoundBanks[bankIndex][item].distance > AUDIO_MAX_DISTANCE) {
             intensity = 0.0f;
         } else {
-            f0 = D_80332028[gCurrLevelNum] / div;
+            f0 = shz_divf((f32)D_80332028[gCurrLevelNum] , (f32) div);
             if (f0 < gSoundBanks[bankIndex][item].distance) {
                 intensity = ((AUDIO_MAX_DISTANCE - gSoundBanks[bankIndex][item].distance)
                              / (AUDIO_MAX_DISTANCE - f0))
                             * (1.0f - arg2);
             } else {
-                intensity = 1.0f - gSoundBanks[bankIndex][item].distance / f0 * arg2;
+                intensity = 1.0f - shz_divf(gSoundBanks[bankIndex][item].distance , f0) * arg2;
             }
         }
 #endif
@@ -1208,7 +1211,7 @@ f32 get_sound_dynamics(u8 bankIndex, u8 item, f32 arg2) {
             if (intensity >= 0.08f)
 #endif
             {
-                intensity -= (f32)(gAudioRandom & 0xf) / US_FLOAT(192.0);
+                intensity -= (f32)(gAudioRandom & 0xf)*0.00520833f;// / US_FLOAT(192.0);
             }
         }
     } else {
@@ -1224,12 +1227,12 @@ f32 get_sound_freq_scale(u8 bankIndex, u8 item) {
     if (!(gSoundBanks[bankIndex][item].soundBits & SOUND_NO_FREQUENCY_LOSS)) {
         f2 = gSoundBanks[bankIndex][item].distance / AUDIO_MAX_DISTANCE;
         if (gSoundBanks[bankIndex][item].soundBits & SOUND_VIBRATO) {
-            f2 += (f32)(gAudioRandom & 0xff) / US_FLOAT(64.0);
+            f2 += (f32)(gAudioRandom & 0xff) * 0.015625f; /// US_FLOAT(64.0);
         }
     } else {
         f2 = 0.0f;
     }
-    return f2 / US_FLOAT(15.0) + US_FLOAT(1.0);
+    return f2*0.06666667f/*  / US_FLOAT(15.0) */ + US_FLOAT(1.0);
 }
 #ifdef VERSION_JP
 #define VAL 48.0
@@ -1240,7 +1243,7 @@ u8 get_sound_reverb(UNUSED u8 bankIndex, UNUSED u8 item, u8 channelIndex) {
     u8 area;
     u8 level;
     u8 reverb;
-
+#if 0
 #ifndef VERSION_JP
     if (gSoundBanks[bankIndex][item].soundBits & SOUND_NO_ECHO) {
         level = 0;
@@ -1262,7 +1265,10 @@ u8 get_sound_reverb(UNUSED u8 bankIndex, UNUSED u8 item, u8 channelIndex) {
     if (reverb > 0x7f) {
         reverb = 0x7f;
     }
+
     return reverb;
+#endif
+    return 0;
 }
 
 #undef VAL
@@ -1340,7 +1346,7 @@ void update_game_sound(void) {
 #else
                                     ret = get_sound_dynamics(bankIndex, index, ARG2_VAL1);
                                     gSequencePlayers[SEQ_PLAYER_SFX].channels[channelIndex]->volume =
-                                        (D_80363808[bankIndex] + 8.0f) / 16 * ret;
+                                        ((D_80363808[bankIndex] + 8.0f)*0.0625f) /* / 16 */ * ret;
 #endif
                                 }
 #ifdef VERSION_EU
@@ -1361,7 +1367,7 @@ void update_game_sound(void) {
 #else
                                     ret = get_sound_freq_scale(bankIndex, index);
                                     gSequencePlayers[SEQ_PLAYER_SFX].channels[channelIndex]->freqScale =
-                                        ((f32) D_80363808[bankIndex] / US_FLOAT(80.0)) + ret;
+                                        ((f32) D_80363808[bankIndex]*0.0125f /* / US_FLOAT(80.0) */) + ret;
 #endif
                                 } else {
 #ifdef VERSION_EU
@@ -1371,7 +1377,7 @@ void update_game_sound(void) {
 #else
                                     ret = get_sound_freq_scale(bankIndex, index);
                                     gSequencePlayers[SEQ_PLAYER_SFX].channels[channelIndex]->freqScale =
-                                        ((f32) D_80363808[bankIndex] / US_FLOAT(400.0)) + ret;
+                                        ((f32) D_80363808[bankIndex] *0.0025f/* / US_FLOAT(400.0) */) + ret;
 #endif
                                 }
 #ifdef VERSION_EU
@@ -1497,7 +1503,7 @@ void update_game_sound(void) {
 #else
                                     ret = get_sound_dynamics(bankIndex, index, ARG2_VAL1);
                                     gSequencePlayers[SEQ_PLAYER_SFX].channels[channelIndex]->volume =
-                                        (D_80363808[bankIndex] + 8.0f) / 16 * ret;
+                                        (D_80363808[bankIndex] + 8.0f)*0.0625f /* / 16  */* ret;
 #endif
                                 }
 #ifdef VERSION_EU
@@ -1518,7 +1524,7 @@ void update_game_sound(void) {
 #else
                                     ret = get_sound_freq_scale(bankIndex, index);
                                     gSequencePlayers[SEQ_PLAYER_SFX].channels[channelIndex]->freqScale =
-                                        ((f32) D_80363808[bankIndex] / US_FLOAT(80.0)) + ret;
+                                        ((f32) D_80363808[bankIndex] *0.0125f/* / US_FLOAT(80.0) */) + ret;
 #endif
                                 } else {
 #ifdef VERSION_EU
@@ -1528,7 +1534,7 @@ void update_game_sound(void) {
 #else
                                     ret = get_sound_freq_scale(bankIndex, index);
                                     gSequencePlayers[SEQ_PLAYER_SFX].channels[channelIndex]->freqScale =
-                                        ((f32) D_80363808[bankIndex] / US_FLOAT(400.0)) + ret;
+                                        ((f32) D_80363808[bankIndex]*0.0025f/*  / US_FLOAT(400.0) */) + ret;
 #endif
                                 }
 #ifdef VERSION_EU
@@ -1650,7 +1656,7 @@ void play_sequence(u8 player, u8 seqId, u16 fadeTimer) {
         temp_ret = func_803200E4(0);
         if (temp_ret != 0xff) {
             gSequencePlayers[SEQ_PLAYER_LEVEL].state = SEQUENCE_PLAYER_STATE_4;
-            gSequencePlayers[SEQ_PLAYER_LEVEL].fadeVolume = (f32) temp_ret / US_FLOAT(127.0);
+            gSequencePlayers[SEQ_PLAYER_LEVEL].fadeVolume = (f32) temp_ret*0.00787402f;// / US_FLOAT(127.0);
         }
     } else {
         func_8031D690(player, fadeTimer);
@@ -1685,9 +1691,9 @@ void fade_channel_volume_scale(u8 player, u8 channelId, u8 targetScale, u16 fade
     if (gSequencePlayers[player].channels[channelId] != &gSequenceChannelNone) {
         temp = &D_80360928[player][channelId];
         temp->remDuration = fadeTimer;
-        temp->velocity = ((f32)(targetScale / US_FLOAT(127.0))
+        temp->velocity = shz_divf(((f32)(targetScale*0.00787402f /* / US_FLOAT(127.0) */)
                           - gSequencePlayers[player].channels[channelId]->volumeScale)
-                         / fadeTimer;
+                         , (f32)fadeTimer);
         temp->target = targetScale;
         temp->current = gSequencePlayers[player].channels[channelId]->volumeScale;
     }
@@ -1713,7 +1719,7 @@ void func_8031F96C(u8 player) {
                         FLOAT_CAST(D_80360928[player][i].target) / 127.0);
 #else
                 gSequencePlayers[player].channels[i]->volumeScale =
-                    D_80360928[player][i].target / 127.0f;
+                    D_80360928[player][i].target*0.00787402f;// / 127.0f;
 #endif
             }
         }
@@ -1872,10 +1878,10 @@ void unused_8031FED0(u8 player, u32 bits, s8 arg2) {
             if ((bits & 3) == 0) {
                 gSequencePlayers[player].channels[i]->volumeScale = 1.0f;
             } else if ((bits & 1) != 0) {
-                gSequencePlayers[player].channels[i]->volumeScale = (f32) arg2 / US_FLOAT(127.0);
+                gSequencePlayers[player].channels[i]->volumeScale = (f32) arg2 *0.00787402f;/// US_FLOAT(127.0);
             } else {
                 gSequencePlayers[player].channels[i]->volumeScale =
-                    US_FLOAT(1.0) - (f32) arg2 / US_FLOAT(127.0);
+                    US_FLOAT(1.0) - (f32) arg2*0.00787402f;// / US_FLOAT(127.0);
             }
         }
         bits >>= 2;

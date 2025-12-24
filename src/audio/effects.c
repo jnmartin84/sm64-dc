@@ -204,6 +204,8 @@ s8 get_vibrato_pitch_change(struct VibratoState *vib) {
 }
 #endif
 
+#include "sh4zam.h"
+
 f32 get_vibrato_freq_scale(struct VibratoState *vib) {
     s32 pitchChange;
     f32 extent;
@@ -218,8 +220,11 @@ f32 get_vibrato_freq_scale(struct VibratoState *vib) {
         if (vib->extentChangeTimer == 1) {
             vib->extent = (s32) vib->seqChannel->vibratoExtentTarget;
         } else {
-            vib->extent +=
-                ((s32) vib->seqChannel->vibratoExtentTarget - vib->extent) / (s32) vib->extentChangeTimer;
+            vib->extent += (u16)(
+            shz_divf(((f32)    ((s32) vib->seqChannel->vibratoExtentTarget - vib->extent)), 
+            (f32)((s32) vib->extentChangeTimer)
+            ));
+//            ((s32) vib->seqChannel->vibratoExtentTarget - vib->extent) / (s32) vib->extentChangeTimer;
         }
 
         vib->extentChangeTimer--;
@@ -233,7 +238,8 @@ f32 get_vibrato_freq_scale(struct VibratoState *vib) {
         if (vib->rateChangeTimer == 1) {
             vib->rate = (s32) vib->seqChannel->vibratoRateTarget;
         } else {
-            vib->rate += ((s32) vib->seqChannel->vibratoRateTarget - vib->rate) / (s32) vib->rateChangeTimer;
+            vib->rate += (u16)shz_divf((f32)((s32) vib->seqChannel->vibratoRateTarget - vib->rate), (f32)((s32) vib->rateChangeTimer));
+            // ((s32) vib->seqChannel->vibratoRateTarget - vib->rate) / (s32) vib->rateChangeTimer;
         }
 
         vib->rateChangeTimer--;
@@ -248,7 +254,7 @@ f32 get_vibrato_freq_scale(struct VibratoState *vib) {
     }
 
     pitchChange = get_vibrato_pitch_change(vib);
-    extent = (f32) vib->extent / US_FLOAT(4096.0);
+    extent = (f32) vib->extent*0.00024414f;// / US_FLOAT(4096.0);
 
 #ifdef VERSION_EU
     result = US_FLOAT(1.0) + extent * (gPitchBendFrequencyScale[pitchChange + 128] - US_FLOAT(1.0));
@@ -418,7 +424,8 @@ s32 adsr_update(struct AdsrState *adsr) {
                     adsr->velocity = (adsr->target - adsr->current) / adsr->delay;
 #else
                     adsr->target = BSWAP16(adsr->envelope[adsr->envIndex].arg);
-                    adsr->velocity = ((adsr->target - adsr->current) << 0x10) / adsr->delay;
+                    adsr->velocity = (s32)shz_divf(
+                    (f32) ((adsr->target - adsr->current) << 0x10), (f32)adsr->delay); //  / adsr->delay;
 #endif
                     adsr->state = ADSR_STATE_FADE;
                     adsr->envIndex++;
@@ -457,7 +464,7 @@ s32 adsr_update(struct AdsrState *adsr) {
 #ifdef VERSION_EU
                     adsr->delay = 128;
 #else
-                    adsr->delay = adsr->sustain / 16;
+                    adsr->delay = (adsr->sustain>>4);// / 16;
 #endif
                     adsr->state = ADSR_STATE_SUSTAIN;
                 }

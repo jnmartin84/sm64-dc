@@ -124,7 +124,7 @@ struct Instrument **instOut = _instOut;\
     #define SEMITONE            cmdSemitone
     #define USED_SEMITONE       usedSemitone
 #endif
-
+#include "sh4zam.h"
 void seq_channel_layer_process_script(struct SequenceChannelLayer *layer) {
     struct SequencePlayer *seqPlayer; // sp5C, t4
     struct SequenceChannel *seqChannel; // sp58, t5
@@ -254,7 +254,7 @@ void seq_channel_layer_process_script(struct SequenceChannelLayer *layer) {
                 if (cmd == 0xc1) {
                     layer->velocitySquare = (f32)(temp_a0_5 * temp_a0_5);
                 } else {
-                    layer->pan = (f32) temp_a0_5 / US_FLOAT(128.0);
+                    layer->pan = (f32) temp_a0_5*0.0078125f;// /* / US_FLOAT(128.0) */;
                 }
                 break;
 
@@ -384,7 +384,7 @@ l1090:
         }
 
         layer->delay = sp3A;
-        layer->duration = layer->noteDuration * sp3A / 256;
+        layer->duration = layer->noteDuration * sp3A * 0.00390625f;// / 256;
         if ((seqPlayer->muted && (seqChannel->muteBehavior & MUTE_BEHAVIOR_STOP_NOTES) != 0)
             || seqChannel->stopSomething2
             || !seqChannel->hasInstrument
@@ -411,7 +411,7 @@ l1090:
                 } else {
                     layer->adsr.envelope = drum->envelope;
                     layer->adsr.releaseRate = drum->releaseRate;
-                    layer->pan = FLOAT_CAST(drum->pan) / US_FLOAT(128.0);
+                    layer->pan = FLOAT_CAST(drum->pan) *0.0078125f;// / US_FLOAT(128.0);
                     layer->sound = &drum->sound;
                     layer->freqScale = layer->sound->tuning;
                 }
@@ -474,11 +474,11 @@ l1090:
 l13cc:
                         portamento->extent = sp24 / freqScale - US_FLOAT(1.0);
                         if (PORTAMENTO_IS_SPECIAL((*(layer)).portamento)) {
-                            portamento->speed = US_FLOAT(32512.0) * FLOAT_CAST((*(seqPlayer)).tempo)
-                                                / ((f32)(*(layer)).delay * (f32) gTempoInternalToExternal
-                                                   * FLOAT_CAST((*(layer)).portamentoTime));
+                            portamento->speed = shz_divf( US_FLOAT(32512.0) * FLOAT_CAST((*(seqPlayer)).tempo)
+                                                , ((f32)(*(layer)).delay * (f32) gTempoInternalToExternal
+                                                   * FLOAT_CAST((*(layer)).portamentoTime)));
                         } else {
-                            portamento->speed = US_FLOAT(127.0) / FLOAT_CAST((*(layer)).portamentoTime);
+                            portamento->speed = shz_divf(US_FLOAT(127.0) , FLOAT_CAST((*(layer)).portamentoTime));
                         }
                         portamento->cur = 0.0f;
                         layer->freqScale = freqScale;

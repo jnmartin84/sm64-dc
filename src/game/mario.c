@@ -34,6 +34,38 @@
 #include "sound_init.h"
 #include "thread6.h"
 
+#include "sh4zam.h"
+
+
+static inline void sincoss(s16 arg0, f32* s, f32* c) {
+    register float __s __asm__("fr2");
+    register float __c __asm__("fr3");
+
+    asm("lds    %2,fpul\n\t"
+        "fsca    fpul,dr2\n\t"
+        : "=f"(__s), "=f"(__c)
+        : "r"(arg0)
+        : "fpul");
+
+    *s = __s;
+    *c = __c;
+}
+
+static inline void scaled_sincoss(s16 arg0, f32* s, f32* c, f32 scale) {
+    register float __s __asm__("fr2");
+    register float __c __asm__("fr3");
+
+    asm("lds    %2,fpul\n\t"
+        "fsca    fpul,dr2\n\t"
+        : "=f"(__s), "=f"(__c)
+        : "r"(arg0)
+        : "fpul");
+
+    *s = __s * scale;
+    *c = __c * scale;
+}
+
+
 u32 unused80339F10;
 s8 filler80339F1C[20];
 
@@ -189,12 +221,13 @@ s16 find_mario_anim_flags_and_translation(struct Object *obj, s32 yaw, Vec3s tra
     u16 *animIndex = segmented_to_virtual((void *) curAnim->index);
     s16 *animValues = segmented_to_virtual((void *) curAnim->values);
 
-    f32 s = (f32) sins(yaw);
-    f32 c = (f32) coss(yaw);
+    f32 s;// = (f32) sins(yaw);
+    f32 c;// = (f32) coss(yaw);
+    sincoss(yaw, &s, &c);
 
-    dx = *(animValues + (retrieve_animation_index(animFrame, &animIndex))) / 4.0f;
-    translation[1] = *(animValues + (retrieve_animation_index(animFrame, &animIndex))) / 4.0f;
-    dz = *(animValues + (retrieve_animation_index(animFrame, &animIndex))) / 4.0f;
+    dx = *(animValues + (retrieve_animation_index(animFrame, &animIndex)))*0.25f;// / 4.0f;
+    translation[1] = *(animValues + (retrieve_animation_index(animFrame, &animIndex)))*0.25f;// / 4.0f;
+    dz = *(animValues + (retrieve_animation_index(animFrame, &animIndex)))*0.25f;// / 4.0f;
 
     translation[0] = (dx * c) + (dz * s);
     translation[2] = (-dx * s) + (dz * c);
@@ -375,10 +408,12 @@ void play_mario_sound(struct MarioState *m, s32 actionSound, s32 marioSound) {
  * Sets Mario's other velocities from his forward speed.
  */
 void mario_set_forward_vel(struct MarioState *m, f32 forwardVel) {
+    scaled_sincoss(m->faceAngle[1], &m->slideVelX, &m->slideVelZ, forwardVel);
+
     m->forwardVel = forwardVel;
 
-    m->slideVelX = sins(m->faceAngle[1]) * m->forwardVel;
-    m->slideVelZ = coss(m->faceAngle[1]) * m->forwardVel;
+//    m->slideVelX = sins(m->faceAngle[1]) * m->forwardVel;
+//    m->slideVelZ = coss(m->faceAngle[1]) * m->forwardVel;
 
     m->vel[0] = (f32) m->slideVelX;
     m->vel[2] = (f32) m->slideVelZ;
@@ -676,11 +711,14 @@ s32 mario_floor_is_steep(struct MarioState *m) {
  * Finds the floor height relative from Mario given polar displacement.
  */
 f32 find_floor_height_relative_polar(struct MarioState *m, s16 angleFromMario, f32 distFromMario) {
+    f32 y,x;
+
     struct Surface *floor;
     f32 floorY;
-
-    f32 y = sins(m->faceAngle[1] + angleFromMario) * distFromMario;
-    f32 x = coss(m->faceAngle[1] + angleFromMario) * distFromMario;
+//
+  //  f32 y = sins(m->faceAngle[1] + angleFromMario) * distFromMario;
+    //f32 x = coss(m->faceAngle[1] + angleFromMario) * distFromMario;
+    scaled_sincoss(m->faceAngle[1] + angleFromMario, &y, &x, distFromMario);
 
     floorY = find_floor(m->pos[0] + y, m->pos[1] + 100.0f, m->pos[2] + x, &floor);
 
@@ -691,13 +729,15 @@ f32 find_floor_height_relative_polar(struct MarioState *m, s16 angleFromMario, f
  * Returns the slope of the floor based off points around Mario.
  */
 s16 find_floor_slope(struct MarioState *m, s16 yawOffset) {
+    f32 x,z;
     struct Surface *floor;
     f32 forwardFloorY, backwardFloorY;
     f32 forwardYDelta, backwardYDelta;
     s16 result;
 
-    f32 x = sins(m->faceAngle[1] + yawOffset) * 5.0f;
-    f32 z = coss(m->faceAngle[1] + yawOffset) * 5.0f;
+//    f32 x = sins(m->faceAngle[1] + yawOffset) * 5.0f;
+  //  f32 z = coss(m->faceAngle[1] + yawOffset) * 5.0f;
+    scaled_sincoss(m->faceAngle[1] + yawOffset, &x, &z, 5.0f);
 
     forwardFloorY = find_floor(m->pos[0] + x, m->pos[1] + 100.0f, m->pos[2] + z, &floor);
     backwardFloorY = find_floor(m->pos[0] - x, m->pos[1] + 100.0f, m->pos[2] - z, &floor);
@@ -743,6 +783,7 @@ void update_mario_sound_and_camera(struct MarioState *m) {
  * Transitions Mario to a steep jump action.
  */
 void set_steep_jump_action(struct MarioState *m) {
+    f32 y,x;
     m->marioObj->oMarioSteepJumpYaw = m->faceAngle[1];
 
     if (m->forwardVel > 0.0f) {
@@ -751,8 +792,10 @@ void set_steep_jump_action(struct MarioState *m) {
         s16 angleTemp = m->floorAngle + 0x8000;
         s16 faceAngleTemp = m->faceAngle[1] - angleTemp;
 
-        f32 y = sins(faceAngleTemp) * m->forwardVel;
-        f32 x = coss(faceAngleTemp) * m->forwardVel * 0.75f;
+//        f32 y = sins(faceAngleTemp) * m->forwardVel;
+ //       f32 x = coss(faceAngleTemp) * m->forwardVel * 0.75f;
+        scaled_sincoss(faceAngleTemp, &y, &x, m->forwardVel);
+        x *= 0.75f;
 
         m->forwardVel = shz_sqrtf_fsrra(y * y + x * x);
         m->faceAngle[1] = atan2s(x, y) + angleTemp;
@@ -915,8 +958,8 @@ static u32 set_mario_action_moving(struct MarioState *m, u32 action, UNUSED u32 
             break;
 
         case ACT_HOLD_WALKING:
-            if (0.0f <= forwardVel && forwardVel < mag / 2.0f) {
-                m->forwardVel = mag / 2.0f;
+            if (0.0f <= forwardVel && forwardVel < mag*0.5f/*  / 2.0f */) {
+                m->forwardVel = mag*0.5f; /* / 2.0f */;
             }
             break;
 
@@ -1177,8 +1220,8 @@ s32 transition_submerged_to_walking(struct MarioState *m) {
  * non-submerged action. This also applies the water surface camera preset.
  */
 s32 set_water_plunge_action(struct MarioState *m) {
-    m->forwardVel = m->forwardVel / 4.0f;
-    m->vel[1] = m->vel[1] / 2.0f;
+    m->forwardVel = m->forwardVel*0.25f;// / 4.0f;
+    m->vel[1] = m->vel[1]*0.5f;// / 2.0f;
 
     m->pos[1] = m->waterLevel - 100;
 
@@ -1218,9 +1261,9 @@ void squish_mario_model(struct MarioState *m) {
             m->squishTimer -= 1;
 
             m->marioObj->header.gfx.scale[1] =
-                1.0f - ((sSquishScaleOverTime[15 - m->squishTimer] * 0.6f) / 100.0f);
+                1.0f - ((sSquishScaleOverTime[15 - m->squishTimer] * 0.006f));//  0.6f) / 100.0f);
             m->marioObj->header.gfx.scale[0] =
-                ((sSquishScaleOverTime[15 - m->squishTimer] * 0.4f) / 100.0f) + 1.0f;
+                ((sSquishScaleOverTime[15 - m->squishTimer] * 0.004f)/* 0.4f) / 100.0f */) + 1.0f;
 
             m->marioObj->header.gfx.scale[2] = m->marioObj->header.gfx.scale[0];
         } else {
@@ -1295,14 +1338,15 @@ void update_mario_button_inputs(struct MarioState *m) {
 /**
  * Updates the joystick intended magnitude.
  */
+#define recip64 0.015625f
 void update_mario_joystick_inputs(struct MarioState *m) {
     struct Controller *controller = m->controller;
-    f32 mag = ((controller->stickMag / 64.0f) * (controller->stickMag / 64.0f)) * 64.0f;
+    f32 mag = ((controller->stickMag * recip64) * (controller->stickMag * recip64)) * 64.0f;
 
     if (m->squishTimer == 0) {
-        m->intendedMag = mag / 2.0f;
+        m->intendedMag = mag *0.5f;// / 2.0f;
     } else {
-        m->intendedMag = mag / 8.0f;
+        m->intendedMag = mag *0.125f;// / 8.0f;
     }
 
     if (m->intendedMag > 0.0f) {

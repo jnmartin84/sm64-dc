@@ -204,7 +204,7 @@ void note_disable2(struct Note *note) {
     note_disable(note);
 }
 #endif // VERSION_EU
-
+#include "sh4zam.h"
 void process_notes(void) {
     f32 scale;
     f32 frequency;
@@ -249,11 +249,11 @@ void process_notes(void) {
 #ifdef VERSION_EU
         playbackState = (struct NotePlaybackState *) &note->priority;
         if (note->parentLayer != NO_LAYER) {
-#ifndef NO_SEGMENTED_MEMORY
-            if ((uintptr_t) playbackState->parentLayer < 0x7fffffffU) {
-                continue;
-            }
-#endif
+//#ifndef NO_SEGMENTED_MEMORY
+//            if ((uintptr_t) playbackState->parentLayer < 0x7fffffffU) {
+//                continue;
+//            }
+//#endif
             if (!playbackState->parentLayer->enabled && playbackState->priority >= NOTE_PRIORITY_MIN) {
                 goto c;
             } else if (playbackState->parentLayer->seqChannel->seqPlayer == NULL) {
@@ -397,7 +397,7 @@ void process_notes(void) {
             frequency *= note->vibratoFreqScale * note->portamentoFreqScale;
             cap = 3.99992f;
             if (gAiFrequency != 32006) {
-                frequency *= US_FLOAT(32000.0) / (f32) gAiFrequency;
+                frequency *= shz_divf( US_FLOAT(32000.0) , (f32) gAiFrequency);
             }
             frequency = (frequency < cap ? frequency : cap);
             scale *= 4.3498e-5f; // ~1 / 23000
@@ -458,7 +458,7 @@ void seq_channel_layer_decay_release_internal(struct SequenceChannelLayer *seqLa
 #ifdef VERSION_EU
             note->adsr.fadeOutVel = gAudioBufferParameters.updatesPerFrameInv;
 #else
-            note->adsr.fadeOutVel = 0x8000 / gAudioUpdatesPerFrame;
+            note->adsr.fadeOutVel =(s16)shz_divf((f32)32768.0f /* 0x8000 / */, (f32)gAudioUpdatesPerFrame);
 #endif
             note->adsr.action |= ADSR_ACTION_RELEASE;
         } else {
@@ -476,7 +476,7 @@ void seq_channel_layer_decay_release_internal(struct SequenceChannelLayer *seqLa
             } else {
                 note->adsr.fadeOutVel = seqLayer->adsr.releaseRate * 24;
             }
-            note->adsr.sustain = (note->adsr.current * seqLayer->seqChannel->adsr.sustain) / 0x10000;
+            note->adsr.sustain = (note->adsr.current * seqLayer->seqChannel->adsr.sustain)*0.00001526f;// / 0x10000;
 #endif
         }
     }
@@ -603,7 +603,7 @@ void init_synthetic_wave(struct Note *note, struct SequenceChannelLayer *seqLaye
     s32 sampleCount = note->sampleCount;
     build_synthetic_wave(note, seqLayer);
     if (sampleCount != 0) {
-        note->samplePosInt *= note->sampleCount / sampleCount;
+        note->samplePosInt *= (s32)shz_divf((f32)note->sampleCount , (f32)sampleCount);
     } else {
         note->samplePosInt = 0;
     }

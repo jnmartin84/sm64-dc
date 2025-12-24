@@ -38,12 +38,14 @@ static inline void scaled_sincoss(s16 arg0, f32* s, f32* c, f32 scale) {
 Vec4s *gSplineKeyframe;
 float gSplineKeyframeFraction;
 int gSplineState;
+void n64_memcpy(void* dst, const void* src, size_t size);
 
 /// Copy vector 'src' to 'dest'
 void vec3f_copy(Vec3f dest, Vec3f src) {
-    dest[0] = src[0];
-    dest[1] = src[1];
-    dest[2] = src[2];
+    n64_memcpy(dest, src, 12);
+//    dest[0] = src[0];
+  //  dest[1] = src[1];
+    //dest[2] = src[2];
 }
 
 /// Set vector 'dest' to (x, y, z)
@@ -69,9 +71,10 @@ void vec3f_sum(Vec3f dest, Vec3f a, Vec3f b) {
 
 /// Copy vector src to dest
 void vec3s_copy(Vec3s dest, Vec3s src) {
-    dest[0] = src[0];
-    dest[1] = src[1];
-    dest[2] = src[2];
+//    dest[0] = src[0];
+  //  dest[1] = src[1];
+    //dest[2] = src[2];
+    n64_memcpy(dest, src, 6);
 }
 
 /// Set vector 'dest' to (x, y, z)
@@ -190,9 +193,10 @@ void mtxf_identity(Mat4 mtx) {
  */
 void mtxf_translate(Mat4 dest, Vec3f b) {
     mtxf_identity(dest);
-    dest[3][0] = b[0];
-    dest[3][1] = b[1];
-    dest[3][2] = b[2];
+    n64_memcpy(dest[3], b, 12);
+//    dest[3][0] = b[0];
+  //  dest[3][1] = b[1];
+    //dest[3][2] = b[2];
 }
 
 f32 sins(u16 arg0) {
@@ -790,7 +794,7 @@ static inline float bump_atan2f(const float y, const float x)
  * the resulting angle is in range [0, 0x2000] (1/8 of a circle).
  */
 static u16 atan2_lookup(f32 y, f32 x) {
-#if 1
+#if 0
     u16 ret;
 
     if (x == 0.f) {

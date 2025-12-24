@@ -15,6 +15,21 @@
 #include "save_file.h"
 #include "thread6.h"
 
+#include "sh4zam.h"
+static inline void scaled_sincoss(s16 arg0, f32* s, f32* c, f32 scale) {
+    register float __s __asm__("fr2");
+    register float __c __asm__("fr3");
+
+    asm("lds    %2,fpul\n\t"
+        "fsca    fpul,dr2\n\t"
+        : "=f"(__s), "=f"(__c)
+        : "r"(arg0)
+        : "fpul");
+
+    *s = __s * scale;
+    *c = __c * scale;
+}
+
 static inline void sincoss(s16 arg0, f32* s, f32* c) {
     register float __s __asm__("fr2");
     register float __c __asm__("fr3");
@@ -156,25 +171,26 @@ s32 check_fall_damage_or_get_stuck(struct MarioState *m, u32 hardFallAction) {
 
     return check_fall_damage(m, hardFallAction);
 }
-#include "sh4zam.h"
+
 s32 check_horizontal_wind(struct MarioState *m) {
     struct Surface *floor;
     f32 speed;
     s16 pushAngle;
-
+    f32 ps,pc;
     floor = m->floor;
 
     if (floor->type == SURFACE_HORIZONTAL_WIND) {
         pushAngle = floor->force << 8;
+        scaled_sincoss(pushAngle, &ps, &pc, 1.2f);
 
-        m->slideVelX += 1.2f * sins(pushAngle);
-        m->slideVelZ += 1.2f * coss(pushAngle);
 
+        m->slideVelX += ps;//1.2f * sins(pushAngle);
+        m->slideVelZ += pc;//1.2f * coss(pushAngle);
         speed = shz_sqrtf_fsrra(m->slideVelX * m->slideVelX + m->slideVelZ * m->slideVelZ);
-
+        f32 invspeed = 48.0f * shz_fast_invf(speed);
         if (speed > 48.0f) {
-            m->slideVelX = m->slideVelX * 48.0f / speed;
-            m->slideVelZ = m->slideVelZ * 48.0f / speed;
+            m->slideVelX = m->slideVelX * invspeed;//48.0f / speed;
+            m->slideVelZ = m->slideVelZ * invspeed;//48.0f / speed;
             speed = 32.0f; //! This was meant to be 48?
         } else if (speed > 32.0f) {
             speed = 32.0f;
@@ -198,17 +214,19 @@ void update_air_with_turn(struct MarioState *m) {
     f32 dragThreshold;
     s16 intendedDYaw;
     f32 intendedMag;
-
+    f32 ys,yc;
+//    f32 fs,fc;
     if (!check_horizontal_wind(m)) {
         dragThreshold = m->action == ACT_LONG_JUMP ? 48.0f : 32.0f;
         m->forwardVel = approach_f32(m->forwardVel, 0.0f, 0.35f, 0.35f);
+        intendedMag = m->intendedMag * 0.03125f;// / 32.0f;
+        scaled_sincoss(intendedDYaw, &ys, &yc, intendedMag);
 
         if (m->input & INPUT_NONZERO_ANALOG) {
             intendedDYaw = m->intendedYaw - m->faceAngle[1];
-            intendedMag = m->intendedMag / 32.0f;
 
-            m->forwardVel += 1.5f * coss(intendedDYaw) * intendedMag;
-            m->faceAngle[1] += 512.0f * sins(intendedDYaw) * intendedMag;
+            m->forwardVel += 1.5f * yc;//coss(intendedDYaw) * intendedMag;
+            m->faceAngle[1] += 512.0f * ys;//sins(intendedDYaw) * intendedMag;
         }
 
         //! Uncapped air speed. Net positive when moving forward.
@@ -218,9 +236,10 @@ void update_air_with_turn(struct MarioState *m) {
         if (m->forwardVel < -16.0f) {
             m->forwardVel += 2.0f;
         }
+        scaled_sincoss(m->faceAngle[1], &m->slideVelX, &m->slideVelZ, m->forwardVel);
 
-        m->vel[0] = m->slideVelX = m->forwardVel * sins(m->faceAngle[1]);
-        m->vel[2] = m->slideVelZ = m->forwardVel * coss(m->faceAngle[1]);
+        m->vel[0] = m->slideVelX;// = fs;//m->forwardVel * sins(m->faceAngle[1]);
+        m->vel[2] = m->slideVelZ;// = fc;//m->forwardVel * coss(m->faceAngle[1]);
     }
 }
 
@@ -229,17 +248,20 @@ void update_air_without_turn(struct MarioState *m) {
     f32 dragThreshold;
     s16 intendedDYaw;
     f32 intendedMag;
+    f32 ys,yc;
+    f32 fs,fc;
 
     if (!check_horizontal_wind(m)) {
         dragThreshold = m->action == ACT_LONG_JUMP ? 48.0f : 32.0f;
         m->forwardVel = approach_f32(m->forwardVel, 0.0f, 0.35f, 0.35f);
+            intendedMag = m->intendedMag * 0.03125f; // / 32.0f;
+        scaled_sincoss(intendedDYaw, &ys, &yc, intendedMag);
 
         if (m->input & INPUT_NONZERO_ANALOG) {
             intendedDYaw = m->intendedYaw - m->faceAngle[1];
-            intendedMag = m->intendedMag / 32.0f;
 
-            m->forwardVel += intendedMag * coss(intendedDYaw) * 1.5f;
-            sidewaysSpeed = intendedMag * sins(intendedDYaw) * 10.0f;
+            m->forwardVel += 1.5f * yc;//intendedMag * coss(intendedDYaw) * 1.5f;
+            sidewaysSpeed = 10.0f * ys;//intendedMag * sins(intendedDYaw) * 10.0f;
         }
 
         //! Uncapped air speed. Net positive when moving forward.
@@ -249,12 +271,15 @@ void update_air_without_turn(struct MarioState *m) {
         if (m->forwardVel < -16.0f) {
             m->forwardVel += 2.0f;
         }
+        scaled_sincoss(m->faceAngle[1], &m->slideVelX, &m->slideVelZ, m->forwardVel);
 
-        m->slideVelX = m->forwardVel * sins(m->faceAngle[1]);
-        m->slideVelZ = m->forwardVel * coss(m->faceAngle[1]);
+//        m->slideVelX = fs;//m->forwardVel * sins(m->faceAngle[1]);
+  //      m->slideVelZ = fc;//m->forwardVel * coss(m->faceAngle[1]);
 
-        m->slideVelX += sidewaysSpeed * sins(m->faceAngle[1] + 0x4000);
-        m->slideVelZ += sidewaysSpeed * coss(m->faceAngle[1] + 0x4000);
+        scaled_sincoss(m->faceAngle[1] + 0x4000, &fs, &fc, sidewaysSpeed);
+
+        m->slideVelX += fs;//sidewaysSpeed * sins(m->faceAngle[1] + 0x4000);
+        m->slideVelZ += fc;//sidewaysSpeed * coss(m->faceAngle[1] + 0x4000);
 
         m->vel[0] = m->slideVelX;
         m->vel[2] = m->slideVelZ;
@@ -264,13 +289,16 @@ void update_air_without_turn(struct MarioState *m) {
 void update_lava_boost_or_twirling(struct MarioState *m) {
     s16 intendedDYaw;
     f32 intendedMag;
+    f32 ys,yc;
+
+    intendedMag = m->intendedMag * 0.03125f; // / 32.0f;
+    scaled_sincoss(intendedDYaw, &ys, &yc, intendedMag);
 
     if (m->input & INPUT_NONZERO_ANALOG) {
         intendedDYaw = m->intendedYaw - m->faceAngle[1];
-        intendedMag = m->intendedMag / 32.0f;
 
-        m->forwardVel += coss(intendedDYaw) * intendedMag;
-        m->faceAngle[1] += sins(intendedDYaw) * intendedMag * 1024.0f;
+        m->forwardVel += yc;//coss(intendedDYaw) * intendedMag;
+        m->faceAngle[1] += 1024.0f * ys;//sins(intendedDYaw) * intendedMag * 1024.0f;
 
         if (m->forwardVel < 0.0f) {
             m->faceAngle[1] += 0x8000;
@@ -282,8 +310,10 @@ void update_lava_boost_or_twirling(struct MarioState *m) {
         }
     }
 
-    m->vel[0] = m->slideVelX = m->forwardVel * sins(m->faceAngle[1]);
-    m->vel[2] = m->slideVelZ = m->forwardVel * coss(m->faceAngle[1]);
+    scaled_sincoss(m->faceAngle[1], &m->slideVelX, &m->slideVelZ, m->forwardVel);
+
+    m->vel[0] = m->slideVelX;// = m->forwardVel * sins(m->faceAngle[1]);
+    m->vel[2] = m->slideVelZ;// = m->forwardVel * coss(m->faceAngle[1]);
 }
 
 void update_flying_yaw(struct MarioState *m) {
