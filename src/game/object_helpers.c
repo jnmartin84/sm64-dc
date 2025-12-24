@@ -27,6 +27,39 @@
 #include "spawn_object.h"
 #include "spawn_sound.h"
 
+#include "sh4zam.h"
+
+
+
+static inline void sincoss(s16 arg0, f32* s, f32* c) {
+    register float __s __asm__("fr2");
+    register float __c __asm__("fr3");
+
+    asm("lds    %2,fpul\n\t"
+        "fsca    fpul,dr2\n\t"
+        : "=f"(__s), "=f"(__c)
+        : "r"(arg0)
+        : "fpul");
+
+    *s = __s;
+    *c = __c;
+}
+
+static inline void scaled_sincoss(s16 arg0, f32* s, f32* c, f32 scale) {
+    register float __s __asm__("fr2");
+    register float __c __asm__("fr3");
+
+    asm("lds    %2,fpul\n\t"
+        "fsca    fpul,dr2\n\t"
+        : "=f"(__s), "=f"(__c)
+        : "r"(arg0)
+        : "fpul");
+
+    *s = __s * scale;
+    *c = __c * scale;
+}
+
+
 s8 D_8032F0A0[] = { 0xF8, 0x08, 0xFC, 0x04 };
 s16 D_8032F0A4[] = { 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80 };
 static s8 sLevelsWithRooms[] = { LEVEL_BBH, LEVEL_CASTLE, LEVEL_HMC, -1 };
@@ -209,9 +242,13 @@ void obj_update_pos_from_parent_transformation(Mat4 a0, struct Object *a1) {
     sp8 = a1->oParentRelativePosY;
     sp4 = a1->oParentRelativePosZ;
 
-    a1->oPosX = spC * a0[0][0] + sp8 * a0[1][0] + sp4 * a0[2][0] + a0[3][0];
-    a1->oPosY = spC * a0[0][1] + sp8 * a0[1][1] + sp4 * a0[2][1] + a0[3][1];
-    a1->oPosZ = spC * a0[0][2] + sp8 * a0[1][2] + sp4 * a0[2][2] + a0[3][2];
+    a1->oPosX = shz_dot8f(spC, sp8, sp4, 1.0f, a0[0][0], a0[1][0], a0[2][0], a0[3][0]);
+    a1->oPosY = shz_dot8f(spC, sp8, sp4, 1.0f, a0[0][1], a0[1][1], a0[2][1], a0[3][1]);
+    a1->oPosZ = shz_dot8f(spC, sp8, sp4, 1.0f, a0[0][2], a0[1][2], a0[2][2], a0[3][2]);
+
+    //    spC * a0[0][0] + sp8 * a0[1][0] + sp4 * a0[2][0] + a0[3][0];
+//    a1->oPosY = spC * a0[0][1] + sp8 * a0[1][1] + sp4 * a0[2][1] + a0[3][1];
+//    a1->oPosZ = spC * a0[0][2] + sp8 * a0[1][2] + sp4 * a0[2][2] + a0[3][2];
 }
 
 void obj_apply_scale_to_matrix(struct Object *obj, Mat4 dst, Mat4 src) {
@@ -238,27 +275,13 @@ void obj_apply_scale_to_matrix(struct Object *obj, Mat4 dst, Mat4 src) {
 
 void create_transformation_from_matrices(Mat4 a0, Mat4 a1, Mat4 a2) {
     f32 spC, sp8, sp4;
-
-    spC = a2[3][0] * a2[0][0] + a2[3][1] * a2[0][1] + a2[3][2] * a2[0][2];
-    sp8 = a2[3][0] * a2[1][0] + a2[3][1] * a2[1][1] + a2[3][2] * a2[1][2];
-    sp4 = a2[3][0] * a2[2][0] + a2[3][1] * a2[2][1] + a2[3][2] * a2[2][2];
-
-    a0[0][0] = a1[0][0] * a2[0][0] + a1[0][1] * a2[0][1] + a1[0][2] * a2[0][2];
-    a0[0][1] = a1[0][0] * a2[1][0] + a1[0][1] * a2[1][1] + a1[0][2] * a2[1][2];
-    a0[0][2] = a1[0][0] * a2[2][0] + a1[0][1] * a2[2][1] + a1[0][2] * a2[2][2];
-
-    a0[1][0] = a1[1][0] * a2[0][0] + a1[1][1] * a2[0][1] + a1[1][2] * a2[0][2];
-    a0[1][1] = a1[1][0] * a2[1][0] + a1[1][1] * a2[1][1] + a1[1][2] * a2[1][2];
-    a0[1][2] = a1[1][0] * a2[2][0] + a1[1][1] * a2[2][1] + a1[1][2] * a2[2][2];
-
-    a0[2][0] = a1[2][0] * a2[0][0] + a1[2][1] * a2[0][1] + a1[2][2] * a2[0][2];
-    a0[2][1] = a1[2][0] * a2[1][0] + a1[2][1] * a2[1][1] + a1[2][2] * a2[1][2];
-    a0[2][2] = a1[2][0] * a2[2][0] + a1[2][1] * a2[2][1] + a1[2][2] * a2[2][2];
-
-    a0[3][0] = a1[3][0] * a2[0][0] + a1[3][1] * a2[0][1] + a1[3][2] * a2[0][2] - spC;
-    a0[3][1] = a1[3][0] * a2[1][0] + a1[3][1] * a2[1][1] + a1[3][2] * a2[1][2] - sp8;
-    a0[3][2] = a1[3][0] * a2[2][0] + a1[3][1] * a2[2][1] + a1[3][2] * a2[2][2] - sp4;
-
+    shz_xmtrx_load_4x4_apply_store(a0, a1, a2);
+    spC = shz_dot6f(a2[3][0], a2[3][1], a2[3][2], a2[0][0], a2[0][1], a2[0][2]);
+    sp8 = shz_dot6f(a2[3][0], a2[3][1], a2[3][2], a2[1][0], a2[1][1], a2[1][2]);
+    sp4 = shz_dot6f(a2[3][0], a2[3][1], a2[3][2], a2[2][0], a2[2][1], a2[2][2]);
+    a0[3][0] -= spC;
+    a0[3][1] -= sp8;
+    a0[3][2] -= sp4;
     a0[0][3] = 0;
     a0[1][3] = 0;
     a0[2][3] = 0;
@@ -285,7 +308,7 @@ void obj_set_held_state(struct Object *obj, const BehaviorScript *heldBehavior) 
         obj->bhvStackIndex = 0;
     }
 }
-#include "sh4zam.h"
+
 f32 lateral_dist_between_objects(struct Object *obj1, struct Object *obj2) {
     f32 dx = obj1->oPosX - obj2->oPosX;
     f32 dz = obj1->oPosZ - obj2->oPosZ;
@@ -655,10 +678,11 @@ void obj_init_animation(struct Object *obj, s32 animIndex) {
  * i.e. a matrix representing a linear transformation over 3 space.
  */
 void linear_mtxf_mul_vec3f(Mat4 m, Vec3f dst, Vec3f v) {
-    s32 i;
-    for (i = 0; i < 3; i++) {
-        dst[i] = m[0][i] * v[0] + m[1][i] * v[1] + m[2][i] * v[2];
-    }
+    shz_xmtrx_load_3x3(m);
+    shz_vec3_t out = shz_xmtrx_trans_vec3(shz_vec3_deref(v));
+    dst[0] = out.x;
+    dst[1] = out.y;
+    dst[2] = out.z;
 }
 
 /**
@@ -670,10 +694,11 @@ void linear_mtxf_mul_vec3f(Mat4 m, Vec3f dst, Vec3f v) {
  * i.e. a matrix representing a linear transformation over 3 space.
  */
 void linear_mtxf_transpose_mul_vec3f(Mat4 m, Vec3f dst, Vec3f v) {
-    s32 i;
-    for (i = 0; i < 3; i++) {
-        dst[i] = m[i][0] * v[0] + m[i][1] * v[1] + m[i][2] * v[2];
-    }
+    shz_xmtrx_load_3x3_transpose(m);
+    shz_vec3_t out = shz_xmtrx_trans_vec3(shz_vec3_deref(v));
+    dst[0] = out.x;
+    dst[1] = out.y;
+    dst[2] = out.z;
 }
 
 void obj_apply_scale_to_transform(struct Object *obj) {
@@ -773,8 +798,10 @@ void cur_obj_hide(void) {
 }
 
 void cur_obj_set_pos_relative(struct Object *other, f32 dleft, f32 dy, f32 dforward) {
-    f32 facingZ = coss(other->oMoveAngleYaw);
-    f32 facingX = sins(other->oMoveAngleYaw);
+    f32 facingZ;// = coss(other->oMoveAngleYaw);
+    f32 facingX;// = sins(other->oMoveAngleYaw);
+
+    sincoss(other->oMoveAngleYaw, &facingX, &facingZ);
 
     f32 dz = dforward * facingZ - dleft * facingX;
     f32 dx = dforward * facingX + dleft * facingZ;
@@ -1416,8 +1443,9 @@ s16 abs_angle_diff(s16 x0, s16 x1) {
 }
 
 void cur_obj_move_xz_using_fvel_and_yaw(void) {
-    o->oVelX = o->oForwardVel * sins(o->oMoveAngleYaw);
-    o->oVelZ = o->oForwardVel * coss(o->oMoveAngleYaw);
+    scaled_sincoss(o->oMoveAngleYaw, &o->oVelX, &o->oVelZ, o->oForwardVel);
+//    o->oVelX = o->oForwardVel * sins(o->oMoveAngleYaw);
+//    o->oVelZ = o->oForwardVel * coss(o->oMoveAngleYaw);
 
     o->oPosX += o->oVelX;
     o->oPosZ += o->oVelZ;
@@ -1432,8 +1460,9 @@ void cur_obj_move_y_with_terminal_vel(void) {
 }
 
 void cur_obj_compute_vel_xz(void) {
-    o->oVelX = o->oForwardVel * sins(o->oMoveAngleYaw);
-    o->oVelZ = o->oForwardVel * coss(o->oMoveAngleYaw);
+//    o->oVelX = o->oForwardVel * sins(o->oMoveAngleYaw);
+//    o->oVelZ = o->oForwardVel * coss(o->oMoveAngleYaw);
+    scaled_sincoss(o->oMoveAngleYaw, &o->oVelX, &o->oVelZ, o->oForwardVel);
 }
 
 f32 increment_velocity_toward_range(f32 value, f32 center, f32 zeroThreshold, f32 increment) {

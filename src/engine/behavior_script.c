@@ -62,7 +62,7 @@ u16 random_u16(void) {
 // Generate a pseudorandom float in the range [0, 1).
 f32 random_float(void) {
     f32 rnd = random_u16();
-    return rnd / (double) 0x10000;
+    return rnd*0.00001526f;// / (double) 0x10000;
 }
 
 // Return either -1 or 1 with a 50:50 chance.
@@ -718,7 +718,7 @@ static s32 bhv_cmd_scale(void) {
     UNUSED u8 unusedField = BHV_CMD_GET_2ND_U8(0);
     s16 percent = BHV_CMD_GET_2ND_S16(0);
 
-    cur_obj_scale(percent / 100.0f);
+    cur_obj_scale(percent*0.01f);// / 100.0f);
 
     gCurBhvCommand++;
     return BHV_PROC_CONTINUE;
@@ -731,14 +731,14 @@ static s32 bhv_cmd_set_obj_physics(void) {
     UNUSED f32 unused1, unused2;
 
     gCurrentObject->oWallHitboxRadius = BHV_CMD_GET_1ST_S16(1);
-    gCurrentObject->oGravity = BHV_CMD_GET_2ND_S16(1) / 100.0f;
-    gCurrentObject->oBounciness = BHV_CMD_GET_1ST_S16(2) / 100.0f;
-    gCurrentObject->oDragStrength = BHV_CMD_GET_2ND_S16(2) / 100.0f;
-    gCurrentObject->oFriction = BHV_CMD_GET_1ST_S16(3) / 100.0f;
-    gCurrentObject->oBuoyancy = BHV_CMD_GET_2ND_S16(3) / 100.0f;
+    gCurrentObject->oGravity = BHV_CMD_GET_2ND_S16(1)*0.01f;// / 100.0f;
+    gCurrentObject->oBounciness = BHV_CMD_GET_1ST_S16(2)*0.01f;// / 100.0f;
+    gCurrentObject->oDragStrength = BHV_CMD_GET_2ND_S16(2)*0.01f;// / 100.0f;
+    gCurrentObject->oFriction = BHV_CMD_GET_1ST_S16(3)*0.01f;// / 100.0f;
+    gCurrentObject->oBuoyancy = BHV_CMD_GET_2ND_S16(3)*0.01f;// / 100.0f;
 
-    unused1 = BHV_CMD_GET_1ST_S16(4) / 100.0f;
-    unused2 = BHV_CMD_GET_2ND_S16(4) / 100.0f;
+    unused1 = BHV_CMD_GET_1ST_S16(4);//*0.01f;// / 100.0f;
+    unused2 = BHV_CMD_GET_2ND_S16(4);//*0.01f;// / 100.0f;
 
     gCurBhvCommand += 5;
     return BHV_PROC_CONTINUE;
