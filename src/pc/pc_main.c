@@ -276,8 +276,8 @@ int WINAPI WinMain(UNUSED HINSTANCE hInstance, UNUSED HINSTANCE hPrevInstance, U
 #else
 #include <kos.h>
 int main(UNUSED int argc, UNUSED char *argv[]) {
-    //mmu_init_basic();
-    //mmu_page_map_static(0, 0x0C000000, PAGE_SIZE_1M, MMU_ALL_RDWR, true);
+    mmu_init_basic();
+    mmu_page_map_static(0, 0x0C000000, PAGE_SIZE_1M, MMU_ALL_RDWR, true);
 
     main_func();
     return 0;

@@ -492,7 +492,8 @@ typedef struct {
 static ring_t __attribute__((aligned(32))) cb_ring[2];
 static ring_t *r[2] = {&cb_ring[0],&cb_ring[1]};
 
-#if !USE_TLB_CB
+#if 0
+// !USE_TLB_CB
 static void *const cb_buf[2] = {cb_buf_internal[0],cb_buf_internal[1]};
 
 static bool cb_init(int N, size_t capacity) {
