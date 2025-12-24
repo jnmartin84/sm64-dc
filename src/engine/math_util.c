@@ -6,6 +6,8 @@
 #include "surface_collision.h"
 
 #include "trig_tables.inc.c"
+
+#include "sh4zam.h"
 static inline void sincoss(s16 arg0, f32* s, f32* c) {
     register float __s __asm__("fr2");
     register float __c __asm__("fr3");
@@ -140,7 +142,7 @@ void vec3f_cross(Vec3f dest, Vec3f a, Vec3f b) {
     dest[1] = a[2] * b[0] - b[2] * a[0];
     dest[2] = a[0] * b[1] - b[0] * a[1];
 }
-#include "sh4zam.h"
+
 /// Scale vector 'dest' so it has length 1
 void vec3f_normalize(Vec3f dest) {
     //! Possible division by zero
@@ -520,48 +522,22 @@ void mtxf_align_terrain_triangle(Mat4 mtx, Vec3f pos, s16 yaw, f32 radius) {
  * The resulting matrix represents first applying transformation b and
  * then a.
  */
+#define MEM_BARRIER() asm volatile("" : : : "memory");
+
 void mtxf_mul(Mat4 dest, Mat4 a, Mat4 b) {
-    Mat4 temp;
-    register f32 entry0;
-    register f32 entry1;
-    register f32 entry2;
+#if 1
+    shz_xmtrx_load_4x4_unaligned(b);
+    shz_xmtrx_apply_4x4_unaligned(a);
+    shz_xmtrx_store_4x4_unaligned(dest);
+#endif
+//    shz_xmtrx_load_4x4_apply_store(dest, b, a);
 
-    // column 0
-    entry0 = a[0][0];
-    entry1 = a[0][1];
-    entry2 = a[0][2];
-    temp[0][0] = entry0 * b[0][0] + entry1 * b[1][0] + entry2 * b[2][0];
-    temp[0][1] = entry0 * b[0][1] + entry1 * b[1][1] + entry2 * b[2][1];
-    temp[0][2] = entry0 * b[0][2] + entry1 * b[1][2] + entry2 * b[2][2];
+//    MEM_BARRIER();
 
-    // column 1
-    entry0 = a[1][0];
-    entry1 = a[1][1];
-    entry2 = a[1][2];
-    temp[1][0] = entry0 * b[0][0] + entry1 * b[1][0] + entry2 * b[2][0];
-    temp[1][1] = entry0 * b[0][1] + entry1 * b[1][1] + entry2 * b[2][1];
-    temp[1][2] = entry0 * b[0][2] + entry1 * b[1][2] + entry2 * b[2][2];
-
-    // column 2
-    entry0 = a[2][0];
-    entry1 = a[2][1];
-    entry2 = a[2][2];
-    temp[2][0] = entry0 * b[0][0] + entry1 * b[1][0] + entry2 * b[2][0];
-    temp[2][1] = entry0 * b[0][1] + entry1 * b[1][1] + entry2 * b[2][1];
-    temp[2][2] = entry0 * b[0][2] + entry1 * b[1][2] + entry2 * b[2][2];
-
-    // column 3
-    entry0 = a[3][0];
-    entry1 = a[3][1];
-    entry2 = a[3][2];
-    temp[3][0] = entry0 * b[0][0] + entry1 * b[1][0] + entry2 * b[2][0] + b[3][0];
-    temp[3][1] = entry0 * b[0][1] + entry1 * b[1][1] + entry2 * b[2][1] + b[3][1];
-    temp[3][2] = entry0 * b[0][2] + entry1 * b[1][2] + entry2 * b[2][2] + b[3][2];
-
-    temp[0][3] = temp[1][3] = temp[2][3] = 0;
-    temp[3][3] = 1;
-
-    mtxf_copy(dest, temp);
+    dest[0][3] = 0.0f;
+    dest[1][3] = 0.0f;
+    dest[2][3] = 0.0f;
+    dest[3][3] = 1.0f;
 }
 
 /**
@@ -584,13 +560,20 @@ void mtxf_scale_vec3f(Mat4 dest, Mat4 mtx, Vec3f s) {
  * true for transformation matrices if the translation has a w component of 1.
  */
 void mtxf_mul_vec3s(Mat4 mtx, Vec3s b) {
+    shz_xmtrx_load_4x4_unaligned(mtx);
+
     register f32 x = b[0];
     register f32 y = b[1];
     register f32 z = b[2];
 
-    b[0] = x * mtx[0][0] + y * mtx[1][0] + z * mtx[2][0] + mtx[3][0];
-    b[1] = x * mtx[0][1] + y * mtx[1][1] + z * mtx[2][1] + mtx[3][1];
-    b[2] = x * mtx[0][2] + y * mtx[1][2] + z * mtx[2][2] + mtx[3][2];
+    shz_vec3_t out = shz_xmtrx_trans_vec3((shz_vec3_t){.x = x, .y = y, .z = z});
+    b[0] = out.x;
+    b[1] = out.y;
+    b[2] = out.z;
+
+//    b[0] = x * mtx[0][0] + y * mtx[1][0] + z * mtx[2][0] + mtx[3][0];
+//    b[1] = x * mtx[0][1] + y * mtx[1][1] + z * mtx[2][1] + mtx[3][1];
+//    b[2] = x * mtx[0][2] + y * mtx[1][2] + z * mtx[2][2] + mtx[3][2];
 }
 
 /**

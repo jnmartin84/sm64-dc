@@ -1694,7 +1694,7 @@ s32 cur_obj_advance_looping_anim(void) {
         spC++;
     }
 
-    sp4 = (spC << 16) / sp8;
+    sp4 = shz_divf((f32)(spC << 16), /* / */(f32) sp8);
 
     return sp4;
 }
@@ -1703,7 +1703,7 @@ static s32 cur_obj_detect_steep_floor(s16 steepAngleDegrees) {
     struct Surface *intendedFloor;
     f32 intendedX, intendedFloorHeight, intendedZ;
     f32 deltaFloorHeight;
-    f32 steepNormalY = coss((s16)(steepAngleDegrees * (0x10000 / 360)));
+    f32 steepNormalY = coss((s16)(steepAngleDegrees *182.04444444f /* (0x10000 / 360) */));
 
     if (o->oForwardVel != 0) {
         intendedX = o->oPosX + o->oVelX;
@@ -1841,7 +1841,7 @@ void cur_obj_move_standard(s16 steepSlopeAngleDegrees) {
             // clang-format on
         }
 
-        steepSlopeNormalY = coss(steepSlopeAngleDegrees * (0x10000 / 360));
+        steepSlopeNormalY = coss(steepSlopeAngleDegrees *182.04444444f /* (0x10000 / 360) */);
 
         cur_obj_compute_vel_xz();
         cur_obj_apply_drag_xz(dragStrength);
@@ -1891,8 +1891,10 @@ void cur_obj_move_using_fvel_and_gravity(void) {
 
 void obj_set_pos_relative(struct Object *obj, struct Object *other, f32 dleft, f32 dy,
                              f32 dforward) {
-    f32 facingZ = coss(other->oMoveAngleYaw);
-    f32 facingX = sins(other->oMoveAngleYaw);
+    f32 facingZ;// = coss(other->oMoveAngleYaw);
+    f32 facingX;// = sins(other->oMoveAngleYaw);
+
+    sincoss(other->oMoveAngleYaw, &facingX, &facingZ);
 
     f32 dz = dforward * facingZ - dleft * facingX;
     f32 dx = dforward * facingX + dleft * facingZ;
@@ -1933,11 +1935,17 @@ void obj_translate_local(struct Object *obj, s16 posIndex, s16 localTranslateInd
     f32 dz = obj->rawData.asF32[localTranslateIndex + 2];
 
     obj->rawData.asF32[posIndex + 0] +=
-        obj->transform[0][0] * dx + obj->transform[1][0] * dy + obj->transform[2][0] * dz;
+    shz_dot6f(obj->transform[0][0], obj->transform[1][0], obj->transform[2][0], dx,dy,dz);
     obj->rawData.asF32[posIndex + 1] +=
-        obj->transform[0][1] * dx + obj->transform[1][1] * dy + obj->transform[2][1] * dz;
+    shz_dot6f(obj->transform[0][1], obj->transform[1][1], obj->transform[2][1], dx,dy,dz);
     obj->rawData.asF32[posIndex + 2] +=
-        obj->transform[0][2] * dx + obj->transform[1][2] * dy + obj->transform[2][2] * dz;
+    shz_dot6f(obj->transform[0][2], obj->transform[1][2], obj->transform[2][2], dx,dy,dz);
+
+//        obj->transform[0][0] * dx + obj->transform[1][0] * dy + obj->transform[2][0] * dz;
+  //  obj->rawData.asF32[posIndex + 1] +=
+    //    obj->transform[0][1] * dx + obj->transform[1][1] * dy + obj->transform[2][1] * dz;
+    //obj->rawData.asF32[posIndex + 2] +=
+      //  obj->transform[0][2] * dx + obj->transform[1][2] * dy + obj->transform[2][2] * dz;
 }
 
 void obj_build_transform_from_pos_and_angle(struct Object *obj, s16 posIndex, s16 angleIndex) {
@@ -2051,7 +2059,9 @@ s32 cur_obj_follow_path(void) {
     o->oPathedTargetPitch = atan2s(objToNextXZ, -objToNextY);
 
     // If dot(prevToNext, objToNext) <= 0 (i.e. reached other side of target waypoint)
-    if (prevToNextX * objToNextX + prevToNextY * objToNextY + prevToNextZ * objToNextZ <= 0.0f) {
+    f32 somedot = shz_dot6f(prevToNextX, prevToNextY, prevToNextZ, objToNextX, objToNextY, objToNextZ);
+    if (somedot <= 0.0f) {
+        //prevToNextX * objToNextX + prevToNextY * objToNextY + prevToNextZ * objToNextZ <= 0.0f) {
         o->oPathedPrevWaypoint = targetWaypoint;
         if ((targetWaypoint + 1)->flags == WAYPOINT_FLAGS_END) {
             return PATH_REACHED_END;
@@ -2074,7 +2084,7 @@ void chain_segment_init(struct ChainSegment *segment) {
 }
 
 f32 random_f32_around_zero(f32 diameter) {
-    return random_float() * diameter - diameter / 2;
+    return random_float() * diameter - diameter*0.5f;// / 2;
 }
 
 void obj_scale_random(struct Object *obj, f32 rangeLength, f32 minScale) {
@@ -2097,10 +2107,12 @@ static void obj_build_vel_from_transform(struct Object *a0) {
     f32 spC = a0->oUnkC0;
     f32 sp8 = a0->oUnkBC;
     f32 sp4 = a0->oForwardVel;
-
-    a0->oVelX = a0->transform[0][0] * spC + a0->transform[1][0] * sp8 + a0->transform[2][0] * sp4;
-    a0->oVelY = a0->transform[0][1] * spC + a0->transform[1][1] * sp8 + a0->transform[2][1] * sp4;
-    a0->oVelZ = a0->transform[0][2] * spC + a0->transform[1][2] * sp8 + a0->transform[2][2] * sp4;
+a0->oVelX = shz_dot6f(a0->transform[0][0], a0->transform[1][0], a0->transform[2][0], spC, sp8, sp4);
+a0->oVelY = shz_dot6f(a0->transform[0][1], a0->transform[1][1], a0->transform[2][1], spC, sp8, sp4);
+a0->oVelZ = shz_dot6f(a0->transform[0][2], a0->transform[1][2], a0->transform[2][2], spC, sp8, sp4);
+    //a0->oVelX = a0->transform[0][0] * spC + a0->transform[1][0] * sp8 + a0->transform[2][0] * sp4;
+    //a0->oVelY = a0->transform[0][1] * spC + a0->transform[1][1] * sp8 + a0->transform[2][1] * sp4;
+    //a0->oVelZ = a0->transform[0][2] * spC + a0->transform[1][2] * sp8 + a0->transform[2][2] * sp4;
 }
 
 void cur_obj_set_pos_via_transform(void) {
@@ -2199,9 +2211,9 @@ s32 cur_obj_wait_then_blink(s32 timeUntilBlinking, s32 numBlinks) {
     s32 timeBlinking;
 
     if (o->oTimer >= timeUntilBlinking) {
-        if ((timeBlinking = o->oTimer - timeUntilBlinking) % 2 != 0) {
+        if ((timeBlinking = o->oTimer - timeUntilBlinking)&1 /* % 2 != 0 */) {
             o->header.gfx.node.flags |= GRAPH_RENDER_INVISIBLE;
-            if (timeBlinking / 2 > numBlinks) {
+            if (timeBlinking >>1/* / 2  */> numBlinks) {
                 done = TRUE;
             }
         } else {
@@ -2239,8 +2251,9 @@ void cur_obj_push_mario_away(f32 radius) {
     if (marioDist < radius) {
         //! If this function pushes Mario out of bounds, it will trigger Mario's
         //  oob failsafe
-        gMarioStates[0].pos[0] += (radius - marioDist) / radius * marioRelX;
-        gMarioStates[0].pos[2] += (radius - marioDist) / radius * marioRelZ;
+        f32 raddiv = shz_divf( (radius - marioDist) , radius);
+        gMarioStates[0].pos[0] += /* (radius - marioDist) / radius */ raddiv * marioRelX;
+        gMarioStates[0].pos[2] += /* (radius - marioDist) / radius */ raddiv * marioRelZ;
     }
 }
 
@@ -2296,7 +2309,7 @@ void stub_obj_helpers_3(UNUSED s32 sp0, UNUSED s32 sp4) {
 
 void cur_obj_scale_over_time(s32 a0, s32 a1, f32 sp10, f32 sp14) {
     f32 sp4 = sp14 - sp10;
-    f32 sp0 = (f32) o->oTimer / a1;
+    f32 sp0 = shz_divf((f32) o->oTimer, (f32)a1);// / a1;
 
     if (a0 & 0x01) {
         o->header.gfx.scale[0] = sp4 * sp0 + sp10;
@@ -2330,13 +2343,13 @@ s32 cur_obj_is_mario_on_platform(void) {
 }
 
 s32 cur_obj_shake_y_until(s32 cycles, s32 amount) {
-    if (o->oTimer % 2 != 0) {
+    if (o->oTimer & 1/* % 2 != 0 */) {
         o->oPosY -= amount;
     } else {
         o->oPosY += amount;
     }
 
-    if (o->oTimer == cycles * 2) {
+    if (o->oTimer == cycles<<1/*  * 2 */) {
         return TRUE;
     } else {
         return FALSE;
@@ -2380,7 +2393,7 @@ s32 cur_obj_mario_far_away(void) {
     f32 dx = o->oHomeX - gMarioObject->oPosX;
     f32 dy = o->oHomeY - gMarioObject->oPosY;
     f32 dz = o->oHomeZ - gMarioObject->oPosZ;
-    f32 marioDistToHome = shz_sqrtf_fsrra(dx * dx + dy * dy + dz * dz);
+    f32 marioDistToHome = shz_mag_sqr3f(dx, dy, dz); //shz_sqrtf_fsrra(dx * dx + dy * dy + dz * dz);
 
     if (o->oDistanceToMario > 2000.0f && marioDistToHome > 2000.0f) {
         return TRUE;

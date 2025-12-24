@@ -11,6 +11,8 @@
 #include "shadow.h"
 #include "sm64.h"
 
+#include "sh4zam.h"
+
 /**
  * This file contains the code that processes the scene graph for rendering.
  * The scene graph is responsible for drawing everything except the HUD / text boxes.
@@ -218,11 +220,12 @@ static void geo_process_master_list(struct GraphNodeMasterList *node) {
  */
 static void geo_process_ortho_projection(struct GraphNodeOrthoProjection *node) {
     if (node->node.children != NULL) {
+        f32 scale = node->scale * 0.5f;
         Mtx *mtx = alloc_display_list(sizeof(*mtx));
-        f32 left = (gCurGraphNodeRoot->x - gCurGraphNodeRoot->width) / 2.0f * node->scale;
-        f32 right = (gCurGraphNodeRoot->x + gCurGraphNodeRoot->width) / 2.0f * node->scale;
-        f32 top = (gCurGraphNodeRoot->y - gCurGraphNodeRoot->height) / 2.0f * node->scale;
-        f32 bottom = (gCurGraphNodeRoot->y + gCurGraphNodeRoot->height) / 2.0f * node->scale;
+        f32 left = (gCurGraphNodeRoot->x - gCurGraphNodeRoot->width) * scale;// / 2.0f * node->scale;
+        f32 right = (gCurGraphNodeRoot->x + gCurGraphNodeRoot->width) * scale;// / 2.0f * node->scale;
+        f32 top = (gCurGraphNodeRoot->y - gCurGraphNodeRoot->height) * scale;// / 2.0f * node->scale;
+        f32 bottom = (gCurGraphNodeRoot->y + gCurGraphNodeRoot->height) * scale;// / 2.0f * node->scale;
 
         guOrtho(mtx, left, right, bottom, top, -2.0f, 2.0f, 1.0f);
         gSPPerspNormalize(gDisplayListHead++, 0xFFFF);
@@ -246,7 +249,7 @@ static void geo_process_perspective(struct GraphNodePerspective *node) {
 #ifdef VERSION_EU
         f32 aspect = ((f32) gCurGraphNodeRoot->width / (f32) gCurGraphNodeRoot->height) * 1.1f;
 #else
-        f32 aspect = (f32) gCurGraphNodeRoot->width / (f32) gCurGraphNodeRoot->height;
+        f32 aspect = shz_divf((f32) gCurGraphNodeRoot->width , (f32) gCurGraphNodeRoot->height);
 #endif
 
         guPerspective(mtx, &perspNorm, node->fov, aspect, node->near, node->far, 1.0f);
@@ -279,7 +282,7 @@ static void geo_process_level_of_detail(struct GraphNodeLevelOfDetail *node) {
 
 #ifndef TARGET_N64
     // We assume modern hardware is powerful enough to draw the most detailed variant
-    distanceFromCam = 0;
+//    distanceFromCam = 0;
 #endif
 
     if (node->minDistance <= distanceFromCam && distanceFromCam < node->maxDistance) {
