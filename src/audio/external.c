@@ -1243,11 +1243,11 @@ f32 get_sound_freq_scale(u8 bankIndex, u8 item) {
 #else
 #define VAL 40.0f
 #endif
-u8 get_sound_reverb(UNUSED u8 bankIndex, UNUSED u8 item, u8 channelIndex) {
+u8 get_sound_reverb(UNUSED u8 bankIndex, UNUSED u8 item, UNUSED u8 channelIndex) {
+#if 0
     u8 area;
     u8 level;
     u8 reverb;
-#if 0
 #ifndef VERSION_JP
     if (gSoundBanks[bankIndex][item].soundBits & SOUND_NO_ECHO) {
         level = 0;

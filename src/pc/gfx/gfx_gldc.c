@@ -98,41 +98,6 @@ extern int16_t fog_ofs;
 extern float gProjectNear;
 extern float gProjectFar;
 
-
-#if !defined(TARGET_DC)
-static bool gl_multitexture = false;
-static void *scale_buf = NULL;
-static int scale_buf_size = 0;
-#endif
-
-/*
-static float c_mix[] = { 0.f, 0.f, 0.f, 1.f };
-static float c_invmix[] = { 1.f, 1.f, 1.f, 1.f };
-static const float c_white[] = { 1.f, 1.f, 1.f, 1.f };
-*/
-
-static void resample_32bit(const uint32_t *in, const int inwidth, const int inheight, uint32_t *out, const int outwidth, const int outheight) {
-  int i, j;
-  const uint32_t *inrow;
-  uint32_t frac, fracstep;
-
-  fracstep = inwidth * 0x10000 / outwidth;
-  for (i = 0; i < outheight; i++, out += outwidth) {
-    inrow = in + inwidth * (i * inheight / outheight);
-    frac = fracstep >> 1;
-    for (j = 0; j < outwidth; j += 4) {
-      out[j] = inrow[frac >> 16];
-      frac += fracstep;
-      out[j + 1] = inrow[frac >> 16];
-      frac += fracstep;
-      out[j + 2] = inrow[frac >> 16];
-      frac += fracstep;
-      out[j + 3] = inrow[frac >> 16];
-      frac += fracstep;
-    }
-  }
-}
-
 static void resample_16bit(const unsigned short *in, int inwidth, int inheight, unsigned short *out, int outwidth, int outheight) {
     int i, j;
     const unsigned short *inrow;
@@ -182,7 +147,7 @@ static inline GLenum texenv_set_texture(UNUSED struct ShaderProgram *prg) {
     return GL_MODULATE;
 }
 
-static inline GLenum texenv_set_texture_color(struct ShaderProgram *prg) {
+static inline GLenum texenv_set_texture_color(UNUSED struct ShaderProgram *prg) {
 #if 0
     GLenum mode;
 
@@ -204,7 +169,7 @@ static inline GLenum texenv_set_texture_color(struct ShaderProgram *prg) {
 
     return mode;
 #endif
-return GL_MODULATE;
+    return GL_MODULATE;
 }
 
 static inline GLenum texenv_set_texture_texture(UNUSED struct ShaderProgram *prg) {
@@ -311,7 +276,7 @@ static void gfx_opengl_apply_shader(struct ShaderProgram *prg) {
         } else {
             glDisable(GL_ALPHA_TEST);
         }
-
+#if 0
         // configure texenv
         GLenum mode;
         switch (prg->mix) {
@@ -320,8 +285,8 @@ static void gfx_opengl_apply_shader(struct ShaderProgram *prg) {
             case SH_MT_TEXTURE_COLOR:   mode = texenv_set_texture_color(prg); break;
             default:                    mode = texenv_set_color(prg); break;
         }
-        
-        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, mode);
+#endif
+        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE); // mode);
     
 }
 
@@ -615,7 +580,7 @@ static inline void gfx_opengl_pass_mix_texture(void) {
 #endif
 }
 
-// 0x01200200
+/* // 0x01200200
 static void skybox_setup_pre(void) {
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
@@ -631,7 +596,7 @@ static void skybox_setup_post(void) {
     glDepthFunc(GL_LESS);
     glEnable(GL_BLEND);
     glEnable(GL_FOG);
-}
+} */
 
 // 0x01a00200
 static void over_skybox_setup_pre(void) {
@@ -786,7 +751,7 @@ if (font_draw) {
     dc_fast_t *fast_vbo = (dc_fast_t*)buf_vbo;
             for(unsigned int i=0;i<3*buf_vbo_num_tris;i++) {
 //                fast_vbo[i].vert.y = 0.1f;
-                fast_vbo[i].vert.z += 2.0f;
+                fast_vbo[i].vert.z += 5.0f;
             }
 }
     if(do_radar_mark) {

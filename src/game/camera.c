@@ -3601,10 +3601,10 @@ void unused_object_angle_to_vec3s(Vec3s dst, struct Object *o) {
  */
 void evaluate_cubic_spline(f32 u, Vec3f Q, Vec3f a0, Vec3f a1, Vec3f a2, Vec3f a3) {
     f32 B[4];
-    f32 x;
-    f32 y;
-    f32 z;
-    UNUSED u8 unused[16];
+//    f32 x;
+//    f32 y;
+//    f32 z;
+//    UNUSED u8 unused[16];
 
     if (u > 1.f) {
         u = 1.f;
@@ -4313,8 +4313,8 @@ s16 reduce_by_dist_from_camera(s16 value, f32 maxDist, f32 posX, f32 posY, f32 p
     f32 goalDY = gLakituState.goalPos[1] - posY;
     f32 goalDZ = gLakituState.goalPos[2] - posZ;
 
-    dist = //shz_mag_sqr3f(goalDX, goalDY, goalDZ);//
-    shz_sqrtf_fsrra(goalDX * goalDX + goalDY * goalDY + goalDZ * goalDZ);
+    dist = shz_sqrtf_fsrra(shz_mag_sqr3f(goalDX, goalDY, goalDZ));//
+//    shz_sqrtf_fsrra(goalDX * goalDX + goalDY * goalDY + goalDZ * goalDZ);
     if (maxDist > dist) {
         pos[0] = posX;
         pos[1] = posY;
@@ -4590,8 +4590,8 @@ f32 calc_abs_dist(Vec3f a, Vec3f b) {
     f32 distX = b[0] - a[0];
     f32 distY = b[1] - a[1];
     f32 distZ = b[2] - a[2];
-    f32 distAbs = //shz_mag_sqr3f(distX, distY, distZ);
-    shz_sqrtf_fsrra(distX * distX + distY * distY + distZ * distZ);
+    f32 distAbs = shz_sqrtf_fsrra(shz_mag_sqr3f(distX, distY, distZ));
+ //   shz_sqrtf_fsrra(distX * distX + distY * distY + distZ * distZ);
 
     return distAbs;
 }

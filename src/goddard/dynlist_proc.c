@@ -1895,6 +1895,7 @@ void d_set_att_offset(const struct GdVec3f *off) {
     }
 }
 
+#if 0
 /**
  * An incorrectly-coded recursive function that was presumably supposed to
  * set the offset of an attached object. Now, it will only call itself
@@ -1935,6 +1936,7 @@ void d_set_att_to_offset(UNUSED u32 a) {
     d_set_att_to_offset(a);
     pop_dynobj_stash();
 }
+#endif
 
 /**
  * Store the offset of the attached object into `dst`.

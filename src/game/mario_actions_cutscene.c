@@ -2632,7 +2632,7 @@ static s32 check_for_instant_quicksand(struct MarioState *m) {
 }
 
 s32 mario_execute_cutscene_action(struct MarioState *m) {
-    s32 cancel;
+    s32 cancel = 0;
 
     if (check_for_instant_quicksand(m)) {
         return TRUE;

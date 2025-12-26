@@ -312,7 +312,7 @@ u64 *synthesis_execute(u64 *cmdBuf, s32 *writtenCmds, s16 *aiBufL, s16 *aiBufR, 
     s32 chunkLen;
     s32 i;
 //    u32 *aiBufPtr = (u32 *) aiBuf;
-    u32* aiBufPtr[2];
+    s32* aiBufPtr[2];
     u64 *cmd = cmdBuf + 1;
     s32 v0;
 #if 0
@@ -508,7 +508,7 @@ u64 *synthesis_do_one_audio_update(s16 *aiBuf, s32 bufLen, u64 *cmd, u32 updateI
     return cmd;
 }
 #else
-u64 *synthesis_do_one_audio_update(s16 *aiBufL, s16 *aiBufR, s32 bufLen, u64 *cmd, u32 updateIndex) {
+u64 *synthesis_do_one_audio_update(s16 *aiBufL, s16 *aiBufR, s32 bufLen, u64 *cmd, UNUSED u32 updateIndex) {
 //    UNUSED s32 pad1[1];
 //    s16 ra;
 //    s16 t4;

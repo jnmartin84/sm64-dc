@@ -489,15 +489,13 @@ static void import_texture_ia16(int tile) {
 }
 
 static void import_texture_i4(int tile) {
-	uint32_t i;
-
-	uint32_t width = rdp.texture_tile.line_size_bytes * 2;
-	uint32_t height = rdp.loaded_texture[tile].size_bytes / rdp.texture_tile.line_size_bytes;
+	int width = rdp.texture_tile.line_size_bytes << 1;
+	int height = rdp.loaded_texture[tile].size_bytes / rdp.texture_tile.line_size_bytes;
 
 	height = (height + 3) & ~3;
 
 	if (last_set_texture_image_width == 0) {
-		for (i = 0; i < rdp.loaded_texture[tile].size_bytes; i++) {
+		for (int i = 0; i < (int)rdp.loaded_texture[tile].size_bytes; i++) {
 			uint16_t idx = (i<<1);
 			uint8_t byte = rdp.loaded_texture[tile].addr[i];
 			uint8_t part1,part2;
@@ -507,14 +505,14 @@ static void import_texture_i4(int tile) {
 			rgba16_buf[idx+1] = (part2 << 12) | (part2 << 8) | (part2 << 4) | part2;
 		}
 	} else {
-		memset(rgba16_buf, 0, 8192);
+		memset(rgba16_buf, 0, 8192*sizeof(uint16_t));
 		uint8_t* start =
 			(uint8_t*) &rdp.loaded_texture[tile]
 				.addr[(((((rdp.texture_tile.ult >> G_TEXTURE_IMAGE_FRAC)-1)/2) * (width)/2)) +
 					  (((rdp.texture_tile.uls >> G_TEXTURE_IMAGE_FRAC)-1)/2)];
-		for (uint32_t i = 0; i < height; i++) {
+		for (int i = 0; i < height; i++) {
 			uint32_t iw = i * width;
-			for (uint32_t x = 0; x < (last_set_texture_image_width + 1)*2; x += 2) {
+			for (int x = 0; x < (last_set_texture_image_width + 1)*2; x += 2) {
 				uint8_t startin = start[(x >> 1)];
 				uint8_t in = (startin >> 4) & 0xf;
 				rgba16_buf[iw + x] = (in << 12) | (in << 8) | (in << 4) | in;
@@ -623,7 +621,7 @@ static void import_texture_ci8(int tile) {
 
 //	if (last_set_texture_image_width == 0) {
 		uint16_t *tex16 = rgba16_buf;
-		uint8_t *tex8 = rdp.loaded_texture[tile].addr;
+		uint8_t *tex8 = (uint8_t *)rdp.loaded_texture[tile].addr;
 		for (uint32_t i = 0; i < rdp.loaded_texture[tile].size_bytes; i++) {
 			*tex16++ = tlut[*tex8++];
 		}
@@ -1476,14 +1474,14 @@ static void gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx) {
         if (doing_peach && in_trilerp == 1) {
             float mx,my,mz;
             get_mario_pos(&mx,&my,&mz);
-            float distance_frac = mz / -4400.0f;
+            float distance_frac = mz / -4000.0f;
 
             if (distance_frac < 0.0f)
 				distance_frac = 0.0f;
 			if (distance_frac > 1.0f)
     			distance_frac = 1.0f;
 
-            distance_frac = 1.0f - step_ramp_pow(distance_frac, 0.9275f, 2.0f);
+            distance_frac = 1.0f - step_ramp_pow(distance_frac, 0.8f, 2.0f);
 
             trilerp_a = (uint8_t)(distance_frac * 255.0f);
         }
@@ -2179,7 +2177,7 @@ static void __attribute__((noinline)) gfx_sp_quad_2d(uint8_t vtx1_idx, uint8_t v
     } else 
 #endif     
     {
-    thenext2dthing:
+//    thenext2dthing:
         int k;
         for (k = 0; k < 1 + (use_alpha ? 1 : 0); k++) {
             switch (comb->shader_input_mapping[k][0]) {

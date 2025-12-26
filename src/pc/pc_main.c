@@ -23,20 +23,23 @@
 #include "compat.h"
 uint64_t gSysFrameCount = 0;
 
-#if defined(TARGET_PSP)
-#include <pspsdk.h>
-#include <pspkernel.h>
-#define MODULE_NAME "SM64 for PSP"
-#ifndef SRC_VER
-#define SRC_VER "UNKNOWN"
-#endif
+#undef CONT_C
+#undef CONT_B
+#undef CONT_A
+#undef CONT_START
+#undef CONT_DPAD_UP
+#undef CONT_DPAD_DOWN
+#undef CONT_DPAD_LEFT
+#undef CONT_DPAD_RIGHT
+#undef CONT_Z
+#undef CONT_Y
+#undef CONT_X
+#undef CONT_D
+#undef CONT_DPAD2_UP
+#undef CONT_DPAD2_DOWN
+#undef CONT_DPAD2_LEFT
+#undef CONT_DPAD2_RIGHT
 
-PSP_MODULE_INFO(MODULE_NAME, 0, 1, 1);
-PSP_HEAP_SIZE_MAX();
-PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER | THREAD_ATTR_VFPU);
-
-const char _srcver[] __attribute__((section (".version"), used)) = MODULE_NAME " - " SRC_VER ;
-#endif
 
 #define CONFIG_FILE "sm64config.txt"
 
@@ -75,14 +78,6 @@ void send_display_list(struct SPTask *spTask) {
     gfx_run((Gfx *)spTask->task.t.data_ptr);
 }
 
-#ifdef VERSION_EU
-#define SAMPLES_HIGH 656
-#define SAMPLES_LOW 640
-#else
-#define SAMPLES_HIGH 544
-#define SAMPLES_LOW 528
-#endif
-
 #define TARGET_DC 1
 #if defined(TARGET_DC)
 #include <kos.h>
@@ -105,8 +100,6 @@ void vblfunc(uint32_t c, void *d) {
 
 
 #if defined(TARGET_DC)
-//#define SAMPLES_HIGH 560
-//#define SAMPLES_LOW 528
 #define SAMPLES_HIGH 464
 #define SAMPLES_LOW 432
 s16 audio_buffer[2][SAMPLES_HIGH * 2 * 2 * 3] __attribute__((aligned(64)));
@@ -118,11 +111,11 @@ void *AudioSynthesisThread(UNUSED void *arg) {
         while (vblticker <= last_vbltick)
             genwait_wait((void*)&vblticker, NULL, 5, NULL);
         last_vbltick = vblticker;
-irq_disable();
+//irq_disable();
         int num_audio_samples = ((gSysFrameCount & 3) < 2) ? SAMPLES_HIGH : SAMPLES_LOW;
         create_next_audio_buffer(audio_buffer[0],audio_buffer[1], num_audio_samples);
         audio_api->play((u8 *)audio_buffer[0], (u8 *)audio_buffer[1],num_audio_samples * 2 * 2);
-irq_enable();
+//irq_enable();
     }
     return NULL;
 }

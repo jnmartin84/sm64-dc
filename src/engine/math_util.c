@@ -774,33 +774,11 @@ f32 approach_f32(f32 current, f32 target, f32 inc, f32 dec) {
 }
 
 
-//
-// only works for positive x
-#define approx_recip(x) (1.0f / sqrtf((x)*(x)))
-#define scaleatanval 10430.37806022f
-#define qprecip 1.27323951f
-#define quarterpi_i754 0.785398185253143310546875f
-#define halfpi_i754 1.57079637050628662109375f
-#define pi_i754 3.1415927410125732421875f
-#define twopi_i754 6.283185482025146484375f
-static inline float bump_atan2f(const float y, const float x)
-{
-    if (x == 0.0) return 0.0f;
-	float abs_y = fabsf(y);
-	float absy_plus_absx = abs_y + fabsf(x);
-	float inv_absy_plus_absx = approx_recip(absy_plus_absx);
-	float angle = halfpi_i754 - copysignf(quarterpi_i754, x);
-	float r = (x - copysignf(abs_y, x)) * inv_absy_plus_absx;
-	angle += (0.1963f * r * r - 0.9817f) * r;
-	return copysignf(angle, y) * scaleatanval;
-}
-
 /**
  * Helper function for atan2s. Does a look up of the arctangent of y/x assuming
  * the resulting angle is in range [0, 0x2000] (1/8 of a circle).
  */
 static u16 atan2_lookup(f32 y, f32 x) {
-#if 0
     u16 ret;
 
     if (x == 0.f) {
@@ -809,17 +787,6 @@ static u16 atan2_lookup(f32 y, f32 x) {
         ret = gArctanTable[(s32)(y / x * 1024 + 0.5f)];
     }
     return ret;
-#else
-    return (u16)bump_atan2f(y,x); 
-#endif
-}
-#include <stdio.h>
-void atan_tester(void) {
-    for (f32 y=0.0f;y<6.0f;y+=0.1f) {
-        for (f32 x=0.0f;x<6.0f;x+=0.1f) {
-            printf("y %.2f x %.2f %04x %04x %04x\n", y, x, atan2_lookup(y,x), bump_atan2f(y,x), atan2_lookup(y,x) - bump_atan2f(y,x));
-        }
-    }
 }
 
 /**

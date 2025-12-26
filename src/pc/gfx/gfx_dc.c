@@ -1,4 +1,3 @@
-#define TARGET_DC
 #if defined(TARGET_DC)
 #include "gfx_window_manager_api.h"
 #include "gfx_screen_config.h"

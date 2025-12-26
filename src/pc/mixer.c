@@ -3,26 +3,25 @@
 #include <string.h>
 #include <ultra64.h>
 
-#ifdef __SSE4_1__
-#include <immintrin.h>
-#define HAS_SSE41 1
-#define HAS_NEON 0
-#elif __ARM_NEON
-#include <arm_neon.h>
-#define HAS_SSE41 0
-#define HAS_NEON 1
-#else
-#define HAS_SSE41 0
-#define HAS_NEON 0
-#endif
+#undef CONT_C
+#undef CONT_B
+#undef CONT_A
+#undef CONT_START
+#undef CONT_DPAD_UP
+#undef CONT_DPAD_DOWN
+#undef CONT_DPAD_LEFT
+#undef CONT_DPAD_RIGHT
+#undef CONT_Z
+#undef CONT_Y
+#undef CONT_X
+#undef CONT_D
+#undef CONT_DPAD2_UP
+#undef CONT_DPAD2_DOWN
+#undef CONT_DPAD2_LEFT
+#undef CONT_DPAD2_RIGHT
 
-//#pragma GCC optimize ("unroll-loops")
 #define MEM_BARRIER() asm volatile("" : : : "memory");
 #define MEM_BARRIER_PREF(ptr) asm volatile("pref @%0" : : "r"((ptr)) : "memory")
-
-#if HAS_SSE41
-#define LOADLH(l, h) _mm_castpd_si128(_mm_loadh_pd(_mm_load_sd((const double *)(l)), (const double *)(h)))
-#endif
 
 void n64_memcpy(void* dst, const void* src, size_t size);
 

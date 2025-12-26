@@ -126,7 +126,7 @@ void audio_dma_copy_immediate(uintptr_t devAddr, void *vAddr, size_t nbytes) {
 /**
  * Performs an asynchronus (normal priority) DMA copy
  */
-void audio_dma_copy_async(uintptr_t devAddr, void *vAddr, size_t nbytes, OSMesgQueue *queue, OSIoMesg *mesg) {
+void audio_dma_copy_async(uintptr_t devAddr, void *vAddr, size_t nbytes, UNUSED OSMesgQueue *queue, UNUSED OSIoMesg *mesg) {
 //    osInvalDCache(vAddr, nbytes);
 //    osPiStartDma(mesg, OS_MESG_PRI_NORMAL, OS_READ, devAddr, vAddr, nbytes, queue);
     n64_memcpy(vAddr, (const void *) devAddr, nbytes);
@@ -136,7 +136,7 @@ void audio_dma_copy_async(uintptr_t devAddr, void *vAddr, size_t nbytes, OSMesgQ
  * Performs a partial asynchronous (normal priority) DMA copy. This is limited
  * to 0x1000 bytes transfer at once.
  */
-void audio_dma_partial_copy_async(uintptr_t *devAddr, u8 **vAddr, ssize_t *remaining, OSMesgQueue *queue, OSIoMesg *mesg) {
+void audio_dma_partial_copy_async(uintptr_t *devAddr, u8 **vAddr, ssize_t *remaining,UNUSED  OSMesgQueue *queue, UNUSED OSIoMesg *mesg) {
     n64_memcpy(vAddr, (const void *) devAddr, *remaining);
     *remaining = 0;
 #if 0
@@ -337,7 +337,7 @@ void init_sample_dma_buffers(UNUSED s32 arg0) {
         gSampleDmaNumListItems++;
     }
 #ifndef VERSION_EU
-out1:
+//out1:
 #endif
 
     for (i = 0; (u32) i < gSampleDmaNumListItems; i++) {
@@ -375,7 +375,7 @@ out1:
         gSampleDmaNumListItems++;
     }
 #ifndef VERSION_EU
-out2:
+//out2:
 #endif
 
     for (i = sSampleDmaListSize1; (u32) i < gSampleDmaNumListItems; i++) {
@@ -662,7 +662,7 @@ gBankLoadStatus[bankId] = SOUND_LOAD_STATUS_COMPLETE;// SOUND_LOAD_STATUS_IN_PRO
     return ret;
 }
 
-void *sequence_dma_immediate(s32 seqId, s32 arg1) {
+void *sequence_dma_immediate(s32 seqId, UNUSED s32 arg1) {
     s32 seqLength;
     void *ptr;
     u8 *seqData;

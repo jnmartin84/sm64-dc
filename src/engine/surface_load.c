@@ -116,17 +116,17 @@ static void add_surface_to_cell(s16 dynamic, s16 cellX, s16 cellZ, struct Surfac
     s16 sortDir;
     s16 listIndex;
 
-    if (surface->normal.y > 0.01) {
+    if (surface->normal.y > 0.01f) {
         listIndex = SPATIAL_PARTITION_FLOORS;
         sortDir = 1; // highest to lowest, then insertion order
-    } else if (surface->normal.y < -0.01) {
+    } else if (surface->normal.y < -0.01f) {
         listIndex = SPATIAL_PARTITION_CEILS;
         sortDir = -1; // lowest to highest, then insertion order
     } else {
         listIndex = SPATIAL_PARTITION_WALLS;
         sortDir = 0; // insertion order
 
-        if (surface->normal.x < -0.707 || surface->normal.x > 0.707) {
+        if (surface->normal.x < -0.707f || surface->normal.x > 0.707f) {
             surface->flags |= SURFACE_FLAG_X_PROJECTION;
         }
     }
@@ -326,7 +326,7 @@ static struct Surface *read_surface_data(s16 *vertexData, s16 **vertexIndices) {
     nx = (y2 - y1) * (z3 - z2) - (z2 - z1) * (y3 - y2);
     ny = (z2 - z1) * (x3 - x2) - (x2 - x1) * (z3 - z2);
     nz = (x2 - x1) * (y3 - y2) - (y2 - y1) * (x3 - x2);
-    mag = shz_sqrtf_fsrra(nx * nx + ny * ny + nz * nz);
+    mag = shz_sqrtf_fsrra(shz_mag_sqr3f(nx, ny, nz)); //(nx * nx + ny * ny + nz * nz);
 
     // Could have used min_3 and max_3 for this...
     minY = y1;
@@ -346,10 +346,10 @@ static struct Surface *read_surface_data(s16 *vertexData, s16 **vertexIndices) {
     }
 
     // Checking to make sure no DIV/0
-    if (mag < 0.0001) {
+    if (mag < 0.0001f) {
         return NULL;
     }
-    mag = (f32)(1.0 / mag);
+    mag = shz_fast_invf(mag); // (f32)(1.0 / mag);
     nx *= mag;
     ny *= mag;
     nz *= mag;
@@ -372,7 +372,7 @@ static struct Surface *read_surface_data(s16 *vertexData, s16 **vertexIndices) {
     surface->normal.y = ny;
     surface->normal.z = nz;
 
-    surface->originOffset = -(nx * x1 + ny * y1 + nz * z1);
+    surface->originOffset = -shz_dot6f(nx, ny, nz, x1, y1, z1); // -(nx * x1 + ny * y1 + nz * z1);
 
     surface->lowerY = minY - 5;
     surface->upperY = maxY + 5;

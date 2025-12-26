@@ -1,4 +1,3 @@
-#define TARGET_DC
 #if defined(TARGET_DC)
 /*
  * OpenBOR - http://www.LavaLit.com

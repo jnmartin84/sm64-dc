@@ -253,9 +253,6 @@ SHZ_FORCE_INLINE float shz_div_posf(float num, float denom) {
 SHZ_FORCE_INLINE float shz_fast_invf(float x) {
     float inv;
 
-    if (__builtin_constant_p(x))
-        return 1.0f / x;
-
     inv = shz_inverse_posf(x);
 
     if (x < 0.0f)
