@@ -2772,10 +2772,10 @@ static void gfx_run_dl(Gfx* cmd) {
         if (cmd == dl_menu_hand) {
             drawing_hand = 1;
         }
-        if (cmd == dl_ia_text_begin || cmd == dl_rgba16_text_begin) {
+        if (cmd == dl_ia_text_begin) {//} || cmd == dl_rgba16_text_begin) {
             font_draw = 1;
         }
-        if (cmd == dl_ia_text_end || cmd == dl_rgba16_text_end) {
+        if (cmd == dl_ia_text_end) {//} || cmd == dl_rgba16_text_end) {
             font_draw = 0;
         }
 
