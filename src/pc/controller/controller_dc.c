@@ -70,6 +70,7 @@ static void controller_dc_init(void) {
 //  Start    -> Start
 //  DPad     -> Camera buttons
 #define configDeadzone (0x20)
+
 #include <stdlib.h>
 static void controller_dc_read(OSContPad *pad) {
     maple_device_t *cont;
@@ -79,9 +80,11 @@ static void controller_dc_read(OSContPad *pad) {
     if (!cont)
         return;
     state = (cont_state_t *) maple_dev_status(cont);
-if(state->ltrig  && state->rtrig && (state->buttons & CONT_START)) {
-exit(0);
-}
+#if FOR_DCLOAD
+    if(state->ltrig  && state->rtrig && (state->buttons & CONT_START)) {
+        exit(0);
+    }
+#endif
     const char stickH =state->joyx;
     const char stickV = 0xff-((uint8_t)(state->joyy));
     const uint32_t magnitude_sq = (uint32_t)(stickH * stickH) + (uint32_t)(stickV * stickV);

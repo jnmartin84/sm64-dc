@@ -939,7 +939,7 @@ void reset_dialog_render_state(void) {
 void render_dialog_box_type(struct DialogEntry *dialog, s8 linesPerBox) {
     UNUSED s32 unused;
 
-    create_dl_translation_matrix(MENU_MTX_NOPUSH, dialog->leftOffset, dialog->width, 0);
+    create_dl_translation_matrix(MENU_MTX_NOPUSH, dialog->leftOffset, dialog->width, -1.0f); // 0
 
     switch (gDialogBoxType) {
         case DIALOG_TYPE_ROTATE: // Renders a dialog black box with zoom and rotation
@@ -953,14 +953,14 @@ void render_dialog_box_type(struct DialogEntry *dialog, s8 linesPerBox) {
         case DIALOG_TYPE_ZOOM: // Renders a dialog white box with zoom
             if (gDialogBoxState == DIALOG_STATE_OPENING || gDialogBoxState == DIALOG_STATE_CLOSING) {
                 create_dl_translation_matrix(MENU_MTX_NOPUSH, 65.0 - (65.0 / gDialogBoxScale),
-                                              (40.0 / gDialogBoxScale) - 40, 0);
+                                              (40.0 / gDialogBoxScale) - 40, -1.0f); // 0
                 create_dl_scale_matrix(MENU_MTX_NOPUSH, 1.0 / gDialogBoxScale, 1.0 / gDialogBoxScale, 1.0f);
             }
             gDPSetEnvColor(gDisplayListHead++, 255, 255, 255, 150);
             break;
     }
 
-    create_dl_translation_matrix(MENU_MTX_PUSH, X_VAL1, Y_VAL1, 0);
+    create_dl_translation_matrix(MENU_MTX_PUSH, X_VAL1, Y_VAL1, -1.0f); // 0);
     create_dl_scale_matrix(MENU_MTX_NOPUSH, 1.1f, ((f32) linesPerBox / Y_VAL2) + 0.1, 1.0f);
 
     gSPDisplayList(gDisplayListHead++, dl_draw_text_bg_box);
