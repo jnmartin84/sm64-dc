@@ -1,78 +1,13 @@
-# PSP Port of PC
-
-PSP Project Discord: https://discord.gg/5w4B69
-
-# Super Mario 64 Port
+# Super Mario 64 for the Sega Dreamcast
 
 - This repo contains a full decompilation of Super Mario 64 (J), (U), and (E) with minor exceptions in the audio subsystem.
 - Naming and documentation of the source code and data structures are in progress.
 - Efforts to decompile the Shindou ROM steadily advance toward a matching build.
-- Beyond Nintendo 64, it can also target Linux and Windows natively.
 
 This repo does not include all assets necessary for compiling the game.
 A prior copy of the game is required to extract the assets.
 
-## Building native executables
-
-### Linux
-
-1. Install prerequisites (Ubuntu): `sudo apt install -y git build-essential pkg-config libusb-1.0-0-dev libsdl2-dev`.
-2. Clone the repo: `git clone https://github.com/sm64-port/sm64-port.git`, which will create a directory `sm64-port` and then **enter** it `cd sm64-port`.
-3. Place a Super Mario 64 ROM called `baserom.<VERSION>.z64` into the repository's root directory for asset extraction, where `VERSION` can be `us`, `jp`, or `eu`.
-4. Run `make` to build. Qualify the version through `make VERSION=<VERSION>`. Add `-j4` to improve build speed (hardware dependent based on the amount of CPU cores available).
-5. The executable binary will be located at `build/<VERSION>_pc/sm64.<VERSION>.f3dex2e`.
-
-### Windows
-
-1. Install and update MSYS2, following all the directions listed on https://www.msys2.org/.
-2. From the start menu, launch MSYS2 MinGW and install required packages depending on your machine (do **NOT** launch "MSYS2 MSYS"):
-  * 64-bit: Launch "MSYS2 MinGW 64-bit" and install: `pacman -S git make python3 mingw-w64-x86_64-gcc`
-  * 32-bit (will also work on 64-bit machines): Launch "MSYS2 MinGW 32-bit" and install: `pacman -S git make python3 mingw-w64-i686-gcc`
-  * Do **NOT** by mistake install the package called simply `gcc`.
-3. The MSYS2 terminal has a _current working directory_ that initially is `C:\msys64\home\<username>` (home directory). At the prompt, you will see the current working directory in yellow. `~` is an alias for the home directory. You can change the current working directory to `My Documents` by entering `cd /c/Users/<username>/Documents`.
-4. Clone the repo: `git clone https://github.com/sm64-port/sm64-port.git`, which will create a directory `sm64-port` and then **enter** it `cd sm64-port`.
-5. Place a *Super Mario 64* ROM called `baserom.<VERSION>.z64` into the repository's root directory for asset extraction, where `VERSION` can be `us`, `jp`, or `eu`.
-6. Run `make` to build. Qualify the version through `make VERSION=<VERSION>`. Add `-j4` to improve build speed (hardware dependent based on the amount of CPU cores available).
-7. The executable binary will be located at `build/<VERSION>_pc/sm64.<VERSION>.f3dex2e.exe` inside the repository.
-
-### Sony PSP
-Notes: Currently only supported building under linux and WSL
-
-**There is a file in the ``psp/`` folder called ``snd_eng.prx``**
-- This file is used to accelerate the sound generation and increase performance. 
-- It belongs next to the EBOOT.PBP or PRX.
-
-**Fixed textures live in the psp/textures/ folder. copy these into textures/, overwrite the extracted ones, and rebuild**
-
-1. Install the PSP toolchain https://github.com/pspdev/psptoolchain.
-2. Place a Super Mario 64 ROM called `baserom.<VERSION>.z64` into the repository's root directory for asset extraction, where `VERSION` can be `us`, `jp`, or `eu`. **Note: Only US supported**
-3. Run `make TARGET_PSP=1`
-4. Optionally if you would prefer an EBOOT.PBP for use on CFW Run `make TARGET_PSP=1 pbp` , and the folder `mario64` will be made in the build folder.
-
-**Windows Instructions : NOTE UNSUPPORTED currently, must follow directions exactly!**
-1. Install the PSP toolchain https://darksectordds.github.io/html/MinimalistPSPSDK/index.html
-2. Install Python3 from python.org, NOT the Windows Store
-2. Download this pack of helpful tools http://www.mediafire.com/file/jogmmqfwclmji3v/file
-3. Add the full path of where you installed the pspsdk eg. ``C:\pspsdk\bin`` to your environment variables
-3. Copy the files from `pspsdk_bin/` from the windows pack into the `bin` folder where you installed the pspsdk. The same folder you used above.
-4. Copy `python3.exe` from the windows pack, next to makefile and baserom
-5. Make a folder called `tmp`, next to makefile and baserom
-6. Place a Super Mario 64 ROM called `baserom.<VERSION>.z64` into the repository's root directory for asset extraction, where `VERSION` can be `us`, `jp`, or `eu`.
-7. Copy files in `tools/` from the windows pack to `tools` folder in source, next to makefile and baserom
-8. Open Powershell in the sm64 folder and run this:
-9. Run `make -t -s -C .\tools\` and ignore the line about `make: /bin/sh: Command not found`
-10. Go back to powershell window:
-11. Run `$PSDefaultParameterValues['*:Encoding'] = 'utf8'` Only needed if using Powershell, if using cmd.exe you can skip this.
-12. Run `make TARGET_PSP=1 SHELL=sh PYTHON=py`
-13. Optionally if you would prefer an EBOOT.PBP for use on CFW Run `make TARGET_PSP=1 SHELL=sh PYTHON=py pbp`, and the folder `mario64` will be made in the build folder.
-
-**Docker Instructions**
-
-1. Place a Super Mario 64 ROM called `baserom.<VERSION>.z64` into the repository's root directory for asset extraction, where `VERSION` can be `us`, `jp`, or `eu`. **Note: Only US supported**
-2. Run the Docker container donated by mkst: `docker run --rm -ti -v $(pwd):/sm64 markstreet/sm64:psp make TARGET_PSP=1 pbp --jobs`
-3. This will produce an EBOOT.PBP in `build/VERSION_psp/mario64/` folder along with `snd_eng.prx` for transfer to any CFW enabled Sony PSP.
-
-### Sega Dreamcast
+## Building for Sega Dreamcast
 **Fixed textures live in the psp/textures/ folder. copy these into textures/, overwrite the extracted ones, and rebuild**
 
 1. Install the Dreamcast toolchain https://github.com/KallistiOS/KallistiOS/tree/master/utils/dc-chain.
@@ -94,14 +29,6 @@ Notes: Currently only supported building under linux and WSL
 3. If you get `make: *** No targets specified and no makefile found. Stop.`, you are not in the correct directory. Make sure the yellow text in the terminal ends with `sm64-port`. Use `cd <dir>` to enter the correct directory. If you write `ls` you should see all the project files, including `Makefile` if everything is correct.
 4. If you get any error, be sure MSYS2 packages are up to date by executing `pacman -Syu` and `pacman -Su`. If the MSYS2 window closes immediately after opening it, restart your computer.
 5. When you execute `gcc -v`, be sure you see `Target: i686-w64-mingw32` or `Target: x86_64-w64-mingw32`. If you see `Target: x86_64-pc-msys`, you either opened the wrong MSYS start menu entry or installed the incorrect gcc package.
-
-### Debugging
-
-The code can be debugged using `gdb`. On Linux install the `gdb` package and execute `gdb <executable>`. On MSYS2 install by executing `pacman -S winpty gdb` and execute `winpty gdb <executable>`. The `winpty` program makes sure the keyboard works correctly in the terminal. Also consider changing the `-mwindows` compile flag to `-mconsole` to be able to see stdout/stderr as well as be able to press Ctrl+C to interrupt the program. In the Makefile, make sure you compile the sources using `-g` rather than `-O2` to include debugging symbols. See any online tutorial for how to use gdb.
-
-## ROM building
-
-It is possible to build N64 ROMs as well with this repository. See https://github.com/n64decomp/sm64 for instructions.
 
 ## Project Structure
 
@@ -142,5 +69,3 @@ Pull requests are welcome. For major changes, please open an issue first to
 discuss what you would like to change.
 
 Run `clang-format` on your code to ensure it meets the project's coding standards.
-
-Official Discord: https://discord.gg/7bcNTPK
