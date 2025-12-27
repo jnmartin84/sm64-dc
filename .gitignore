@@ -2,6 +2,9 @@
 mario64.cdi
 sm64.bin
 
+# other stuff
+*.tgz
+
 # Object files
 *.o
 *.obj

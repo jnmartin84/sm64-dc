@@ -157,8 +157,7 @@ static void restore_main_menu_data(s32 srcSlot) {
     bcopy(&gSaveBuffer.menuData[srcSlot], &gSaveBuffer.menuData[destSlot], sizeof(gSaveBuffer.menuData[destSlot]));
 
     // Write destination data to EEPROM
-    //write_eeprom_data(&gSaveBuffer.menuData[destSlot], sizeof(gSaveBuffer.menuData[destSlot]));
-    write_eeprom_data(&gSaveBuffer, 0x200);
+    write_eeprom_data(&gSaveBuffer.menuData[destSlot], sizeof(gSaveBuffer.menuData[destSlot]));
 }
 
 static void save_main_menu_data(void) {
@@ -170,8 +169,7 @@ static void save_main_menu_data(void) {
         bcopy(&gSaveBuffer.menuData[0], &gSaveBuffer.menuData[1], sizeof(gSaveBuffer.menuData[1]));
 
         // Write to EEPROM
-//        write_eeprom_data(gSaveBuffer.menuData, sizeof(gSaveBuffer.menuData));
-        write_eeprom_data(&gSaveBuffer, 0x200);
+        write_eeprom_data(gSaveBuffer.menuData, sizeof(gSaveBuffer.menuData));
 
         gMainMenuDataModified = FALSE;
     }
