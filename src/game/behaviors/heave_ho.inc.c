@@ -46,9 +46,9 @@ void heave_ho_act_2(void) {
     if (1000.0f < cur_obj_lateral_dist_from_mario_to_home())
         o->oAngleToMario = cur_obj_angle_to_home();
     if (o->oTimer > 150) {
-        o->oHeaveHoUnkF4 = (302 - o->oTimer) / 152.0f;
-        if (o->oHeaveHoUnkF4 < 0.1) {
-            o->oHeaveHoUnkF4 = 0.1;
+        o->oHeaveHoUnkF4 = (302 - o->oTimer)*0.00657895f;// / 152.0f;
+        if (o->oHeaveHoUnkF4 < 0.1f) {
+            o->oHeaveHoUnkF4 = 0.1f;
             o->oAction = 1;
         }
     } else

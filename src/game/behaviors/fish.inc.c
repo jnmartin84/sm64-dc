@@ -162,7 +162,7 @@ void fish_group_act_rotation(void) {
         o->oAction = FISH_ACT_RESPAWN;
     }
 }
-
+#include "sh4zam.h"
 /**
  * Interactively maneuver fish in relation to its distance from other fish and Mario.
  */
@@ -182,7 +182,7 @@ void fish_group_act_move(void) {
         if (o->oDistanceToMario < 600.0f) {
             distance = 1;
         } else {
-            distance = (s32)(1.0 / (o->oDistanceToMario / 600.0));
+            distance = (s32)(shz_fast_invf(o->oDistanceToMario * 0.00166667f)); //(s32)(1.0 / (o->oDistanceToMario / 600.0));
         }
         distance *= 127;
         cur_obj_play_sound_2(SOUND_GENERAL_MOVING_WATER);
@@ -195,7 +195,7 @@ void fish_group_act_move(void) {
     }
     // Set randomized forward velocity so fish have differing velocities
     if (o->oForwardVel < o->oFishRandomVel) {
-        o->oForwardVel = o->oForwardVel + 0.5;
+        o->oForwardVel = o->oForwardVel + 0.5f;
     }
     o->oFishPosY = gMarioObject->oPosY + o->oFishRandomOffset;
     // Rotate fish away from Mario.
@@ -228,7 +228,7 @@ void fish_group_act_animate(void) {
     cur_obj_init_animation_with_accel_and_sound(0, 1.0f);
     o->header.gfx.unk38.animFrame = (s16)(random_float() * 28.0f);
     o->oFishDepthDistance = random_float() * 300.0f;
-    cur_obj_scale(random_float() * 0.4 + 0.8);
+    cur_obj_scale(random_float() * 0.4f + 0.8f);
     o->oAction = FISH_ACT_ACTIVE;
 }
 

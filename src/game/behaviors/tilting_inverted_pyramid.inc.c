@@ -56,7 +56,7 @@ f32 approach_by_increment(f32 goal, f32 src, f32 inc) {
 
     return newVal;
 }
-
+#include "sh4zam.h"
 /**
  * Main behavior for the tilting pyramids in LLL/BitFS. These platforms calculate rough normals from Mario's position,
  * then gradually tilt back moving Mario with them.
@@ -92,12 +92,12 @@ void bhv_tilting_inverted_pyramid_loop(void) {
         dx = gMarioObject->oPosX - o->oPosX;
         dy = 500.0f;
         dz = gMarioObject->oPosZ - o->oPosZ;
-        d = sqrtf(dx * dx + dy * dy + dz * dz);
+        d = shz_sqrtf_fsrra(shz_mag_sqr3f(dx, dy, dz)); //sqrtf(dx * dx + dy * dy + dz * dz);
     
         //! Always true since dy = 500, making d >= 500.
         if (d != 0.0f) {
             // Normalizing
-            d = 1.0 / d;
+            d = shz_fast_invf(d); // 1.0 / d;
             dx *= d;
             dy *= d;
             dz *= d;

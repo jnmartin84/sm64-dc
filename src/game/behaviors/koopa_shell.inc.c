@@ -36,7 +36,7 @@ void bhv_koopa_shell_flame_loop(void) {
     cur_obj_move_using_fvel_and_gravity();
     if (o->oFloorHeight > o->oPosY || o->oTimer > 10)
         obj_mark_for_deletion(o);
-    o->oKoopaShellFlameUnkF8 += -0.3;
+    o->oKoopaShellFlameUnkF8 += -0.3f;
     cur_obj_scale(o->oKoopaShellFlameUnkF8);
 }
 

@@ -156,7 +156,7 @@ Gfx *geo_exec_flying_carpet_create(s32 callContext, struct GraphNode *node, UNUS
             col = n % 3;
 
             x = sp64[n * 4 + 0];
-            y = round_float(sins(sFlyingCarpetRippleTimer + (row << 12) + (col << 14)) * 20.0);
+            y = round_float(sins(sFlyingCarpetRippleTimer + (row << 12) + (col << 14)) * 20.0f);
             z = sp64[n * 4 + 1];
             tx = sp64[n * 4 + 2];
             ty = sp64[n * 4 + 3];
@@ -180,7 +180,7 @@ Gfx *geo_exec_flying_carpet_create(s32 callContext, struct GraphNode *node, UNUS
         curGraphNodeObject = (struct Object *) gCurGraphNodeObject;
         if (gMarioObject->platform == curGraphNodeObject) {
             gFlyingCarpetState = FLYING_CARPET_MOVING_WITH_MARIO;
-        } else if (curGraphNodeObject->oForwardVel != 0.0) {
+        } else if (curGraphNodeObject->oForwardVel != 0.0f) {
             gFlyingCarpetState = FLYING_CARPET_MOVING_WITHOUT_MARIO;
         } else {
             gFlyingCarpetState = FLYING_CARPET_IDLE;

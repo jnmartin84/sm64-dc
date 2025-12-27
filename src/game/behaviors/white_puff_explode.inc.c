@@ -29,9 +29,9 @@ void bhv_white_puff_exploding_loop(void) {
         if (o->oOpacity < 2)
             obj_mark_for_deletion(o);
         if (o->oWhitePuffUnkFC)
-            sp24 = o->oWhitePuffUnkF4 * ((254 - o->oOpacity) / 254.0);
+            sp24 = o->oWhitePuffUnkF4 * ((254.0f - o->oOpacity)*0.00393701f); /// 254.0);
         else
-            sp24 = o->oWhitePuffUnkF4 * (o->oOpacity / 254.0);
+            sp24 = o->oWhitePuffUnkF4 * (o->oOpacity * 0.00393701f/* / 254.0f */);
         cur_obj_scale(sp24);
     }
 }

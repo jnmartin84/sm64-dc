@@ -230,6 +230,108 @@ SHZ_FORCE_INLINE float shz_dot8f(float x1, float y1, float z1, float w1, float x
 
     return rw2;
 }
+//! Creates a hardware memory barrier beyond which any loads or stores may not be reordered
+#define SHZ_MEMORY_BARRIER_HARD()   __sync_synchronize()
+
+SHZ_FORCE_INLINE shz_vec3_t shz_vec3_dot3(shz_vec3_t l, shz_vec3_t r1, shz_vec3_t r2, shz_vec3_t r3) SHZ_NOEXCEPT {
+    shz_vec3_t res;
+
+    register float lx asm("fr8")  = l.x;
+    register float ly asm("fr9")  = l.y;
+    register float lz asm("fr10") = l.z;
+    register float lw asm("fr11") = 0.0f;
+
+    register float r1x asm("fr12") = r1.x;
+    register float r1y asm("fr13") = r1.y;
+    register float r1z asm("fr14") = r1.z;
+    register float r1w asm("fr15");
+
+    asm("fipr   fv8, fv12\n"
+        : "=f" (r1w)
+        : "f" (lx), "f" (ly), "f" (lz), "f" (lw),
+          "f" (r1x), "f" (r1y), "f" (r1z));
+
+    register float r2x asm("fr0") = r2.x;
+    register float r2y asm("fr1") = r2.y;
+    register float r2z asm("fr2") = r2.z;
+    register float r2w asm("fr3");
+
+    asm("fipr   fv8, fv0\n"
+        : "=f" (r2w)
+        : "f" (lx), "f" (ly), "f" (lz), "f" (lw),
+          "f" (r2x), "f" (r2y), "f" (r2z));
+
+    register float r3x asm("fr4") = r3.x;
+    register float r3y asm("fr5") = r3.y;
+    register float r3z asm("fr6") = r3.z;
+    register float r3w asm("fr7");
+
+    SHZ_MEMORY_BARRIER_HARD();
+
+    res.x = r1w;
+
+    asm("fipr   fv8, fv4\n"
+        : "=f" (r3w)
+        : "f" (lx), "f" (ly), "f" (lz), "f" (lw),
+          "f" (r3x), "f" (r3y), "f" (r3z));
+
+    SHZ_MEMORY_BARRIER_HARD();
+    res.y = r2w;
+    SHZ_MEMORY_BARRIER_HARD();
+    res.z = r3w;
+
+    return res;
+}
+
+SHZ_FORCE_INLINE shz_vec3_t shz_vec4_dot3(shz_vec4_t l, shz_vec4_t r1, shz_vec4_t r2, shz_vec4_t r3) SHZ_NOEXCEPT {
+    shz_vec3_t res;
+
+    register float lx asm("fr8")  = l.x;
+    register float ly asm("fr9")  = l.y;
+    register float lz asm("fr10") = l.z;
+    register float lw asm("fr11") = l.w;
+
+    register float r1x asm("fr12") = r1.x;
+    register float r1y asm("fr13") = r1.y;
+    register float r1z asm("fr14") = r1.z;
+    register float r1w asm("fr15") = r1.w;
+
+    asm("fipr   fv8, fv12\n"
+        : "+f" (r1w)
+        : "f" (lx), "f" (ly), "f" (lz), "f" (lw),
+          "f" (r1x), "f" (r1y), "f" (r1z));
+
+    register float r2x asm("fr0") = r2.x;
+    register float r2y asm("fr1") = r2.y;
+    register float r2z asm("fr2") = r2.z;
+    register float r2w asm("fr3") = r2.w;
+
+    asm("fipr   fv8, fv0\n"
+        : "+f" (r2w)
+        : "f" (lx), "f" (ly), "f" (lz), "f" (lw),
+          "f" (r2x), "f" (r2y), "f" (r2z));
+
+    register float r3x asm("fr4") = r3.x;
+    register float r3y asm("fr5") = r3.y;
+    register float r3z asm("fr6") = r3.z;
+    register float r3w asm("fr7") = r3.w;
+
+    SHZ_MEMORY_BARRIER_HARD();
+
+    res.x = r1w;
+
+    asm("fipr   fv8, fv4\n"
+        : "+f" (r3w)
+        : "f" (lx), "f" (ly), "f" (lz), "f" (lw),
+          "f" (r3x), "f" (r3y), "f" (r3z));
+
+    SHZ_MEMORY_BARRIER_HARD();
+    res.y = r2w;
+    SHZ_MEMORY_BARRIER_HARD();
+    res.z = r3w;
+
+    return res;
+}
 
 //! Calculates 1.0f/sqrtf( \p x ), using a fast approximation.
 SHZ_FORCE_INLINE float shz_inverse_sqrtf(float x) {

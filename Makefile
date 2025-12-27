@@ -554,7 +554,7 @@ ifeq ($(FOR_DCLOAD),1)
 endif
 
 # need to finish working through these
-# -Wdouble-promotion
+#  PLATFORM_CFLAGS += -Wdouble-promotion
 
   PLATFORM_LDFLAGS := -Wl,--gc-sections  -Wl,-Map=output.map
 endif

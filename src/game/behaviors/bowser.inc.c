@@ -196,7 +196,7 @@ void bowser_bitdw_act_controller(void) {
         o->oBowserUnk110 = 0;
 #ifndef VERSION_JP
         if (!gCurrDemoInput) {
-            if (rand < 0.1)
+            if (rand < 0.1f)
                 o->oAction = 3; // rare 1/10 chance
             else
                 o->oAction = 14; // common
@@ -218,7 +218,7 @@ void bowser_bitfs_act_controller(void) {
         if (o->oBowserUnkF4 & 2) {
             if (o->oDistanceToMario < 1300.0f) // nearby
             {
-                if (rand < 0.5) // 50/50
+                if (rand < 0.5f) // 50/50
                     o->oAction = 16;
                 else
                     o->oAction = 9;
@@ -226,7 +226,7 @@ void bowser_bitfs_act_controller(void) {
             {
                 o->oAction = 7;
                 if (500.0f < o->oBowserDistToCentre && o->oBowserDistToCentre < 1500.0f
-                    && rand < 0.5) // away from centre and good luck
+                    && rand < 0.5f) // away from centre and good luck
                     o->oAction = 13;
             }
         } else
@@ -242,13 +242,13 @@ void bowser_general_bits_act_controller(void) {
     f32 rand = random_float();
     if (o->oBowserUnkF4 & 2) {
         if (o->oDistanceToMario < 1000.0f) {
-            if (rand < 0.4)
+            if (rand < 0.4f)
                 o->oAction = 9;
-            else if (rand < 0.8)
+            else if (rand < 0.8f)
                 o->oAction = 8;
             else
                 o->oAction = 15;
-        } else if (rand < 0.5)
+        } else if (rand < 0.5f)
             o->oAction = 13;
         else
             o->oAction = 7;
@@ -793,17 +793,17 @@ s32 bowser_dead_wait_for_mario(void) {
 
 s32 bowser_dead_twirl_into_trophy(void) {
     s32 ret = 0;
-    if (o->header.gfx.scale[0] < 0.8)
+    if (o->header.gfx.scale[0] < 0.8f)
         o->oAngleVelYaw += 0x80;
-    if (o->header.gfx.scale[0] > 0.2) {
-        o->header.gfx.scale[0] = o->header.gfx.scale[0] - 0.02;
-        o->header.gfx.scale[2] = o->header.gfx.scale[2] - 0.02;
+    if (o->header.gfx.scale[0] > 0.2f) {
+        o->header.gfx.scale[0] = o->header.gfx.scale[0] - 0.02f;
+        o->header.gfx.scale[2] = o->header.gfx.scale[2] - 0.02f;
     } else {
-        o->header.gfx.scale[1] = o->header.gfx.scale[1] - 0.01;
+        o->header.gfx.scale[1] = o->header.gfx.scale[1] - 0.01f;
         o->oVelY = 20.0f;
         o->oGravity = 0.0f;
     }
-    if (o->header.gfx.scale[1] < 0.5)
+    if (o->header.gfx.scale[1] < 0.5f)
         ret = 1;
     o->oMoveAngleYaw += o->oAngleVelYaw;
     if (o->oOpacity >= 3)
@@ -1068,11 +1068,11 @@ void bowser_thrown_dropped_update(void) {
     f32 sp1C;
     o->oBowserUnk10E = 0;
     cur_obj_get_thrown_or_placed(1.0f, 1.0f, 1);
-    sp1C = o->oBowserHeldAngleVelYaw / 3000.0 * 70.0f;
+    sp1C = o->oBowserHeldAngleVelYaw * 0.02333333f; // / 3000.0 * 70.0f;
     if (sp1C < 0.0f)
         sp1C = -sp1C;
     if (sp1C > 90.0f)
-        sp1C *= 2.5; // > 90 => get bigger?
+        sp1C *= 2.5f; // > 90 => get bigger?
     o->oForwardVel = coss(o->oBowserHeldAnglePitch) * sp1C;
     o->oVelY = -sins(o->oBowserHeldAnglePitch) * sp1C;
     cur_obj_become_intangible();
@@ -1367,7 +1367,7 @@ void bhv_falling_bowser_platform_loop(void) {
 void bowser_flame_despawn(void) {
     obj_mark_for_deletion(o);
     spawn_object_with_scale(o, MODEL_NONE, bhvBlackSmokeUpward, 1.0f);
-    if (random_float() < 0.1)
+    if (random_float() < 0.1f)
         spawn_object(o, MODEL_YELLOW_COIN, bhvTemporaryYellowCoin);
 }
 
@@ -1384,7 +1384,7 @@ s32 bowser_flame_should_despawn(s32 maxTime) {
 void bhv_flame_bowser_init(void) {
     o->oAnimState = (s32)(random_float() * 10.0f);
     o->oMoveAngleYaw = random_u16();
-    if (random_float() < 0.2)
+    if (random_float() < 0.2f)
         o->oVelY = 80.0f;
     else
         o->oVelY = 20.0f;
@@ -1429,7 +1429,7 @@ void bhv_flame_bowser_loop(void) {
     } else {
         cur_obj_become_tangible();
         if (o->oTimer > o->oFlameUnkF4 * 10 + 5.0f) {
-            o->oFlameUnkF4 -= 0.15;
+            o->oFlameUnkF4 -= 0.15f;
             if (o->oFlameUnkF4 <= 0)
                 bowser_flame_despawn();
         }
@@ -1450,7 +1450,7 @@ void bhv_flame_moving_forward_growing_loop(void) {
     UNUSED s32 unused;
     UNUSED struct Object *sp18;
     obj_set_hitbox(o, &sGrowingBowserFlameHitbox);
-    o->oFlameUnkF4 = o->oFlameUnkF4 + 0.5;
+    o->oFlameUnkF4 = o->oFlameUnkF4 + 0.5f;
     cur_obj_scale(o->oFlameUnkF4);
     if (o->oMoveAnglePitch > 0x800)
         o->oMoveAnglePitch -= 0x200;
@@ -1502,7 +1502,7 @@ void bhv_blue_bowser_flame_init(void) {
     o->oVelY = 7.0f;
     o->oForwardVel = 35.0f;
     o->oFlameUnkF4 = 3.0f;
-    o->oFlameUnkFC = random_float() * 0.5;
+    o->oFlameUnkFC = random_float() * 0.5f;
     o->oGravity = 1.0f;
     o->oFlameUnkF8 = (s32)(random_float() * 64.0f);
 }
@@ -1511,7 +1511,7 @@ void bhv_blue_bowser_flame_loop(void) {
     s32 i;
     obj_set_hitbox(o, &sGrowingBowserFlameHitbox);
     if (o->oFlameUnkF4 < 16.0f)
-        o->oFlameUnkF4 = o->oFlameUnkF4 + 0.5;
+        o->oFlameUnkF4 = o->oFlameUnkF4 + 0.5f;
     cur_obj_scale(o->oFlameUnkF4);
     cur_obj_update_floor_and_walls();
     cur_obj_move_standard(0x4e);
@@ -1571,7 +1571,7 @@ void bhv_blue_flames_group_loop(void) {
                 flame->oMoveAngleYaw += i * 0x5555;
                 flame->header.gfx.scale[0] = o->oBlueFlameUnkF8;
             }
-            o->oBlueFlameUnkF8 -= 0.5;
+            o->oBlueFlameUnkF8 -= 0.5f;
         }
     } else
         obj_mark_for_deletion(o);

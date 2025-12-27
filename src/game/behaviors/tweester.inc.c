@@ -23,14 +23,14 @@ struct ObjectHitbox sTweesterHitbox = {
  */
 void tweester_scale_and_move(f32 preScale) {
     s16 dYaw  = 0x2C00;
-    f32 scale = preScale * 0.4;
+    f32 scale = preScale * 0.4f;
 
     o->header.gfx.scale[0] 
-        = (( coss(o->oTweesterScaleTimer) + 1.0) * 0.5 * 0.3 + 1.0) * scale;
+        = (( coss(o->oTweesterScaleTimer) + 1.0f) * 0.15f /* 0.5 * 0.3 */ + 1.0f) * scale;
     o->header.gfx.scale[1] 
-        = ((-coss(o->oTweesterScaleTimer) + 1.0) * 0.5 * 0.5 + 0.5) * scale;
+        = ((-coss(o->oTweesterScaleTimer) + 1.0f) * 0.25f /* 0.5 * 0.5 */ + 0.5f) * scale;
     o->header.gfx.scale[2] 
-        = (( coss(o->oTweesterScaleTimer) + 1.0) * 0.5 * 0.3 + 1.0) * scale;
+        = (( coss(o->oTweesterScaleTimer) + 1.0f) * 0.15f /* 0.5 * 0.3 */ + 1.0f) * scale;
 
     o->oTweesterScaleTimer += 0x200;
     o->oForwardVel = 14.0f;
@@ -58,7 +58,7 @@ void tweester_act_idle(void) {
         o->oTimer = 0;
     } else {
         cur_obj_play_sound_1(SOUND_ENV_WIND1);
-        tweester_scale_and_move(o->oTimer / 60.0f);
+        tweester_scale_and_move(o->oTimer * 0.01666667f/* / 60.0f */);
         if (o->oTimer > 59)
             o->oAction = TWEESTER_ACT_CHASE;
     }
@@ -111,7 +111,7 @@ void tweester_act_hide(void) {
     f32 shrinkTimer = 60.0f - o->oTimer;
 
     if (shrinkTimer >= 0.0f)
-        tweester_scale_and_move(shrinkTimer / 60.0f);
+        tweester_scale_and_move(shrinkTimer * 0.01666667f/* / 60.0f */);
     else {
         cur_obj_become_intangible();
         if (cur_obj_lateral_dist_from_mario_to_home() > 2500.0f)
@@ -143,7 +143,7 @@ void bhv_tweester_sand_particle_loop(void) {
     o->oForwardVel += 15.0f;
     o->oPosY += 22.0f;
 
-    cur_obj_scale(random_float() + 1.0);
+    cur_obj_scale(random_float() + 1.0f);
 
     if (o->oTimer == 0) {
         obj_translate_xz_random(o, 100.0f);

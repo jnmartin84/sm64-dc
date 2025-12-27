@@ -68,7 +68,7 @@ void bhv_coin_loop(void) {
             o->oSubAction = 1;
         if (o->oSubAction == 1) {
             o->oBounciness = 0;
-            if (sp1C->normal.y < 0.9) {
+            if (sp1C->normal.y < 0.9f) {
                 sp1A = atan2s(sp1C->normal.z, sp1C->normal.x);
                 cur_obj_rotate_yaw_toward(sp1A, 0x400);
             }

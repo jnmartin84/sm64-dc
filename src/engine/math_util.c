@@ -654,19 +654,18 @@ void mtxf_rotate_xy(Mtx *mtx, s16 angle) {
  * the camera position.
  */
 void get_pos_from_transform_mtx(Vec3f dest, Mat4 objMtx, Mat4 camMtx) {
-    f32 camX = shz_dot6f(camMtx[3][0], camMtx[3][1], camMtx[3][2], camMtx[0][0], camMtx[0][1], camMtx[0][2]);
-    f32 camY = shz_dot6f(camMtx[3][0], camMtx[3][1], camMtx[3][2], camMtx[1][0], camMtx[1][1], camMtx[1][2]);
-    f32 camZ = shz_dot6f(camMtx[3][0], camMtx[3][1], camMtx[3][2], camMtx[2][0], camMtx[2][1], camMtx[2][2]);
+    shz_vec3_t camXYZ = shz_vec3_dot3(shz_vec3_deref(camMtx[3]),
+    shz_vec3_deref(camMtx[0]), shz_vec3_deref(camMtx[1]), shz_vec3_deref(camMtx[2]));
 
 //    f32 camX = camMtx[3][0] * camMtx[0][0] + camMtx[3][1] * camMtx[0][1] + camMtx[3][2] * camMtx[0][2];
 //    f32 camY = camMtx[3][0] * camMtx[1][0] + camMtx[3][1] * camMtx[1][1] + camMtx[3][2] * camMtx[1][2];
 //    f32 camZ = camMtx[3][0] * camMtx[2][0] + camMtx[3][1] * camMtx[2][1] + camMtx[3][2] * camMtx[2][2];
 
-    dest[0] = shz_dot8f(objMtx[3][0], objMtx[3][1], objMtx[3][2], camX,
+    dest[0] = shz_dot8f(objMtx[3][0], objMtx[3][1], objMtx[3][2], camXYZ.x, //camX,
                         camMtx[0][0], camMtx[0][1], camMtx[0][2], -1.0f);
-    dest[1] = shz_dot8f(objMtx[3][0], objMtx[3][1], objMtx[3][2], camY,
+    dest[1] = shz_dot8f(objMtx[3][0], objMtx[3][1], objMtx[3][2], camXYZ.y, //camY,
                         camMtx[1][0], camMtx[1][1], camMtx[1][2], -1.0f);
-    dest[2] = shz_dot8f(objMtx[3][0], objMtx[3][1], objMtx[3][2], camZ,
+    dest[2] = shz_dot8f(objMtx[3][0], objMtx[3][1], objMtx[3][2], camXYZ.z, //camZ,
                         camMtx[2][0], camMtx[2][1], camMtx[2][2], -1.0f);
 
 //    dest[0] =
@@ -704,17 +703,23 @@ void vec3f_get_dist_and_angle(Vec3f from, Vec3f to, f32 *dist, s16 *pitch, s16 *
 void vec3f_set_dist_and_angle(Vec3f from, Vec3f to, f32 dist, s16 pitch, s16 yaw) {
     f32 ps,pc;
     f32 ys,yc;
+    float tx,ty,tz;
 
     scaled_sincoss(pitch, &ps, &pc, dist);
-    to[0] = from[0];// + dist * coss(pitch) * sins(yaw);
-    to[1] = from[1];// + dist * sins(pitch);
-    to[2] = from[2];// + dist * coss(pitch) * coss(yaw);
+
+    tx = from[0];// + dist * coss(pitch) * sins(yaw);
+    ty = from[1];// + dist * sins(pitch);
+    tz = from[2];// + dist * coss(pitch) * coss(yaw);
 
     sincoss(yaw, &ys, &yc);
 
-    to[1] += ps;//from[1] + dist * sins(pitch);
-    to[0] += pc * ys;//from[0] + dist * coss(pitch) * sins(yaw);
-    to[2] += pc * yc;//from[2] + dist * coss(pitch) * coss(yaw);
+    ty += ps;//from[1] + dist * sins(pitch);
+    tx += pc * ys;//from[0] + dist * coss(pitch) * sins(yaw);
+    tz += pc * yc;//from[2] + dist * coss(pitch) * coss(yaw);
+
+    to[0] = tx;
+    to[1] = ty;
+    to[2] = tz;
 }
 #endif
 #if 0
