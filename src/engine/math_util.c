@@ -638,12 +638,10 @@ void mtxf_rotate_xy(Mtx *mtx, s16 angle) {
     sincoss(angle, &as, &ac);
 
     mtxf_identity(temp);
-//    temp[0][0] = coss(angle);
-//    temp[0][1] = sins(angle);
-    temp[1][0] = -temp[0][1];
-    temp[1][1] = temp[0][0];
     temp[0][0] = ac;//coss(angle);
     temp[0][1] = as;//sins(angle);
+    temp[1][0] = -temp[0][1];
+    temp[1][1] = temp[0][0];
     mtxf_to_mtx(mtx, temp);
 }
 

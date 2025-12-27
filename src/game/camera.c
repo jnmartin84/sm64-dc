@@ -4325,17 +4325,17 @@ s16 reduce_by_dist_from_camera(s16 value, f32 maxDist, f32 posX, f32 posY, f32 p
             //! Must be same line to match EU
             pitch -= goalPitch; yaw -= goalYaw;
             dist -= 2000.f;
-            if (dist < 0.f) {
-                dist = 0.f;
+            if (dist < 0.0f) {
+                dist = 0.0f;
             }
-            maxDist -= 2000.f;
-            if (maxDist < 2000.f) {
-                maxDist = 2000.f;
+            maxDist -= 2000.0f;
+            if (maxDist < 2000.0f) {
+                maxDist = 2000.0f;
             }
-            result = value * (1.f - shz_divf(dist , maxDist));
+            result = value * (1.0f - shz_divf(dist , maxDist));
             if (pitch < -0x1800 || pitch > 0x400 ||
                 yaw   < -0x1800 || yaw >   0x1800) {
-                result /= 2;
+                result >>= 1; // /= 2;
             }
         }
     }
