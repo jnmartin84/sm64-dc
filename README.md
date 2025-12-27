@@ -1,15 +1,12 @@
 # Super Mario 64 for the Sega Dreamcast
 
-- This repo contains a full decompilation of Super Mario 64 (J), (U), and (E) with minor exceptions in the audio subsystem.
-- Naming and documentation of the source code and data structures are in progress.
-- Efforts to decompile the Shindou ROM steadily advance toward a matching build.
+This is an update to the original 2020 mrneo240 Dreamcast port of Super Mario 64. It addresses the audio-visual issues that were present and adds VMU saving.
 
 This repo does not include all assets necessary for compiling the game.
-A prior copy of the game is required to extract the assets.
+A prior copy of the game is required to extract the assets. Specifically you will need to provide the US version.
 
 ## Building for Sega Dreamcast
-
-Just use the builder found here: https://colab.research.google.com/drive/1JsN-2JOu1tzzHKowCJJRgtL01XgejZTE
+# Just use the CDI builder found here: https://colab.research.google.com/drive/1JsN-2JOu1tzzHKowCJJRgtL01XgejZTE #
 
 Nobody follows directions anyway. If you want to build it the real way, I'll leave the reset of the docs, but I know they'll go unread.
 
