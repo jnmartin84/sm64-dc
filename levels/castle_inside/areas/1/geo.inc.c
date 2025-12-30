@@ -142,7 +142,7 @@ const GeoLayout castle_geo_001158[] = {
       GEO_DISPLAY_LIST(LAYER_ALPHA, inside_castle_seg7_dl_0702AB20),
       GEO_ASM(0, geo_exec_inside_castle_light),
       GEO_DISPLAY_LIST(LAYER_OPAQUE, inside_castle_seg7_dl_0702FD30),
-      GEO_DISPLAY_LIST(LAYER_OPAQUE, inside_castle_seg7_dl_07023DB0),
+      GEO_DISPLAY_LIST(LAYER_OPAQUE, fake_inside_castle_seg7_dl_07023DB0),
    GEO_CLOSE_NODE(),
    GEO_RETURN(),
 };
