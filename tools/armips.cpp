@@ -52,6 +52,7 @@ SOFTWARE.
 #include <vector>
 #include <cstdlib>
 #include <cstdarg>
+#include <cstdint>
 #include <cctype>
 #include <cstring>
 #include <cmath>
