@@ -409,6 +409,8 @@ extern int cotmc_shadow;
 extern int water_ring;
 extern int env_a;
 extern int ddd_ripple;
+extern int cotmc_water;
+extern int transition_verts;
 void gfx_opengl_2d_projection(void);
 void gfx_opengl_reset_projection(void);
 
@@ -494,7 +496,7 @@ static void gfx_opengl_draw_triangles(float buf_vbo[], UNUSED size_t buf_vbo_len
         glTranslatef(0.0f, 2.1f, 0.9f); // magic values need fine tuning. 
     }
 
-    if (drawing_hand || water_bomb)
+    if (transition_verts || drawing_hand || water_bomb)
         over_skybox_setup_pre();
 
     if (drawing_hand) {
@@ -544,7 +546,7 @@ static void gfx_opengl_draw_triangles(float buf_vbo[], UNUSED size_t buf_vbo_len
             fast_vbo[i].color.array.a = env_a;
     }
 
-    if (ddd_ripple) {
+    if (cotmc_water || ddd_ripple) {
         glEnable(GL_BLEND);
         dc_fast_t *fast_vbo = (dc_fast_t*)buf_vbo;
         for(unsigned int i=0;i<3*buf_vbo_num_tris;i++)
@@ -559,7 +561,7 @@ static void gfx_opengl_draw_triangles(float buf_vbo[], UNUSED size_t buf_vbo_len
     if(do_radar_mark)
         gfx_opengl_reset_projection();
 
-    if (drawing_hand || water_bomb)
+    if (transition_verts || drawing_hand || water_bomb)
         over_skybox_setup_post();
         
     if (cotmc_shadow || is_zmode_decal) {

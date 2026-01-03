@@ -15,7 +15,7 @@
 
 #ifndef TARGET_N64
 // Avoid Z-fighting
-#define find_floor_height_and_data 0.4 + find_floor_height_and_data
+#define find_floor_height_and_data 0.4f + find_floor_height_and_data
 #endif
 
 /**
@@ -261,25 +261,26 @@ s8 init_shadow(struct Shadow *s, f32 xPos, f32 yPos, f32 zPos, s16 shadowScale, 
 /**
  * Given a `vertexNum` from a shadow with nine vertices, update the
  * texture coordinates corresponding to that vertex. That is:
- *      0 = (0,   0)         1 = (7,   0)         2 = (15,   0)
- *      3 = (0,   7)         4 = (7,   7)         5 = (15,   7)
- *      6 = (0,  15)         7 = (7,  15)         8 = (15,  15)
+ *      0 = (-15, -15)         1 = (0, -15)         2 = (15, -15)
+ *      3 = (-15,   0)         4 = (0,   0)         5 = (15,   0)
+ *      6 = (-15,  15)         7 = (0,  15)         8 = (15,  15)
  */
 void get_texture_coords_9_vertices(s8 vertexNum, s16 *textureX, s16 *textureY) {
-    *textureX = (s16)((vertexNum % 3) * 8) - (!((vertexNum % 3) == 0));
-    *textureY = (s16)((vertexNum / 3) * 8) - (!((vertexNum / 3) == 0));
+    *textureX = vertexNum % 3 * 15 - 15;
+    *textureY = vertexNum / 3 * 15 - 15;
 }
 
 /**
  * Given a `vertexNum` from a shadow with four vertices, update the
  * texture coordinates corresponding to that vertex. That is:
- *      0 = (0,   0)         1 = (15,   0)
- *      2 = (0,  15)         3 = (15,  15)
+ *      0 = (-15, -15)         1 = (15, -15)
+ *      2 = (-15,  15)         3 = (15,  15)
  */
 void get_texture_coords_4_vertices(s8 vertexNum, s16 *textureX, s16 *textureY) {
-    *textureX = (vertexNum % 2) * 15;
-    *textureY = (vertexNum / 2) * 15;
+    *textureX = (vertexNum % 2) * 2 * 15 - 15;
+    *textureY = (vertexNum / 2) * 2 * 15 - 15;
 }
+
 
 /**
  * Make a shadow's vertex at a position relative to its parent.

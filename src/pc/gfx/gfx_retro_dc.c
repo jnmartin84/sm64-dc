@@ -28,6 +28,8 @@ int doing_peach = 0;
 int doing_bowser = 0;
 int drawing_hand = 0;
 int do_radar_mark = 0;
+int in_transition = 0;
+int transition_verts = 0;
 
 #define SUPPORT_CHECK(x) assert(x)
 int aquarium_draw = 0;
@@ -906,6 +908,10 @@ int eyeball_guy = 0;
 int cotmc_shadow = 0;
 int water_ring = 0;
 int ddd_ripple = 0;
+int cotmc_water = 0;
+extern u8 gWarpTransRed;
+extern u8 gWarpTransGreen;
+extern u8 gWarpTransBlue;
 
 static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx) {
     struct LoadedVertex* v1 = &rsp.loaded_vertices[vtx3_idx];
@@ -1251,7 +1257,16 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         recip_tw = shz_fast_invf(tex_width);
         recip_th = shz_fast_invf(tex_height);
     }
+
     packedc = PACK_ARGB8888(color_r, color_g, color_b, color_a);
+
+    if (transition_verts) {
+        use_shade = 0;
+        color_r = gWarpTransRed;
+        color_g = gWarpTransGreen;
+        color_b = gWarpTransBlue;
+        packedc = PACK_ARGB8888(color_r, color_g, color_b, color_a);
+    }
 
     for (i = 0; i < 3; i++) {
         if (do_radar_mark) {
@@ -1308,7 +1323,7 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
 
     buf_vbo_num_tris += 1;
 
-    if (ddd_ripple || water_ring || cotmc_shadow || font_draw || do_radar_mark || drawing_hand || doing_peach || doing_bowser || doing_skybox || water_bomb || aquarium_draw || buf_vbo_num_tris == MAX_BUFFERED) {
+    if (cotmc_water || ddd_ripple || water_ring || cotmc_shadow || font_draw || do_radar_mark || drawing_hand || doing_peach || doing_bowser || doing_skybox || water_bomb || aquarium_draw || buf_vbo_num_tris == MAX_BUFFERED) {
         gfx_flush();
     }
 }
@@ -2033,10 +2048,14 @@ extern Gfx cotmc_seg7_dl_0700A3D0[];
 extern const Gfx *g_cotmc_seg7_dl_0700A3D0;
 
 extern Gfx water_ring_seg6_dl_06013AC0[];
+extern Gfx cotmc_dl_water_begin[];
+extern Gfx cotmc_dl_water_end[];
 extern Gfx dl_paintings_env_mapped_begin[];
 extern Gfx dl_paintings_env_mapped_end[];
 extern Gfx *ddd_dl;
-
+extern Gfx dl_transition_draw_filled_region[];
+extern Gfx dl_screen_transition_end[];
+extern Gfx dl_draw_quad_verts_0123[];
 //#define GFX_DL_STACK_MAX 64 /* tune this to whatever nesting you expect */
 
 //static Gfx __attribute__((aligned(32))) * dl_stack[GFX_DL_STACK_MAX];
@@ -2089,10 +2108,32 @@ static void __attribute__((noinline)) gfx_run_dl(Gfx* cmd) {
     for (;;) {
         uint32_t opcode = cmd->words.w0 >> 24;
 
-        if (cmd == dl_paintings_env_mapped_begin && ddd_dl) {
+        if (cmd == dl_transition_draw_filled_region) {
+            transition_verts = 1;
+            in_transition = 1;
+        }
+
+        if (in_transition && (cmd == dl_draw_quad_verts_0123)) {
+            transition_verts = 1;
+        }
+
+        if (cmd == dl_screen_transition_end) {
+            in_transition = 0;
+            transition_verts = 0;
+        }
+
+        if (cmd == cotmc_dl_water_begin) {
+            cotmc_water = 1;
+        }
+        if (cmd == cotmc_dl_water_end) {
+            cotmc_water = 0;
+        }
+
+
+        if ((cmd == dl_paintings_env_mapped_begin) && ddd_dl) {
             ddd_ripple = 1;
         }
-        if (cmd == dl_paintings_env_mapped_end && ddd_dl) {
+        if ((cmd == dl_paintings_env_mapped_end )&& ddd_dl) {
             ddd_ripple = 0;
         }
 
