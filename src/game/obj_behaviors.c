@@ -32,6 +32,8 @@
 #include "spawn_object.h"
 #include "spawn_sound.h"
 
+#include "sh4zam.h"
+
 /**
  * @file obj_behaviors.c
  * This file contains a portion of the obj behaviors and many helper functions for those
@@ -498,7 +500,8 @@ s32 is_point_within_radius_of_mario(f32 x, f32 y, f32 z, s32 dist) {
     f32 mGfxY = gMarioObject->header.gfx.pos[1];
     f32 mGfxZ = gMarioObject->header.gfx.pos[2];
 
-    if ((x - mGfxX) * (x - mGfxX) + (y - mGfxY) * (y - mGfxY) + (z - mGfxZ) * (z - mGfxZ)
+    if (shz_mag_sqr3f((x - mGfxX), (y - mGfxY), (z - mGfxZ))
+//    if ((x - mGfxX) * (x - mGfxX) + (y - mGfxY) * (y - mGfxY) + (z - mGfxZ) * (z - mGfxZ)
         < (f32)(dist * dist)) {
         return TRUE;
     }
@@ -513,8 +516,9 @@ s32 is_point_close_to_object(struct Object *obj, f32 x, f32 y, f32 z, s32 dist) 
     f32 objX = obj->oPosX;
     f32 objY = obj->oPosY;
     f32 objZ = obj->oPosZ;
+    if (shz_mag_sqr3f((x - objX), (y - objY), (z - objZ))
 
-    if ((x - objX) * (x - objX) + (y - objY) * (y - objY) + (z - objZ) * (z - objZ)
+//    if ((x - objX) * (x - objX) + (y - objY) * (y - objY) + (z - objZ) * (z - objZ)
         < (f32)(dist * dist)) {
         return TRUE;
     }

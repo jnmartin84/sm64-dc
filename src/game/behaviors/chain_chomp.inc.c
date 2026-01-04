@@ -9,6 +9,8 @@
  * The chain parts are processed starting at the post and ending at the chomp.
  */
 
+#include "sh4zam.h"
+
 /**
  * Hitbox for chain chomp.
  */
@@ -124,10 +126,11 @@ static void chain_chomp_update_chain_segments(void) {
         offsetX = segment->posX - prevSegment->posX;
         offsetY = segment->posY - prevSegment->posY;
         offsetZ = segment->posZ - prevSegment->posZ;
-        offset = sqrtf(offsetX * offsetX + offsetY * offsetY + offsetZ * offsetZ);
+        offset = shz_sqrtf_fsrra(shz_mag_sqr3f(offsetX, offsetY, offsetZ));
+        //sqrtf(offsetX * offsetX + offsetY * offsetY + offsetZ * offsetZ);
 
         if (offset > o->oChainChompMaxDistBetweenChainParts) {
-            offset = o->oChainChompMaxDistBetweenChainParts / offset;
+            offset = shz_divf(o->oChainChompMaxDistBetweenChainParts , offset);
             offsetX *= offset;
             offsetY *= offset;
             offsetZ *= offset;
@@ -139,11 +142,12 @@ static void chain_chomp_update_chain_segments(void) {
         offsetX += prevSegment->posX;
         offsetY += prevSegment->posY;
         offsetZ += prevSegment->posZ;
-        offset = sqrtf(offsetX * offsetX + offsetY * offsetY + offsetZ * offsetZ);
+        offset = shz_sqrtf_fsrra(shz_mag_sqr3f(offsetX, offsetY, offsetZ));
+        //sqrtf(offsetX * offsetX + offsetY * offsetY + offsetZ * offsetZ);
 
         maxTotalOffset = o->oChainChompMaxDistFromPivotPerChainPart * (5 - i);
         if (offset > maxTotalOffset) {
-            offset = maxTotalOffset / offset;
+            offset = shz_divf(maxTotalOffset , offset);
             offsetX *= offset;
             offsetY *= offset;
             offsetZ *= offset;
@@ -160,7 +164,7 @@ static void chain_chomp_update_chain_segments(void) {
  * distance between chain parts. Restore these values to normal.
  */
 static void chain_chomp_restore_normal_chain_lengths(void) {
-    approach_f32_ptr(&o->oChainChompMaxDistFromPivotPerChainPart, 750.0f / 5, 4.0f);
+    approach_f32_ptr(&o->oChainChompMaxDistFromPivotPerChainPart, 150.0f/* 750.0f / 5 */, 4.0f);
     o->oChainChompMaxDistBetweenChainParts = o->oChainChompMaxDistFromPivotPerChainPart;
 }
 
@@ -185,7 +189,7 @@ static void chain_chomp_sub_act_turn(void) {
                         cur_obj_play_sound_2(SOUND_GENERAL_CHAIN_CHOMP2);
 
                         o->oSubAction = CHAIN_CHOMP_SUB_ACT_LUNGE;
-                        o->oChainChompMaxDistFromPivotPerChainPart = 900.0f / 5;
+                        o->oChainChompMaxDistFromPivotPerChainPart = 180.0f; // 900.0f / 5;
 
                         o->oForwardVel = 140.0f;
                         o->oVelY = 20.0f;
@@ -298,7 +302,7 @@ static void chain_chomp_released_lunge_around(void) {
                 o->oHomeX = 1450.0f;
                 o->oHomeZ = 562.0f;
                 o->oMoveAngleYaw = cur_obj_angle_to_home();
-                o->oForwardVel = cur_obj_lateral_dist_to_home() / 8;
+                o->oForwardVel = cur_obj_lateral_dist_to_home() * 0.125f; // / 8;
                 o->oVelY = 50.0f;
             }
         }
@@ -326,7 +330,7 @@ static void chain_chomp_released_break_gate(void) {
         o->oHomeX = 3288.0f;
         o->oHomeZ = -1770.0f;
         o->oMoveAngleYaw = cur_obj_angle_to_home();
-        o->oForwardVel = cur_obj_lateral_dist_to_home() / 50.0f;
+        o->oForwardVel = cur_obj_lateral_dist_to_home() * 0.02f; // / 50.0f;
         o->oVelY = 120.0f;
     }
 }
@@ -401,14 +405,15 @@ static void chain_chomp_act_move(void) {
         o->oChainChompSegments[0].posZ = o->oPosZ - o->parentObj->oPosZ;
 
         o->oChainChompDistToPivot =
-            sqrtf(o->oChainChompSegments[0].posX * o->oChainChompSegments[0].posX
+        shz_sqrtf_fsrra(shz_mag_sqr3f(o->oChainChompSegments[0].posX, o->oChainChompSegments[0].posY, o->oChainChompSegments[0].posZ));
+/*             sqrtf(o->oChainChompSegments[0].posX * o->oChainChompSegments[0].posX
                   + o->oChainChompSegments[0].posY * o->oChainChompSegments[0].posY
-                  + o->oChainChompSegments[0].posZ * o->oChainChompSegments[0].posZ);
+                  + o->oChainChompSegments[0].posZ * o->oChainChompSegments[0].posZ); */
 
         // If the chain is fully stretched
         maxDistToPivot = o->oChainChompMaxDistFromPivotPerChainPart * 5;
         if (o->oChainChompDistToPivot > maxDistToPivot) {
-            f32 ratio = maxDistToPivot / o->oChainChompDistToPivot;
+            f32 ratio = shz_divf(maxDistToPivot , o->oChainChompDistToPivot);
             o->oChainChompDistToPivot = maxDistToPivot;
 
             o->oChainChompSegments[0].posX *= ratio;
@@ -440,7 +445,7 @@ static void chain_chomp_act_move(void) {
         // Begin a lunge if mario tries to attack
         if (obj_check_attacks(&sChainChompHitbox, o->oAction)) {
             o->oSubAction = CHAIN_CHOMP_SUB_ACT_LUNGE;
-            o->oChainChompMaxDistFromPivotPerChainPart = 900.0f / 5;
+            o->oChainChompMaxDistFromPivotPerChainPart = 180.0f; // 900.0f / 5;
             o->oForwardVel = 0.0f;
             o->oVelY = 300.0f;
             o->oGravity = -4.0f;

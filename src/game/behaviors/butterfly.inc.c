@@ -1,5 +1,7 @@
 // butterfly.c.inc
 
+#include "sh4zam.h"
+
 void bhv_butterfly_init(void) {
     cur_obj_init_animation(1);
 
@@ -19,15 +21,17 @@ void butterfly_step(s32 speed) {
     s16 yPhase = o->oButterflyYPhase;
     f32 floorY;
 
-    o->oVelX = sins(yaw) * (f32) speed;
+    scaled_sincoss(yaw, &o->oVelX, &o->oVelZ, (f32)speed);
+
+//    o->oVelX = sins(yaw) * (f32) speed;
     o->oVelY = sins(pitch) * (f32) speed;
-    o->oVelZ = coss(yaw) * (f32) speed;
+//    o->oVelZ = coss(yaw) * (f32) speed;
 
     o->oPosX += o->oVelX;
     o->oPosZ += o->oVelZ;
 
     if (o->oAction == BUTTERFLY_ACT_FOLLOW_MARIO)
-        o->oPosY -= o->oVelY + coss((s32)(yPhase * 655.36)) * 20.0f / 4;
+        o->oPosY -= o->oVelY + coss((s32)(yPhase * 655.36)) * 5.0f; // 20.0f / 4;
     else
         o->oPosY -= o->oVelY;
 
@@ -42,15 +46,15 @@ void butterfly_step(s32 speed) {
 }
 
 void butterfly_calculate_angle(void) {
-    gMarioObject->oPosX += 5 * o->oButterflyYPhase / 4;
-    gMarioObject->oPosZ += 5 * o->oButterflyYPhase / 4;
+    gMarioObject->oPosX += (5 * o->oButterflyYPhase) * 0.25f; // / 4;
+    gMarioObject->oPosZ += (5 * o->oButterflyYPhase) * 0.25f; // / 4;
     obj_turn_toward_object(o, gMarioObject, 16, 0x300);
-    gMarioObject->oPosX -= 5 * o->oButterflyYPhase / 4;
-    gMarioObject->oPosZ -= 5 * o->oButterflyYPhase / 4;
+    gMarioObject->oPosX -= (5 * o->oButterflyYPhase) * 0.25f; // / 4;
+    gMarioObject->oPosZ -= (5 * o->oButterflyYPhase) * 0.25f; // / 4;
 
-    gMarioObject->oPosY += (5 * o->oButterflyYPhase + 0x100) / 4;
+    gMarioObject->oPosY += (5 * o->oButterflyYPhase + 0x100) * 0.25f; // / 4;
     obj_turn_toward_object(o, gMarioObject, 15, 0x500);
-    gMarioObject->oPosY -= (5 * o->oButterflyYPhase + 0x100) / 4;
+    gMarioObject->oPosY -= (5 * o->oButterflyYPhase + 0x100) * 0.25f; // / 4;
 }
 
 void butterfly_act_rest(void) {
@@ -76,14 +80,15 @@ void butterfly_act_return_home(void) {
     f32 homeDistY = o->oHomeY - o->oPosY;
     f32 homeDistZ = o->oHomeZ - o->oPosZ;
     s16 hAngleToHome = atan2s(homeDistZ, homeDistX);
-    s16 vAngleToHome = atan2s(sqrtf(homeDistX * homeDistX + homeDistZ * homeDistZ), -homeDistY);
+    s16 vAngleToHome = atan2s(shz_sqrtf_fsrra(homeDistX * homeDistX + homeDistZ * homeDistZ), -homeDistY);
 
     o->oMoveAngleYaw = approach_s16_symmetric(o->oMoveAngleYaw, hAngleToHome, 0x800);
     o->oMoveAnglePitch = approach_s16_symmetric(o->oMoveAnglePitch, vAngleToHome, 0x50);
 
     butterfly_step(7);
 
-    if (homeDistX * homeDistX + homeDistY * homeDistY + homeDistZ * homeDistZ < 144.0f) {
+    if (/* homeDistX * homeDistX + homeDistY * homeDistY + homeDistZ * homeDistZ */
+        shz_mag_sqr3f(homeDistX, homeDistY, homeDistZ) < 144.0f) {
         cur_obj_init_animation(1);
 
         o->oAction = BUTTERFLY_ACT_RESTING;

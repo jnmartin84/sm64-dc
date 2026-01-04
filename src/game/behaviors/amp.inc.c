@@ -17,6 +17,8 @@ static struct ObjectHitbox sAmpHitbox = {
     /* hurtboxHeight:     */ 60,
 };
 
+#include "sh4zam.h"
+
 /**
  * Homing amp initialization function.
  */
@@ -25,8 +27,8 @@ void bhv_homing_amp_init(void) {
     o->oHomeY = o->oPosY;
     o->oHomeZ = o->oPosZ;
     o->oGravity = 0;
-    o->oFriction = 1.0;
-    o->oBuoyancy = 1.0;
+    o->oFriction = 1.0f;
+    o->oBuoyancy = 1.0f;
     o->oHomingAmpAvgY = o->oHomeY;
 
     // Homing amps start at 1/10th their normal size.
@@ -81,7 +83,7 @@ static void homing_amp_appear_loop(void) {
     // evaluates to 0.1, which is the same as it was before. After 30 frames, it ends at
     // a scale factor of 0.97. The amp remains at 97% of its real height for 60 more frames.
     if (o->oTimer < 30) {
-        cur_obj_scale(0.1 + 0.9 * (f32)(o->oTimer / 30.0f));
+        cur_obj_scale(0.1f + 0.9f * (f32)(o->oTimer * 0.03333333f/* / 30.0f */));
     } else {
         o->oAnimState = 1;
     }
@@ -274,7 +276,7 @@ static void fixed_circling_amp_idle_loop(void) {
     f32 xToMario = gMarioObject->header.gfx.pos[0] - o->oPosX;
     f32 yToMario = gMarioObject->header.gfx.pos[1] + 120.0f - o->oPosY;
     f32 zToMario = gMarioObject->header.gfx.pos[2] - o->oPosZ;
-    s16 vAngleToMario = atan2s(sqrtf(xToMario * xToMario + zToMario * zToMario), -yToMario);
+    s16 vAngleToMario = atan2s(shz_sqrtf_fsrra(xToMario * xToMario + zToMario * zToMario), -yToMario);
 
     obj_turn_toward_object(o, gMarioObject, 19, 0x1000);
     o->oFaceAnglePitch = approach_s16_symmetric(o->oFaceAnglePitch, vAngleToMario, 0x1000);
@@ -301,13 +303,16 @@ static void fixed_circling_amp_idle_loop(void) {
  * Main update function for regular circling amps.
  */
 static void circling_amp_idle_loop(void) {
+    f32 as,ac;
+    scaled_sincoss(o->oMoveAngleYaw, &as, &ac, o->oAmpRadiusOfRotation);
+
     // Move in a circle.
     // The Y oscillation uses the magic number 0x8B0 (2224), which is
     // twice that of the fixed amp. In other words, circling amps will
     // oscillate twice as fast. Also, unlike all other amps, circling
     // amps oscillate 60 units around their average Y instead of 40.
-    o->oPosX = o->oHomeX + sins(o->oMoveAngleYaw) * o->oAmpRadiusOfRotation;
-    o->oPosZ = o->oHomeZ + coss(o->oMoveAngleYaw) * o->oAmpRadiusOfRotation;
+    o->oPosX = o->oHomeX + as;//sins(o->oMoveAngleYaw) * o->oAmpRadiusOfRotation;
+    o->oPosZ = o->oHomeZ + ac;//coss(o->oMoveAngleYaw) * o->oAmpRadiusOfRotation;
     o->oPosY = o->oHomeY + coss(o->oAmpYPhase * 0x8B0) * 30.0f;
     o->oMoveAngleYaw += 0x400;
     o->oFaceAngleYaw = o->oMoveAngleYaw + 0x4000;

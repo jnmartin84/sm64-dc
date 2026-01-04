@@ -13,6 +13,8 @@
 #include "shadow.h"
 #include "sm64.h"
 
+#include "sh4zam.h"
+
 #ifndef TARGET_N64
 // Avoid Z-fighting
 #define find_floor_height_and_data 0.4f + find_floor_height_and_data
@@ -111,20 +113,6 @@ s8 gMarioOnIceOrCarpet;
 s8 sMarioOnFlyingCarpet;
 s16 sSurfaceTypeBelowShadow;
 
-static inline void scaled_sincoss(s16 arg0, f32* s, f32* c, f32 scale) {
-    register float __s __asm__("fr2");
-    register float __c __asm__("fr3");
-
-    asm("lds    %2,fpul\n\t"
-        "fsca    fpul,dr2\n\t"
-        : "=f"(__s), "=f"(__c)
-        : "r"(arg0)
-        : "fpul");
-
-    *s = __s * scale;
-    *c = __c * scale;
-}
-
 /**
  * Let (oldZ, oldX) be the relative coordinates of a point on a rectangle,
  * assumed to be centered at the origin on the standard SM64 X-Z plane. This
@@ -214,7 +202,7 @@ f32 get_water_level_below_shadow(struct Shadow *s) {
     //! incidentally.
     return waterLevel;
 }
-#include "sh4zam.h"
+
 /**
  * Initialize a shadow. Return 0 on success, 1 on failure.
  *

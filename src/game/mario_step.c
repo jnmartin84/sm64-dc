@@ -179,9 +179,11 @@ u32 mario_update_moving_sand(struct MarioState *m) {
         || floorType == SURFACE_MOVING_QUICKSAND || floorType == SURFACE_INSTANT_MOVING_QUICKSAND) {
         s16 pushAngle = floor->force << 8;
         f32 pushSpeed = sMovingSandSpeeds[floor->force >> 8];
+        f32 ps,pc;
+        scaled_sincoss(pushAngle, &ps, &pc, pushSpeed);
 
-        m->vel[0] += pushSpeed * sins(pushAngle);
-        m->vel[2] += pushSpeed * coss(pushAngle);
+        m->vel[0] += ps;// pushSpeed * sins(pushAngle);
+        m->vel[2] += pc;// pushSpeed * coss(pushAngle);
 
         return 1;
     }
@@ -209,9 +211,11 @@ u32 mario_update_windy_ground(struct MarioState *m) {
         } else {
             pushSpeed = 3.2f + (gGlobalTimer % 4);
         }
+        f32 ps,pc;
+        scaled_sincoss(pushAngle, &ps, &pc, pushSpeed);
 
-        m->vel[0] += pushSpeed * sins(pushAngle);
-        m->vel[2] += pushSpeed * coss(pushAngle);
+        m->vel[0] += ps;// pushSpeed * sins(pushAngle);
+        m->vel[2] += pc;//pushSpeed * coss(pushAngle);
 
 #if VERSION_JP
         play_sound(SOUND_ENV_WIND2, m->marioObj->header.gfx.cameraToObject);
@@ -327,8 +331,8 @@ s32 perform_ground_step(struct MarioState *m) {
     Vec3f intendedPos;
 
     for (i = 0; i < 4; i++) {
-        intendedPos[0] = m->pos[0] + m->floor->normal.y * (m->vel[0] / 4.0f);
-        intendedPos[2] = m->pos[2] + m->floor->normal.y * (m->vel[2] / 4.0f);
+        intendedPos[0] = m->pos[0] + m->floor->normal.y * (m->vel[0] * 0.25f); // / 4.0f);
+        intendedPos[2] = m->pos[2] + m->floor->normal.y * (m->vel[2] * 0.25f); // / 4.0f);
         intendedPos[1] = m->pos[1];
 
         stepResult = perform_ground_quarter_step(m, intendedPos);

@@ -1,5 +1,7 @@
 // mushroom_1up.c.inc
 
+#include "sh4zam.h"
+
 void bhv_1up_interact(void) {
     UNUSED s32 sp1C;
 
@@ -43,7 +45,7 @@ void pole_1up_move_towards_mario(void) {
     f32 sp34 = gMarioObject->header.gfx.pos[0] - o->oPosX;
     f32 sp30 = gMarioObject->header.gfx.pos[1] + 120.0f - o->oPosY;
     f32 sp2C = gMarioObject->header.gfx.pos[2] - o->oPosZ;
-    s16 sp2A = atan2s(sqrtf(sqr(sp34) + sqr(sp2C)), sp30);
+    s16 sp2A = atan2s(shz_sqrtf_fsrra(sqr(sp34) + sqr(sp2C)), sp30);
 
     obj_turn_toward_object(o, gMarioObject, 16, 0x1000);
     o->oMoveAnglePitch = approach_s16_symmetric(o->oMoveAnglePitch, sp2A, 0x1000);
@@ -142,7 +144,7 @@ void sliding_1up_move(void) {
         o->oForwardVel += 25.0f;
         o->oVelY = 0;
     } else {
-        o->oForwardVel *= 0.98;
+        o->oForwardVel *= 0.98f;
     }
 
     if (o->oForwardVel > 40.0)

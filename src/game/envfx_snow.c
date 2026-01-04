@@ -158,34 +158,6 @@ void orbit_from_positions(Vec3s from, Vec3s to, s16 *radius, s16 *pitch, s16 *ya
     *yaw = atan2s(dz, dx);
 }
 
-static inline void sincoss(s16 arg0, f32* s, f32* c) {
-    register float __s __asm__("fr2");
-    register float __c __asm__("fr3");
-
-    asm("lds    %2,fpul\n\t"
-        "fsca    fpul,dr2\n\t"
-        : "=f"(__s), "=f"(__c)
-        : "r"(arg0)
-        : "fpul");
-
-    *s = __s;
-    *c = __c;
-}
-
-static inline void scaled_sincoss(s16 arg0, f32* s, f32* c, f32 scale) {
-    register float __s __asm__("fr2");
-    register float __c __asm__("fr3");
-
-    asm("lds    %2,fpul\n\t"
-        "fsca    fpul,dr2\n\t"
-        : "=f"(__s), "=f"(__c)
-        : "r"(arg0)
-        : "fpul");
-
-    *s = __s * scale;
-    *c = __c * scale;
-}
-
 /**
  * Calculate the 'result' vector as the position of the 'origin' vector
  * with a vector added represented by radius, pitch and yaw.

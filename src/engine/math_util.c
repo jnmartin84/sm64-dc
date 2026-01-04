@@ -8,33 +8,6 @@
 #include "trig_tables.inc.c"
 
 #include "sh4zam.h"
-static inline void sincoss(s16 arg0, f32* s, f32* c) {
-    register float __s __asm__("fr2");
-    register float __c __asm__("fr3");
-
-    asm("lds    %2,fpul\n\t"
-        "fsca    fpul,dr2\n\t"
-        : "=f"(__s), "=f"(__c)
-        : "r"(arg0)
-        : "fpul");
-
-    *s = __s;
-    *c = __c;
-}
-
-static inline void scaled_sincoss(s16 arg0, f32* s, f32* c, f32 scale) {
-    register float __s __asm__("fr2");
-    register float __c __asm__("fr3");
-
-    asm("lds    %2,fpul\n\t"
-        "fsca    fpul,dr2\n\t"
-        : "=f"(__s), "=f"(__c)
-        : "r"(arg0)
-        : "fpul");
-
-    *s = __s * scale;
-    *c = __c * scale;
-}
 
 // Variables for a spline curve animation (used for the flight path in the grand star cutscene)
 Vec4s *gSplineKeyframe;
@@ -693,9 +666,6 @@ void vec3f_get_dist_and_angle(Vec3f from, Vec3f to, f32 *dist, s16 *pitch, s16 *
  * and has the angles pitch and yaw.
  */
 
-
-//static inline void scaled_sincoss(u16 arg0, f32* s, f32* c, f32 scale) {
-
 #if 1
 void vec3f_set_dist_and_angle(Vec3f from, Vec3f to, f32 dist, s16 pitch, s16 yaw) {
     f32 ps,pc;
@@ -784,6 +754,7 @@ f32 approach_f32(f32 current, f32 target, f32 inc, f32 dec) {
  * Helper function for atan2s. Does a look up of the arctangent of y/x assuming
  * the resulting angle is in range [0, 0x2000] (1/8 of a circle).
  */
+#if 0
 static u16 atan2_lookup(f32 y, f32 x) {
 #if 1
     u16 ret;
@@ -798,12 +769,16 @@ static u16 atan2_lookup(f32 y, f32 x) {
     return shz_atan2f(y, x) * 10430.37806022f;
 #endif
 }
+#endif
 
 /**
  * Compute the angle from (0, 0) to (x, y) as a s16. Given that terrain is in
  * the xz-plane, this is commonly called with (z, x) to get a yaw angle.
  */
 s16 atan2s(f32 y, f32 x) {
+    return shz_atan2f(x, y) * 10430.37806022f;
+
+#if 0
     u16 ret;
 
     if (x >= 0) {
@@ -839,6 +814,7 @@ s16 atan2s(f32 y, f32 x) {
         }
     }
     return ret;
+#endif
 }
 
 #if 0

@@ -1,5 +1,7 @@
 // sparkle_spawn_star.c.inc
 
+#include "sh4zam.h"
+
 struct ObjectHitbox sSparkleSpawnStarHitbox = {
     /* interactType: */ INTERACT_STAR_OR_KEY,
     /* downOffset: */ 0,
@@ -40,7 +42,7 @@ void set_home_to_mario(void) {
     o->oPosY = o->oHomeY;
     sp1C = o->oHomeX - o->oPosX;
     sp18 = o->oHomeZ - o->oPosZ;
-    o->oForwardVel = sqrtf(sp1C * sp1C + sp18 * sp18) / 23.0f;
+    o->oForwardVel = shz_sqrtf_fsrra(sp1C * sp1C + sp18 * sp18) * 0.04347826f; // / 23.0f;
 }
 
 void set_y_home_to_pos(void) {
