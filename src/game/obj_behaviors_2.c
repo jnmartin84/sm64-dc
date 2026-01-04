@@ -45,35 +45,6 @@
 #include "seq_ids.h"
 #include "spawn_sound.h"
 
-#include "sh4zam.h"
-static inline void sincoss(s16 arg0, f32* s, f32* c) {
-    register float __s __asm__("fr2");
-    register float __c __asm__("fr3");
-
-    asm("lds    %2,fpul\n\t"
-        "fsca    fpul,dr2\n\t"
-        : "=f"(__s), "=f"(__c)
-        : "r"(arg0)
-        : "fpul");
-
-    *s = __s;
-    *c = __c;
-}
-
-static inline void scaled_sincoss(s16 arg0, f32* s, f32* c, f32 scale) {
-    register float __s __asm__("fr2");
-    register float __c __asm__("fr3");
-
-    asm("lds    %2,fpul\n\t"
-        "fsca    fpul,dr2\n\t"
-        : "=f"(__s), "=f"(__c)
-        : "r"(arg0)
-        : "fpul");
-
-    *s = __s * scale;
-    *c = __c * scale;
-}
-
 #define POS_OP_SAVE_POSITION 0
 #define POS_OP_COMPUTE_VELOCITY 1
 #define POS_OP_RESTORE_POSITION 2
@@ -138,11 +109,8 @@ static s32 obj_update_race_proposition_dialog(s16 dialogID) {
 }
 
 static void obj_set_dist_from_home(f32 distFromHome) {
-//    o->oPosX = o->oHomeX + distFromHome * coss(o->oMoveAngleYaw);
-//    o->oPosZ = o->oHomeZ + distFromHome * sins(o->oMoveAngleYaw);
-    scaled_sincoss(o->oMoveAngleYaw, &o->oPosZ, &o->oPosX, distFromHome);
-    o->oPosX += o->oHomeX;
-    o->oPosZ += o->oHomeZ;
+    o->oPosX = o->oHomeX + distFromHome * coss(o->oMoveAngleYaw);
+    o->oPosZ = o->oHomeZ + distFromHome * sins(o->oMoveAngleYaw);
 }
 
 static s32 obj_is_near_to_and_facing_mario(f32 maxDist, s16 maxAngleDiff) {
@@ -221,8 +189,7 @@ static void platform_on_track_update_pos_or_spawn_ball(s32 ballIndex, f32 x, f32
             dy = nextWaypoint->pos[1] - y;
             dz = nextWaypoint->pos[2] - z;
 
-            distToNextWaypoint = shz_sqrtf_fsrra(shz_mag_sqr3f(dx, dy, dz));
-            //sqrtf(dx * dx + dy * dy + dz * dz);
+            distToNextWaypoint = sqrtf(dx * dx + dy * dy + dz * dz);
 
             // Move directly to the next waypoint, even if it's farther away
             // than amountToMove
@@ -239,7 +206,7 @@ static void platform_on_track_update_pos_or_spawn_ball(s32 ballIndex, f32 x, f32
         // waypoints, which should never be that small). But this implies that
         // amountToMove - distToNextWaypoint <= 0, and amountToMove is at least
         // 0.1 (from platform on track behavior).
-        distToNextWaypoint = shz_divf(amountToMove , distToNextWaypoint);
+        distToNextWaypoint = amountToMove / distToNextWaypoint;
         x += dx * distToNextWaypoint;
         y += dy * distToNextWaypoint;
         z += dz * distToNextWaypoint;
@@ -268,7 +235,7 @@ static void platform_on_track_update_pos_or_spawn_ball(s32 ballIndex, f32 x, f32
             obj_perform_position_op(POS_OP_COMPUTE_VELOCITY);
 
             o->oPlatformOnTrackPitch =
-                atan2s(shz_sqrtf_fsrra(o->oVelX * o->oVelX + o->oVelZ * o->oVelZ), -o->oVelY);
+                atan2s(sqrtf(o->oVelX * o->oVelX + o->oVelZ * o->oVelZ), -o->oVelY);
             o->oPlatformOnTrackYaw = atan2s(o->oVelZ, o->oVelX);
         }
     }
@@ -305,21 +272,18 @@ static void cur_obj_spin_all_dimensions(f32 arg0, f32 arg1) {
             }
         }
 
-//        c = coss(o->oFaceAnglePitch);
-//        s = sins(o->oFaceAnglePitch);
-        sincoss(o->oFaceAnglePitch, &s, &c);
+        c = coss(o->oFaceAnglePitch);
+        s = sins(o->oFaceAnglePitch);
         val08 = val1C * c + val20 * s;
         val0C = val20 * c - val1C * s;
 
-//        c = coss(o->oFaceAngleRoll);
-//        s = sins(o->oFaceAngleRoll);
-        sincoss(o->oFaceAngleRoll, &s, &c);
+        c = coss(o->oFaceAngleRoll);
+        s = sins(o->oFaceAngleRoll);
         val04 = val24 * c + val0C * s;
         val0C = val0C * c - val24 * s;
 
-//        c = coss(o->oFaceAngleYaw);
-//        s = sins(o->oFaceAngleYaw);
-        sincoss(o->oFaceAngleYaw, &s, &c);
+        c = coss(o->oFaceAngleYaw);
+        s = sins(o->oFaceAngleYaw);
         val10 = val04 * c - val08 * s;
         val08 = val08 * c + val04 * s;
 
@@ -604,19 +568,16 @@ static s32 obj_resolve_object_collisions(s32 *targetYaw) {
 
             radius = o->hitboxRadius;
             otherRadius = otherObject->hitboxRadius;
-            relativeRadius = shz_divf(radius , (radius + otherRadius));
+            relativeRadius = radius / (radius + otherRadius);
 
             newCenterX = o->oPosX + dx * relativeRadius;
             newCenterZ = o->oPosZ + dz * relativeRadius;
 
-            scaled_sincoss(angle, &o->oPosZ, &o->oPosX, radius);
+            o->oPosX = newCenterX - radius * coss(angle);
+            o->oPosZ = newCenterZ - radius * sins(angle);
 
-            o->oPosX += newCenterX;// - radius * coss(angle);
-            o->oPosZ += newCenterZ;// - radius * sins(angle);
-
-            scaled_sincoss(angle, &otherObject->oPosZ, &otherObject->oPosX, otherRadius);
-            otherObject->oPosX += newCenterX;//x + otherRadius * coss(angle);
-            otherObject->oPosZ += newCenterZ;//x + otherRadius * sins(angle);
+            otherObject->oPosX = newCenterX + otherRadius * coss(angle);
+            otherObject->oPosZ = newCenterZ + otherRadius * sins(angle);
 
             if (targetYaw != NULL && abs_angle_diff(o->oMoveAngleYaw, angle) < 0x4000) {
                 // Bounce off object (or it would, if the above atan2s bug
@@ -910,8 +871,7 @@ static void treat_far_home_as_mario(f32 threshold) {
     f32 dx = o->oHomeX - o->oPosX;
     f32 dy = o->oHomeY - o->oPosY;
     f32 dz = o->oHomeZ - o->oPosZ;
-    f32 distance = shz_sqrtf_fsrra(shz_mag_sqr3f(dx, dy, dz));
-    //sqrtf(dx * dx + dy * dy + dz * dz);
+    f32 distance = sqrtf(dx * dx + dy * dy + dz * dz);
 
     if (distance > threshold) {
         o->oAngleToMario = atan2s(dz, dx);
@@ -920,7 +880,7 @@ static void treat_far_home_as_mario(f32 threshold) {
         dx = o->oHomeX - gMarioObject->oPosX;
         dy = o->oHomeY - gMarioObject->oPosY;
         dz = o->oHomeZ - gMarioObject->oPosZ;
-        distance = shz_sqrtf_fsrra(shz_mag_sqr3f(dx, dy, dz));//sqrtf(dx * dx + dy * dy + dz * dz);
+        distance = sqrtf(dx * dx + dy * dy + dz * dz);
 
         if (distance > threshold) {
             o->oDistanceToMario = 20000.0f;
