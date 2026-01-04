@@ -561,7 +561,6 @@ static void  __attribute__((noinline)) import_texture_i8(int tile) {
 	gfx_rapi->upload_texture((uint8_t*) rgba16_buf, width, height, GL_UNSIGNED_SHORT_4_4_4_4_REV);
 }
 
-
 static void  __attribute__((noinline)) import_texture(int tile) {
     uint8_t fmt = rdp.texture_tile.fmt;
     uint8_t siz = rdp.texture_tile.siz;
@@ -627,6 +626,7 @@ static void calculate_normal_dir(const Light_t* light, float coeffs[3]) {
 static void gfx_matrix_mul(shz_matrix_4x4_t* res, const shz_matrix_4x4_t* a, const shz_matrix_4x4_t* b) {
     shz_xmtrx_load_4x4_apply_store(res, b, a);
 }
+
 static int matrix_dirty = 0;
 
 static void  __attribute__((noinline)) gfx_sp_matrix(uint8_t parameters, const int32_t *addr) {
@@ -644,31 +644,28 @@ static void  __attribute__((noinline)) gfx_sp_matrix(uint8_t parameters, const i
     }
 #else
     // For a modified GBI where fixed point values are replaced with floats
-//    memcpy(matrix, addr, sizeof(matrix));
-        shz_xmtrx_load_4x4_unaligned((const float*)addr);
-        shz_xmtrx_store_4x4((shz_matrix_4x4_t *)matrix);
+    shz_xmtrx_load_4x4_unaligned((const float*)addr);
+    shz_xmtrx_store_4x4((shz_matrix_4x4_t *)matrix);
 #endif
     
     if (parameters & G_MTX_PROJECTION) {
         if (parameters & G_MTX_LOAD) {
-            n64_memcpy(rsp.P_matrix, matrix, sizeof(matrix));
+            shz_xmtrx_store_4x4((shz_matrix_4x4_t *)rsp.P_matrix);
+//            n64_memcpy(rsp.P_matrix, matrix, sizeof(matrix));
         } else {
             gfx_matrix_mul((shz_matrix_4x4_t *)rsp.P_matrix, (const shz_matrix_4x4_t *)matrix, (const shz_matrix_4x4_t *)rsp.P_matrix);
         }
-//        glMatrixMode(GL_PROJECTION);
-  //      glLoadMatrixf((const float*)rsp.P_matrix);
     } else { // G_MTX_MODELVIEW
         if ((parameters & G_MTX_PUSH) && rsp.modelview_matrix_stack_size < 11) {
             ++rsp.modelview_matrix_stack_size;
             n64_memcpy(rsp.modelview_matrix_stack[rsp.modelview_matrix_stack_size - 1], rsp.modelview_matrix_stack[rsp.modelview_matrix_stack_size - 2], sizeof(matrix));
         }
         if (parameters & G_MTX_LOAD) {
-            n64_memcpy(rsp.modelview_matrix_stack[rsp.modelview_matrix_stack_size - 1], matrix, sizeof(matrix));
+//            n64_memcpy(rsp.modelview_matrix_stack[rsp.modelview_matrix_stack_size - 1], matrix, sizeof(matrix));
+            shz_xmtrx_store_4x4((shz_matrix_4x4_t *)rsp.modelview_matrix_stack[rsp.modelview_matrix_stack_size - 1]);
         } else {
             gfx_matrix_mul((shz_matrix_4x4_t *)rsp.modelview_matrix_stack[rsp.modelview_matrix_stack_size - 1], (const shz_matrix_4x4_t *)matrix, (const shz_matrix_4x4_t *)rsp.modelview_matrix_stack[rsp.modelview_matrix_stack_size - 1]);
         }
-    //    glMatrixMode(GL_MODELVIEW);
-      //  glLoadMatrixf((const float*)rsp.modelview_matrix_stack[rsp.modelview_matrix_stack_size - 1]);
         rsp.lights_changed = 1;
     }
     matrix_dirty = 1;
@@ -928,13 +925,6 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
     uint8_t c2 = l_clip_rej[2];
     MEM_BARRIER_PREF(v3);
 
-    if (matrix_dirty) {
-        gfx_flush();
-        glMatrixMode(GL_PROJECTION);
-        glLoadMatrixf((const float*) rsp.MP_matrix);
-        matrix_dirty = 0;
-    }
-
     if ((c0 & c1 & c2) & 0x3f) {
         // The whole triangle lies outside the visible area
         return;
@@ -964,6 +954,13 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
             default:
                 break;
         }
+    }
+
+    if (matrix_dirty) {
+        gfx_flush();
+        glMatrixMode(GL_PROJECTION);
+        glLoadMatrixf((const float*) rsp.MP_matrix);
+        matrix_dirty = 0;
     }
 
     if (in_trilerp) {
@@ -1268,7 +1265,7 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         color_r = gWarpTransRed;
         color_g = gWarpTransGreen;
         color_b = gWarpTransBlue;
-        color_a = gTransAlpha;
+//        color_a = gTransAlpha;
         packedc = PACK_ARGB8888(color_r, color_g, color_b, color_a);
     } else if (in_cannon) {
         use_shade = 0;
@@ -1334,7 +1331,7 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
 
     buf_vbo_num_tris += 1;
 
-    if ((buf_vbo_num_tris == MAX_BUFFERED) || doing_skybox || water_bomb || font_draw || do_radar_mark || drawing_hand || doing_peach || doing_bowser ||  aquarium_draw || cotmc_water || ddd_ripple || water_ring || cotmc_shadow)
+    if (transition_verts || (buf_vbo_num_tris == MAX_BUFFERED) || doing_skybox || water_bomb || font_draw || do_radar_mark || drawing_hand || doing_peach || doing_bowser ||  aquarium_draw || cotmc_water || ddd_ripple || water_ring || cotmc_shadow)
         gfx_flush();
 }
 
@@ -1827,13 +1824,7 @@ void gfx_opengl_2d_projection(void) {
 }
 
 void gfx_opengl_reset_projection(void) {
-//    glMatrixMode(GL_PROJECTION);
-  //  glLoadMatrixf((const float*)rsp.MP_matrix);
-    //glMatrixMode(GL_MODELVIEW);
-    //glLoadIdentity();
-    //    glLoadMatrixf((const float*)rsp.modelview_matrix_stack[rsp.modelview_matrix_stack_size - 1]);
     matrix_dirty = 1;
-
 }
 
 static void  __attribute__((noinline)) gfx_draw_rectangle(int32_t ulx, int32_t uly, int32_t lrx, int32_t lry) {

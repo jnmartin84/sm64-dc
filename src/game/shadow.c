@@ -111,6 +111,20 @@ s8 gMarioOnIceOrCarpet;
 s8 sMarioOnFlyingCarpet;
 s16 sSurfaceTypeBelowShadow;
 
+static inline void scaled_sincoss(s16 arg0, f32* s, f32* c, f32 scale) {
+    register float __s __asm__("fr2");
+    register float __c __asm__("fr3");
+
+    asm("lds    %2,fpul\n\t"
+        "fsca    fpul,dr2\n\t"
+        : "=f"(__s), "=f"(__c)
+        : "r"(arg0)
+        : "fpul");
+
+    *s = __s * scale;
+    *c = __c * scale;
+}
+
 /**
  * Let (oldZ, oldX) be the relative coordinates of a point on a rectangle,
  * assumed to be centered at the origin on the standard SM64 X-Z plane. This
@@ -119,8 +133,14 @@ s16 sSurfaceTypeBelowShadow;
  */
 void rotate_rectangle(f32 *newZ, f32 *newX, f32 oldZ, f32 oldX) {
     struct Object *obj = (struct Object *) gCurGraphNodeObject;
-    *newZ = oldZ * coss(obj->oFaceAngleYaw) - oldX * sins(obj->oFaceAngleYaw);
-    *newX = oldZ * sins(obj->oFaceAngleYaw) + oldX * coss(obj->oFaceAngleYaw);
+    f32 z_ys,z_yc;
+    scaled_sincoss(obj->oFaceAngleYaw, &z_ys, &z_yc, oldZ);
+    f32 x_ys,x_yc;
+    scaled_sincoss(obj->oFaceAngleYaw, &x_ys, &x_yc, oldX);
+    *newZ = z_yc - x_ys;
+//    *newZ = oldZ * coss(obj->oFaceAngleYaw) - oldX * sins(obj->oFaceAngleYaw);
+    *newX = z_ys + x_yc;
+    //*newX = oldZ * sins(obj->oFaceAngleYaw) + oldX * coss(obj->oFaceAngleYaw);
 }
 
 /**
@@ -143,7 +163,7 @@ f32 scale_shadow_with_distance(f32 initial, f32 distFromFloor) {
     } else if (distFromFloor >= 600.0f) {
         newScale = initial * 0.5f;
     } else {
-        newScale = initial * (1.0f - (0.00083333 * distFromFloor)); //(0.5f * distFromFloor / 600.0));
+        newScale = initial * (1.0f - (0.00083333f * distFromFloor)); //(0.5f * distFromFloor / 600.0));
     }
 
     return newScale;
