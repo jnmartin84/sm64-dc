@@ -41,7 +41,7 @@ void n64_memcpy(void* dst, const void* src, size_t size) {
     if ((!(((uintptr_t) bdst | (uintptr_t) bsrc) & 3))) {
         while (words_to_copy--) {
 //            if ((words_to_copy & 3) == 0) {
-            __builtin_prefetch(wsrc + 8);
+//            __builtin_prefetch(wsrc + 8);
 //            }
             *wdst++ = *wsrc++;
         }
@@ -64,7 +64,7 @@ void n64_memcpy(void* dst, const void* src, size_t size) {
     } else if ((!(((uintptr_t) sdst | (uintptr_t) ssrc) & 1))) {
         while (shorts_to_copy--) {
 //            if ((shorts_to_copy & 7) == 0) {
-            __builtin_prefetch(ssrc + 16);
+//            __builtin_prefetch(ssrc + 16);
 //            }
             *sdst++ = *ssrc++;
         }
