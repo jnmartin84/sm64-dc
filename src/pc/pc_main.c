@@ -177,10 +177,10 @@ void main_func(void) {
     inited = 1;
 
     while (1) {
+        gfx_start_frame();
+        game_loop_one_iteration();
+        gfx_end_frame();
         gSysFrameCount++;
-    gfx_start_frame();
-    game_loop_one_iteration();
-    gfx_end_frame();
     }
 }
 

@@ -754,9 +754,7 @@ f32 approach_f32(f32 current, f32 target, f32 inc, f32 dec) {
  * Helper function for atan2s. Does a look up of the arctangent of y/x assuming
  * the resulting angle is in range [0, 0x2000] (1/8 of a circle).
  */
-#if 0
 static u16 atan2_lookup(f32 y, f32 x) {
-#if 1
     u16 ret;
 
     if (x == 0.f) {
@@ -765,20 +763,14 @@ static u16 atan2_lookup(f32 y, f32 x) {
         ret = gArctanTable[(s32)(y / x * 1024 + 0.5f)];
     }
     return ret;
-#else
-    return shz_atan2f(y, x) * 10430.37806022f;
-#endif
 }
-#endif
 
 /**
  * Compute the angle from (0, 0) to (x, y) as a s16. Given that terrain is in
  * the xz-plane, this is commonly called with (z, x) to get a yaw angle.
  */
-s16 atan2s(f32 y, f32 x) {
-    return shz_atan2f(x, y) * 10430.37806022f;
 
-#if 0
+s16 atan2s(f32 y, f32 x) {
     u16 ret;
 
     if (x >= 0) {
@@ -814,7 +806,6 @@ s16 atan2s(f32 y, f32 x) {
         }
     }
     return ret;
-#endif
 }
 
 #if 0

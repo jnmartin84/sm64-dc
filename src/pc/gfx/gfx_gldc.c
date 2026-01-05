@@ -605,7 +605,7 @@ void gfx_opengl_draw_triangles_2d(void *buf_vbo, UNUSED size_t buf_vbo_len, UNUS
     glDisable(GL_TEXTURE_2D);
 
     if (buf_vbo_num_tris) {
-        if (cur_shader->texture_used[0] || cur_shader->texture_used[1]) {
+        if (cur_shader->texture_used[0]) { //} || cur_shader->texture_used[1]) {
             glEnable(GL_TEXTURE_2D);
             glBindTexture(GL_TEXTURE_2D, tmu_state[cur_shader->texture_ord[0]].tex);
         }

@@ -16,8 +16,7 @@ typedef signed int             s32;
 typedef unsigned int           u32;
 
 typedef float  f32;
-///typedef double f64;
-typedef float f64;
+typedef double f64;
 
 #ifdef TARGET_N64
 typedef signed long long int   s64;
