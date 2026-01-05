@@ -2017,7 +2017,8 @@ extern Gfx dl_draw_quad_verts_0123[];
 
 static Gfx __attribute__((aligned(32))) * dl_stack[GFX_DL_STACK_MAX];
 
-int max_sp = 0;
+//int max_sp = 0;
+
 static void __attribute__((noinline)) gfx_run_dl(Gfx* cmd) {
     int dl_sp = 0;
 
@@ -2179,10 +2180,10 @@ static void __attribute__((noinline)) gfx_run_dl(Gfx* cmd) {
                 if (C0(16, 1) == 0) {
                   
                     dl_stack[dl_sp++] = cmd + 1; /* return to next command */
-                    if (dl_sp > max_sp) {
-                        printf("max DL stack depth %d\n", dl_sp);
-                        max_sp = dl_sp;
-                    }
+//                    if (dl_sp > max_sp) {
+//                        printf("max DL stack depth %d\n", dl_sp);
+//                        max_sp = dl_sp;
+//                    }
                     cmd = (Gfx*) seg_addr(cmd->words.w1);
 
                     drawing_hand = 0;
