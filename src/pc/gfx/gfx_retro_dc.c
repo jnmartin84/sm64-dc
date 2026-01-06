@@ -2382,8 +2382,6 @@ static void gfx_sp_reset() {
     rsp.modelview_matrix_stack_size = 1;
     rsp.current_num_lights = 2;
     rsp.lights_changed = true;
-    rendering_state.textures[0]->cms = 6;
-    rendering_state.textures[0]->cmt = 6;
     rendering_state.fog_col_change = 0;
     rendering_state.fog_change = 0;
     memset(rsp.current_lookat, 0, sizeof(Light_t) * 2);

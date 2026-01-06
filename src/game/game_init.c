@@ -46,7 +46,9 @@ UNUSED u8 filler80339D30[0x90];
 int unused8032C690 = 0;
 u32 gGlobalTimer = 0;
 
+#if !(defined(TARGET_DC) || defined(TARGET_PSP))
 static u16 sCurrFBNum = 0;
+#endif
 u16 frameBufferIndex = 0;
 void (*D_8032C6A0)(void) = NULL;
 struct Controller *gPlayer1Controller = &gControllers[0];
@@ -334,9 +336,11 @@ void display_and_vsync(void) {
 
     //profiler_log_thread5_time(THREAD5_END);
     //osRecvMesg(&gGameVblankQueue, &D_80339BEC, OS_MESG_BLOCK);
+#if !(defined(TARGET_DC) || defined(TARGET_PSP))
     if (++sCurrFBNum == 3) {
         sCurrFBNum = 0;
     }
+#endif
     if (++frameBufferIndex == 3) {
         frameBufferIndex = 0;
     }
