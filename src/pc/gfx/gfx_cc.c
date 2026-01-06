@@ -13,8 +13,7 @@ void gfx_cc_get_features(uint32_t shader_id, struct CCFeatures *cc_features) {
     cc_features->opt_texture_edge = (shader_id & SHADER_OPT_TEXTURE_EDGE) != 0;
     cc_features->opt_noise = (shader_id & SHADER_OPT_NOISE) != 0;
 
-    cc_features->used_textures[0] = false;
-    cc_features->used_textures[1] = false;
+    cc_features->used_texture = false;
     cc_features->num_inputs = 0;
 
     for (i = 0; i < 2; i++) {
@@ -25,10 +24,7 @@ void gfx_cc_get_features(uint32_t shader_id, struct CCFeatures *cc_features) {
                 }
             }
             if (cc_features->c[i][j] == SHADER_TEXEL0 || cc_features->c[i][j] == SHADER_TEXEL0A) {
-                cc_features->used_textures[0] = true;
-            }
-            if (cc_features->c[i][j] == SHADER_TEXEL1) {
-                cc_features->used_textures[1] = true;
+                cc_features->used_texture = true;
             }
         }
     }

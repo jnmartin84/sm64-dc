@@ -37,7 +37,7 @@ struct CCFeatures {
     bool opt_fog;
     bool opt_texture_edge;
     bool opt_noise;
-    bool used_textures[2];
+    bool used_texture;
     int num_inputs;
     bool do_single[2];
     bool do_multiply[2];

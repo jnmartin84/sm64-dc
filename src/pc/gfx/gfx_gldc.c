@@ -42,8 +42,7 @@ struct ShaderProgram {
     uint32_t shader_id;
     struct CCFeatures cc;
     enum MixType mix;
-    bool texture_used[2];
-    int texture_ord[2];
+    bool texture_used;
     int num_inputs;
 };
 
@@ -59,7 +58,7 @@ static struct ShaderProgram shader_program_pool[64];
 static uint8_t shader_program_pool_size;
 static struct ShaderProgram *cur_shader = NULL;
 
-static struct SamplerState tmu_state[2];
+static struct SamplerState tmu_state;
 
 static const dc_fast_t *cur_buf = NULL;
 static bool gl_blend = false;
@@ -130,8 +129,8 @@ static void gfx_opengl_apply_shader(struct ShaderProgram *prg) {
     glVertexPointer(3, GL_FLOAT, sizeof(dc_fast_t), &cur_buf[0].vert);
     glTexCoordPointer(2, GL_FLOAT, sizeof(dc_fast_t), &cur_buf[0].texture);
     glColorPointer(GL_BGRA, GL_UNSIGNED_BYTE, sizeof(dc_fast_t), &cur_buf[0].color);
-    // have texture(s), specify same texcoords for every active texture
-    if (prg->texture_used[0]) { //} || prg->texture_used[1]) {
+    // have texture
+    if (prg->texture_used) {
         glEnable(GL_TEXTURE_2D);
     } else {
         glDisable(GL_TEXTURE_2D);
@@ -176,21 +175,11 @@ static struct ShaderProgram *gfx_opengl_create_and_load_new_shader(uint32_t shad
     prg->shader_id = shader_id;
     prg->cc = ccf;
     prg->num_inputs = ccf.num_inputs;
-    prg->texture_used[0] = ccf.used_textures[0];
-    prg->texture_used[1] = ccf.used_textures[1];
+    prg->texture_used = ccf.used_texture;
 
-    if (ccf.used_textures[0] && ccf.used_textures[1]) {
-        prg->mix = SH_MT_TEXTURE_TEXTURE;
-        if (ccf.do_single[1]) {
-            prg->texture_ord[0] = 1;
-            prg->texture_ord[1] = 0;
-        } else {
-            prg->texture_ord[0] = 0;
-            prg->texture_ord[1] = 1;
-        }
-    } else if (ccf.used_textures[0] && ccf.num_inputs) {
+    if (ccf.used_texture && ccf.num_inputs) {
         prg->mix = SH_MT_TEXTURE_COLOR;
-    } else if (ccf.used_textures[0]) {
+    } else if (ccf.used_texture) {
         prg->mix = SH_MT_TEXTURE;
     } else if (ccf.num_inputs > 1) {
         prg->mix = SH_MT_COLOR_COLOR;
@@ -214,10 +203,9 @@ static struct ShaderProgram *gfx_opengl_lookup_shader(uint32_t shader_id) {
     return NULL;
 }
 
-static void gfx_opengl_shader_get_info(struct ShaderProgram *prg, uint8_t *num_inputs, bool used_textures[2]) {
+static bool gfx_opengl_shader_get_info(struct ShaderProgram *prg, uint8_t *num_inputs) {
     *num_inputs = prg->num_inputs;
-    used_textures[0] = prg->texture_used[0];
-    used_textures[1] = prg->texture_used[1];
+    return prg->texture_used;
 }
 
 GLuint newest_texture = 0;
@@ -228,8 +216,7 @@ static void gfx_clear_all_textures(void) {
         for (index = 2; index <= newest_texture; index++)
             glDeleteTextures(1, &index);
 
-        tmu_state[0].tex = 0;
-        tmu_state[1].tex = 0;
+        tmu_state.tex = 0;
     }
     newest_texture = 0;
 }
@@ -237,10 +224,8 @@ static void gfx_clear_all_textures(void) {
 void gfx_clear_texidx(GLuint texidx) {
     GLuint index = texidx;
     glDeleteTextures(0, &index);
-    if (tmu_state[0].tex == texidx)
-        tmu_state[0].tex = 0;
-    if (tmu_state[1].tex == texidx)
-        tmu_state[1].tex = 0;
+    if (tmu_state.tex == texidx)
+        tmu_state.tex = 0;
 }
 
 static uint32_t gfx_opengl_new_texture(void) {
@@ -250,8 +235,8 @@ static uint32_t gfx_opengl_new_texture(void) {
     return (uint32_t) ret;
 }
 
-static void gfx_opengl_select_texture(int tile, uint32_t texture_id) {
-    tmu_state[tile].tex = texture_id;
+static void gfx_opengl_select_texture(uint32_t texture_id) {
+    tmu_state.tex = texture_id;
     glBindTexture(GL_TEXTURE_2D, texture_id);
 }
 
@@ -315,26 +300,26 @@ static inline GLenum gfx_cm_to_opengl(uint32_t val) {
     return (val & G_TX_MIRROR) ? GL_MIRRORED_REPEAT : GL_REPEAT;
 }
 
-static inline void gfx_opengl_apply_tmu_state(const int tile) {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, tmu_state[tile].min_filter);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, tmu_state[tile].mag_filter);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, tmu_state[tile].wrap_s);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tmu_state[tile].wrap_t);
+static inline void gfx_opengl_apply_tmu_state(void) {
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, tmu_state.min_filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, tmu_state.mag_filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, tmu_state.wrap_s);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tmu_state.wrap_t);
 }
 
-static void gfx_opengl_set_sampler_parameters(int tile, bool linear_filter, uint32_t cms, uint32_t cmt) {
+static void gfx_opengl_set_sampler_parameters(bool linear_filter, uint32_t cms, uint32_t cmt) {
     const GLenum filter = linear_filter ? GL_LINEAR : GL_NEAREST;
 
     const GLenum wrap_s = gfx_cm_to_opengl(cms);
     const GLenum wrap_t = gfx_cm_to_opengl(cmt);
 
-    tmu_state[tile].min_filter = filter;
-    tmu_state[tile].mag_filter = filter;
-    tmu_state[tile].wrap_s = wrap_s;
-    tmu_state[tile].wrap_t = wrap_t;
+    tmu_state.min_filter = filter;
+    tmu_state.mag_filter = filter;
+    tmu_state.wrap_s = wrap_s;
+    tmu_state.wrap_t = wrap_t;
 
     // set state for the first texture right away
-    if (!tile) gfx_opengl_apply_tmu_state(tile);
+    gfx_opengl_apply_tmu_state();
 }
 
 static void gfx_opengl_set_depth_test(bool depth_test) {
@@ -419,7 +404,7 @@ static void gfx_opengl_draw_triangles(float buf_vbo[], UNUSED size_t buf_vbo_len
 
     gfx_opengl_apply_shader(cur_shader);
 
-    if (cur_shader->texture_used[0]) {
+    if (cur_shader->texture_used) {
         glEnable(GL_TEXTURE_2D);
     } else {
         glDisable(GL_TEXTURE_2D);
@@ -605,13 +590,11 @@ void gfx_opengl_draw_triangles_2d(void *buf_vbo, UNUSED size_t buf_vbo_len, UNUS
     glDisable(GL_TEXTURE_2D);
 
     if (buf_vbo_num_tris) {
-        if (cur_shader->texture_used[0]) { //} || cur_shader->texture_used[1]) {
+        if (cur_shader->texture_used) {
             glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, tmu_state[cur_shader->texture_ord[0]].tex);
+            glBindTexture(GL_TEXTURE_2D, tmu_state.tex);
         }
-    }/*  else {
-        glDisable(GL_TEXTURE_2D);
-    } */
+    }
 
     glDrawArrays(GL_QUADS, 0, 4);
 
