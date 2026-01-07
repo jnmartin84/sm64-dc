@@ -1541,7 +1541,7 @@ static void  __attribute__((noinline)) gfx_sp_texture(uint16_t sc, uint16_t tc) 
     rsp.texture_scaling_factor.t = tc;
 }
 
-static void  __attribute__((noinline)) gfx_dp_set_scissor(UNUSED uint32_t mode, uint32_t ulx, uint32_t uly, UNUSED uint32_t lrx, UNUSED uint32_t lry) {
+static void  __attribute__((noinline)) gfx_dp_set_scissor(uint32_t ulx, uint32_t uly, uint32_t lrx, uint32_t lry) {
     float x = ulx * 0.5f;
     float y = (SCREEN_HEIGHT - lry * 0.25f) * 2.0f;
     float width = (lrx - ulx) * 0.5f;
@@ -1555,13 +1555,13 @@ static void  __attribute__((noinline)) gfx_dp_set_scissor(UNUSED uint32_t mode, 
     rdp.viewport_or_scissor_changed = true;
 }
 
-static void  __attribute__((noinline)) gfx_dp_set_texture_image(uint32_t size,  uint32_t width, const void* addr) {
+static void  __attribute__((noinline)) gfx_dp_set_texture_image(uint32_t size, uint32_t width, const void* addr) {
     rdp.texture_to_load.addr = addr;
     rdp.texture_to_load.siz = size;
 	last_set_texture_image_width = width;
 }
 
-static void __attribute__((noinline)) gfx_dp_set_tile(uint8_t fmt, uint32_t siz, uint32_t line, uint8_t tile, uint32_t palette, uint32_t cmt, uint32_t maskt, uint32_t shiftt, uint32_t cms, uint32_t masks, uint32_t shifts) {
+static void __attribute__((noinline)) gfx_dp_set_tile(uint8_t fmt, uint32_t siz, uint32_t line, uint8_t tile, uint32_t cmt, uint32_t cms) {
     if (tile == G_TX_RENDERTILE) {
         rdp.texture_tile.fmt = fmt;
         rdp.texture_tile.siz = siz;
@@ -1580,7 +1580,7 @@ static void  __attribute__((noinline)) gfx_dp_set_tile_size(uint16_t uls, uint16
     rdp.texture_changed = true;
 }
 
-static void  __attribute__((noinline)) gfx_dp_load_block(uint8_t tile, UNUSED uint32_t uls, UNUSED uint32_t ult, uint32_t lrs, UNUSED uint32_t dxt) {
+static void  __attribute__((noinline)) gfx_dp_load_block(uint8_t tile, uint32_t lrs) {
     // The lrs field rather seems to be number of pixels to load
     uint32_t word_size_shift = 0;
     switch (rdp.texture_to_load.siz) {
@@ -2213,13 +2213,13 @@ static void __attribute__((noinline)) gfx_run_dl(Gfx* cmd) {
                 gfx_dp_set_texture_image(C0(19, 2), C0(0, 10), seg_addr(cmd->words.w1));
                 break;
             case G_LOADBLOCK:
-                gfx_dp_load_block(C1(24, 3), C0(12, 12), C0(0, 12), C1(12, 12), C1(0, 12));
+                gfx_dp_load_block(C1(24, 3), C1(12, 12));
                 break;
             case G_LOADTILE:
                 gfx_dp_load_tile(C1(24, 3), C0(12, 12), C0(0, 12), C1(12, 12), C1(0, 12));
                 break;
             case G_SETTILE:
-                gfx_dp_set_tile(C0(21, 3), C0(19, 2), C0(9, 9), C1(24, 3), C1(20, 4), C1(18, 2), C1(14, 4), C1(10, 4), C1(8, 2), C1(4, 4), C1(0, 4));
+                gfx_dp_set_tile(C0(21, 3), C0(19, 2), C0(9, 9), C1(24, 3), C1(18, 2), C1(8, 2));
                 break;
             case G_SETTILESIZE:
                 gfx_dp_set_tile_size(C0(12, 12), C0(0, 12), C1(12, 12), C1(0, 12));
@@ -2290,7 +2290,7 @@ static void __attribute__((noinline)) gfx_run_dl(Gfx* cmd) {
                 break;
 #endif
             case G_SETSCISSOR:
-                gfx_dp_set_scissor(C1(24, 2), C0(12, 12), C0(0, 12), C1(12, 12), C1(0, 12));
+                gfx_dp_set_scissor(C0(12, 12), C0(0, 12), C1(12, 12), C1(0, 12));
                 break;
             case G_SETZIMG:
                 gfx_dp_set_z_image(seg_addr(cmd->words.w1));
