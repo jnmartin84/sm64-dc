@@ -34,45 +34,9 @@ void DelayThread(unsigned int ms) {
     thd_sleep(ms);
 }
 
-//-----------------------------------------------------------------------------
-#if 0
-typedef void (*assert_handler_t)(const char * file, int line, const char * expr,
-                                 const char * msg, const char * func);
-assert_handler_t assert_set_handler(assert_handler_t hnd);
-extern void bfont_draw_str(uint16_t *buffer, int bufwidth, int opaque, char *str);
-static void drawtext(int x, int y, char *string) {
-    extern uint16_t *vram_s;
-    printf("%s\n", string);
-    int offset = ((y * 640) + x);
-    bfont_draw_str(vram_s + offset, 640, 1, string);
-}
-
-static void assert_hnd(const char *file, int line, const char *expr, const char *msg, const char *func) {
-    char strbuffer[1024];
-
-    /* Reset video mode, clear screen */
-    vid_set_mode(DM_640x480,  1 /*PM_RGB565*/);
-    vid_empty();
-
-    /* Display the error message on screen */
-    drawtext(32, 64, "nuQuake - Assertion failure");
-
-    sprintf(strbuffer, " Location: %s, line %d (%s)", file, line, func);
-    drawtext(32, 96, strbuffer);
-
-    sprintf(strbuffer, "Assertion: %s", expr);
-    drawtext(32, 128, strbuffer);
-
-    sprintf(strbuffer, "  Message: %s", msg);
-    drawtext(32, 160, strbuffer);
-    arch_exit();
-}
-#endif
-
 //=============================================================================
 extern void setSystemRam(void);
 static void gfx_dc_init(UNUSED const char *game_name, UNUSED bool start_in_fullscreen) {
-    //assert_set_handler(assert_hnd);
     setSystemRam();
 
     /* init */
@@ -103,8 +67,7 @@ static void gfx_dc_get_dimensions(uint32_t *width, uint32_t *height) {
 
 /* What events should we be handling? */
 static void gfx_dc_handle_events(void) {
-    /* Lets us yield to other threads*/
-    // DelayThread(100);
+    ;
 }
 
 float cpu_time = 0.f, gpu_time = 0.f;
@@ -149,9 +112,7 @@ static void gfx_dc_swap_buffers_end(void) {
 #endif
         DelayThread(FRAME_TIME_MS - elapsed);
         last_time += (FRAME_TIME_MS - elapsed);
-    }/*  else {
-        thd_pass();
-    } */
+    }
 }
 
 /* Idk what this is for? */

@@ -726,11 +726,8 @@ static void gfx_opengl_start_frame(void) {
     fog_changed = 0;
     rgba5551_to_rgbf(clear_color, &clr, &clg, &clb);
 
-//    glDisable(GL_SCISSOR_TEST);
-//    glDepthMask(GL_TRUE);
     glClearColor(clr, clg, clb, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-//    glEnable(GL_SCISSOR_TEST);
 }
 
 static void gfx_opengl_end_frame(void) {

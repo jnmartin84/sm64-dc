@@ -37,13 +37,6 @@ int aquarium_draw = 0;
 int water_bomb = 0;
 int doing_skybox = 0;
 int font_draw = 0;
-// SCALE_M_N: upscale/downscale M-bit integer to N-bit
-#define SCALE_5_8(VAL_) (((VAL_) * 0xFF) / 0x1F)
-#define SCALE_8_5(VAL_) ((((VAL_) + 4) * 0x1F) / 0xFF)
-#define SCALE_4_8(VAL_) ((VAL_) * 0x11)
-#define SCALE_8_4(VAL_) ((VAL_) / 0x11)
-#define SCALE_3_8(VAL_) ((VAL_) * 0x24)
-#define SCALE_8_3(VAL_) ((VAL_) / 0x24)
 
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 240
@@ -73,45 +66,34 @@ struct ShaderProgram {
     int num_inputs;
 };
 
+// 4 bytes
 struct RGBA {
     uint8_t r, g, b, a;
 };
 
+// 8 bytes
 struct XYWidthHeight {
+    // 0 2 4 6
     uint16_t x, y, width, height;
 };
 
-#if 0
-struct LoadedVertex {
-    float x, y, z, w;
-    float _x, _y, _z, _w;
-    float u, v;
-    struct RGBA color;
-    uint8_t clip_rej;
-};
-#endif
-
-// exactly 32 bytes
+// exactly 32 bytes, 1 per cache line
 struct __attribute__((aligned(32))) LoadedVertex {
-    // 0, 4, 8, 12
-    float _x, _y /* , _z, _w */;
-    // 16, 20, 24, 28
-    float x, y, z /* , w */;
-    // 32, 36
+    // 0, 4
+    float _x, _y;
+    // 8, 12, 16
+    float x, y, z;
+    // 20, 24
     float u, v;
-    // 40
+    // 28
     struct RGBA color;
 };
 
-struct __attribute__((aligned(16))) LoadedNormal {
-    float x, y, z, w;
-};
-
+// clip_rej for all 32 LoadedVerts fits in a single cache line
 // bits 0 - 5 -> clip_rej
 // bit 6 - wlt0
 // bit 7 - lit
 uint8_t __attribute__((aligned(32))) clip_rej[MAX_VERTICES];
-
 
 struct TextureHashmapNode {
     // 0
@@ -146,8 +128,7 @@ static uint8_t color_combiner_pool_size;
 #define MEM_BARRIER() asm volatile("" : : : "memory");
 
 static struct RSP {
-    struct LoadedVertex loaded_vertices[MAX_VERTICES+4];
-    struct LoadedNormal loaded_normals[MAX_VERTICES+4];
+    struct  __attribute__((aligned(32))) LoadedVertex loaded_vertices[MAX_VERTICES+4];
     struct __attribute__((aligned(32))) dc_fast_t loaded_vertices_2D[4];
 
     float MP_matrix[4][4] __attribute__((aligned(32)));
@@ -174,55 +155,62 @@ static struct RSP {
 
 static struct RDP {
     const uint8_t *palette;
-    struct {
+    struct __attribute__((aligned(4))) {
         const uint8_t *addr;
         uint8_t siz;
-        uint8_t tile_number;
     } texture_to_load;
-    struct {
+    struct __attribute__((aligned(4))) {
         const uint8_t *addr;
         uint32_t size_bytes;
     } loaded_texture;
-    struct {
+    struct __attribute__((aligned(4))) {
         uint8_t fmt;
         uint8_t siz;
         uint8_t cms, cmt;
         uint16_t uls, ult, lrs, lrt; // U10.2
         uint32_t line_size_bytes;
     } texture_tile;
-    bool textures_changed;
+    bool texture_changed;
     
     uint32_t other_mode_l, other_mode_h;
     uint32_t combine_mode;
     
-    struct RGBA env_color, prim_color, fog_color, fill_color;
-    struct XYWidthHeight viewport, scissor;
+    struct __attribute__((aligned(4))) RGBA env_color, prim_color, fog_color, fill_color;
+    struct __attribute__((aligned(4))) XYWidthHeight viewport, scissor;
     bool viewport_or_scissor_changed;
     void *z_buf_address;
     void *color_image_address;
 } rdp __attribute__((aligned(32)));
 
 static struct RenderingState {
-    struct XYWidthHeight viewport, scissor;
+    // 0
     struct ShaderProgram *shader_program;
+    // 4
     struct TextureHashmapNode *texture;
+    // 5
     bool depth_test;
+    // 6
     bool depth_mask;
+    // 7
     bool decal_mode;
+    // 8
     bool alpha_blend;
-    // 28
+    // 9
     uint8_t fog_change;
-    // 29
+    // 10
     uint8_t fog_col_change;
-
+    // 11,12
+    uint16_t pad;
+    // 13 through 21
+    struct XYWidthHeight viewport, scissor;
 } rendering_state __attribute__((aligned(32)));
 
 struct GfxDimensions gfx_current_dimensions;
 
-static bool dropped_frame;
+//static bool dropped_frame;
 
 static dc_fast_t __attribute__((aligned(32))) buf_vbo[MAX_BUFFERED * 3]; // 3 vertices in a triangle
-//static dc_fast_t __attribute__((aligned(32))) quad_vbo[2 * 3]; // 2 tris make a quad
+
 static size_t buf_vbo_len = 0;
 static size_t buf_num_vert = 0;
 static size_t buf_vbo_num_tris = 0;
@@ -230,32 +218,17 @@ static size_t buf_vbo_num_tris = 0;
 static struct GfxWindowManagerAPI *gfx_wapi;
 static struct GfxRenderingAPI *gfx_rapi;
 
-/*@Note: Unused */
-#if 0
-#include <time.h>
-static unsigned long get_time(void) {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (unsigned long)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
-}
-#endif
-
 static void gfx_flush(void) {
     if (buf_vbo_len > 0) {
-        //int num = buf_vbo_num_tris;
-        //unsigned long t0 = get_time();
         gfx_rapi->draw_triangles((void *)buf_vbo, buf_vbo_len, buf_vbo_num_tris);
         buf_vbo_len = 0;
         buf_num_vert = 0;
         buf_vbo_num_tris = 0;
-        //unsigned long t1 = get_time();
-        /*if (t1 - t0 > 1000) {
-            printf("f: %d %d\n", num, (int)(t1 - t0));
-        }*/
     }
 }
-uint16_t tlut[256];
-int 	last_set_texture_image_width=0;
+
+int last_set_texture_image_width = 0;
+
 static struct ShaderProgram *gfx_lookup_or_create_shader_program(uint32_t shader_id) {
     struct ShaderProgram *prg = gfx_rapi->lookup_shader(shader_id);
     if (prg == NULL) {
@@ -329,7 +302,7 @@ static struct ColorCombiner *gfx_lookup_or_create_color_combiner(uint32_t cc_id)
             return prev_combiner = &color_combiner_pool[i];
         }
     }
-    gfx_flush();
+//    gfx_flush();
     struct ColorCombiner *comb = &color_combiner_pool[color_combiner_pool_size++];
     gfx_generate_cc(comb, cc_id);
     return prev_combiner = comb;
@@ -419,10 +392,7 @@ static void  __attribute__((noinline)) import_texture_ia4(void) {
     for (i = 0; i < rdp.loaded_texture.size_bytes * 2; i++) {
         uint8_t byte = rdp.loaded_texture.addr[i / 2];
         uint8_t part = (byte >> (4 - (i % 2) * 4)) & 0xf;
-
-//SCALE_3_8(VAL_) ((VAL_) << 5)
-//((part >> 1) << 5) >> 3
-        uint8_t intensity = (part & 0xE) << 1;//(SCALE_3_8(part >> 1) >> 3) & 0x1f;
+        uint8_t intensity = (part & 0xE) << 1;
         uint8_t alpha = part & 1;
         uint8_t r = intensity;
         uint8_t g = intensity;
@@ -672,13 +642,7 @@ static void  __attribute__((noinline)) gfx_sp_pop_matrix(uint32_t count) {
     if (rsp.modelview_matrix_stack_size > 0) {
         matrix_dirty = 1;
         gfx_matrix_mul((shz_matrix_4x4_t *)rsp.MP_matrix, (const shz_matrix_4x4_t *)rsp.modelview_matrix_stack[rsp.modelview_matrix_stack_size - 1], (const shz_matrix_4x4_t *)rsp.P_matrix);
-//        glMatrixMode(GL_MODELVIEW);
-  //      glLoadMatrixf((const float*)rsp.modelview_matrix_stack[rsp.modelview_matrix_stack_size - 1]);
     }
-}
-
-static  __attribute__((noinline)) float gfx_adjust_x_for_aspect_ratio(float x) {
-    return x * (4.0f / 3.0f) / ((float)gfx_current_dimensions.width / (float)gfx_current_dimensions.height);
 }
 
 inline static uint8_t trivial_reject(float x, float y, float z, float w) {
@@ -701,6 +665,7 @@ inline static uint8_t trivial_reject(float x, float y, float z, float w) {
 
     return cr;
 }
+
 #define MAX3(a, b, c) (MAX(MAX((a), (b)), (c)))
 #define MAX4(a, b, c, d) (MAX(MAX3((a), (b), (c)), (d)))
 #define MAX5(a, b, c, d, e) (MAX(MAX4((a), (b), (c), (d)), (e)))
@@ -846,44 +811,19 @@ static void  __attribute__((noinline)) gfx_sp_vertex(size_t n_vertices, size_t d
     }
 }
 
-//							const uint8_t frac = (uint8_t) (distance_frac * 255.0f);
-//							buf_vbo[buf_num_vert].color.packed = PACK_ARGB8888(frac, frac, frac, frac);
-//							break;
+//
+// utility variables and functions for implementing the peach/bowser trilerp effect
+//
+
 uint8_t trilerp_a = 0;
 
 extern void get_mario_pos(float *x, float *y, float *z);
-/* float late_ramp(float x) {
-    float t = (x - 0.7f) / 0.3f;
-    if (t < 0.0f) t = 0.0f;
-    if (t > 1.0f) t = 1.0f;
-    float n = 4.0f;                  // tweak 4..10
-    return 0.25f + 0.75f * powf(t, n);
-} */
+
 static inline float clamp01(float v) {
     if (v < 0.0f) return 0.0f;
     if (v > 1.0f) return 1.0f;
     return v;
 }
-
-#if 0
-float late_ramp(float x) {
-    float t = clamp01((x - 0.905f) / 0.1f);   // 0 until x=0.9, 1 at x=1.0
-    float n = 8.0f;                         // tweak 3..10
-    return 0.25f + 0.75f * powf(t, n);
-}
-#endif
-#if 0
-float smootherstep(float t) {
-    return t*t*t*(t*(t*6.0f - 15.0f) + 10.0f);
-}
-
-float late_ramp(float x) {
-    float t = clamp01((x - 0.9f) / 0.1f);
-    float s = smootherstep(t);
-    float k = 2.0f;              // 1..4
-    return 0.25f + 0.75f * powf(s, k);
-}
-#endif
 
 static inline float step_ramp_pow(float x, float param, float n) {
     if (param >= 1.0f) return 0.0f;          // degenerate: never ramps
@@ -1002,12 +942,12 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         if (memcmp(&rdp.viewport, &rendering_state.viewport, sizeof(rdp.viewport)) != 0) {
             gfx_flush();
             gfx_rapi->set_viewport(rdp.viewport.x, rdp.viewport.y, rdp.viewport.width, rdp.viewport.height);
-            rendering_state.viewport = rdp.viewport;
+            n64_memcpy(&rendering_state.viewport, &rdp.viewport, sizeof(rdp.viewport));
         }
         if (memcmp(&rdp.scissor, &rendering_state.scissor, sizeof(rdp.scissor)) != 0) {
             gfx_flush();
             gfx_rapi->set_scissor(rdp.scissor.x, rdp.scissor.y, rdp.scissor.width, rdp.scissor.height);
-            rendering_state.scissor = rdp.scissor;
+            n64_memcpy(&rendering_state.scissor, &rdp.scissor, sizeof(rdp.scissor));
         }
         rdp.viewport_or_scissor_changed = false;
     }
@@ -1058,11 +998,11 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
     uint8_t linear_filter = (rdp.other_mode_h & (3U << G_MDSFT_TEXTFILT)) != G_TF_POINT;
 
     if (usetex) {
-        if (rdp.textures_changed) {
+        if (rdp.texture_changed) {
             // necessary
             gfx_flush();
             import_texture();
-            rdp.textures_changed = 0;
+            rdp.texture_changed = 0;
         }
         uint8_t cms = rdp.texture_tile.cms;
         uint8_t cmt = rdp.texture_tile.cmt;
@@ -1274,7 +1214,7 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         if (usetex) {
             float u = (v_arr[i]->u - (rdp.texture_tile.uls << 3)) * 0.03125f;// / 32.0f;
             float v = (v_arr[i]->v - (rdp.texture_tile.ult << 3)) * 0.03125f;// / 32.0f;
-            if ((rdp.other_mode_h & (3U << G_MDSFT_TEXTFILT)) != G_TF_POINT) {
+            if (linear_filter) {
                 // Linear filter adds 0.5f to the coordinates
                 u += 0.5f;
                 v += 0.5f;
@@ -1327,6 +1267,8 @@ static void __attribute__((noinline)) gfx_sp_quad_2d(uint8_t vtx1_idx, uint8_t v
                                                      uint8_t vtx1_idx2, uint8_t vtx2_idx2, uint8_t vtx3_idx2) {
     dc_fast_t* v2d = &rsp.loaded_vertices_2D[0];
     gfx_flush();
+
+    // for reasons, this is always 0? why?
     uint8_t depth_test = (rsp.geometry_mode & G_ZBUFFER) == G_ZBUFFER;
     if (depth_test != rendering_state.depth_test) {
         gfx_rapi->set_depth_test(depth_test);
@@ -1348,11 +1290,11 @@ static void __attribute__((noinline)) gfx_sp_quad_2d(uint8_t vtx1_idx, uint8_t v
     if (rdp.viewport_or_scissor_changed) {
         if (memcmp(&rdp.viewport, &rendering_state.viewport, sizeof(rdp.viewport)) != 0) {
             gfx_rapi->set_viewport(rdp.viewport.x, rdp.viewport.y, rdp.viewport.width, rdp.viewport.height);
-            rendering_state.viewport = rdp.viewport;
+            n64_memcpy(&rendering_state.viewport, &rdp.viewport, sizeof(rdp.viewport));
         }
         if (memcmp(&rdp.scissor, &rendering_state.scissor, sizeof(rdp.scissor)) != 0) {
             gfx_rapi->set_scissor(rdp.scissor.x, rdp.scissor.y, rdp.scissor.width, rdp.scissor.height);
-            rendering_state.scissor = rdp.scissor;
+            n64_memcpy(&rendering_state.scissor, &rdp.scissor, sizeof(rdp.scissor));
         }
         rdp.viewport_or_scissor_changed = 0;
     }
@@ -1414,9 +1356,9 @@ static void __attribute__((noinline)) gfx_sp_quad_2d(uint8_t vtx1_idx, uint8_t v
     dc_fast_t* tmpv = v2d;
 
     if (use_texture) {
-        if (rdp.textures_changed) {
+        if (rdp.texture_changed) {
             import_texture();
-            rdp.textures_changed = 0;
+            rdp.texture_changed = 0;
         }
         linear_filter = ((rdp.other_mode_h & (3U << G_MDSFT_TEXTFILT)) != G_TF_POINT);
         gfx_rapi->set_sampler_parameters(linear_filter, rdp.texture_tile.cms, rdp.texture_tile.cmt);
@@ -1619,29 +1561,23 @@ static void  __attribute__((noinline)) gfx_dp_set_texture_image(uint32_t size,  
 	last_set_texture_image_width = width;
 }
 
-static void __attribute__((noinline)) gfx_dp_set_tile(uint8_t fmt, uint32_t siz, uint32_t line, uint32_t tmem, uint8_t tile, uint32_t palette, uint32_t cmt, uint32_t maskt, uint32_t shiftt, uint32_t cms, uint32_t masks, uint32_t shifts) {
+static void __attribute__((noinline)) gfx_dp_set_tile(uint8_t fmt, uint32_t siz, uint32_t line, uint8_t tile, uint32_t palette, uint32_t cmt, uint32_t maskt, uint32_t shiftt, uint32_t cms, uint32_t masks, uint32_t shifts) {
     if (tile == G_TX_RENDERTILE) {
         rdp.texture_tile.fmt = fmt;
         rdp.texture_tile.siz = siz;
         rdp.texture_tile.cms = cms;
         rdp.texture_tile.cmt = cmt;
         rdp.texture_tile.line_size_bytes = line * 8;
-        rdp.textures_changed = true;
-    }
-
-    if (tile == G_TX_LOADTILE) {
-        rdp.texture_to_load.tile_number = tmem / 256;
+        rdp.texture_changed = true;
     }
 }
 
 static void  __attribute__((noinline)) gfx_dp_set_tile_size(uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t lrt) {
-//    if (tile == G_TX_RENDERTILE) {
-        rdp.texture_tile.uls = uls;
-        rdp.texture_tile.ult = ult;
-        rdp.texture_tile.lrs = lrs;
-        rdp.texture_tile.lrt = lrt;
-        rdp.textures_changed = true;
-//    }
+    rdp.texture_tile.uls = uls;
+    rdp.texture_tile.ult = ult;
+    rdp.texture_tile.lrs = lrs;
+    rdp.texture_tile.lrt = lrt;
+    rdp.texture_changed = true;
 }
 
 static void  __attribute__((noinline)) gfx_dp_load_block(uint8_t tile, UNUSED uint32_t uls, UNUSED uint32_t ult, uint32_t lrs, UNUSED uint32_t dxt) {
@@ -1667,7 +1603,7 @@ static void  __attribute__((noinline)) gfx_dp_load_block(uint8_t tile, UNUSED ui
     rdp.loaded_texture.size_bytes = size_bytes;
     rdp.loaded_texture.addr = rdp.texture_to_load.addr;
 
-    rdp.textures_changed = true;
+    rdp.texture_changed = true;
 }
 
 static void  __attribute__((noinline)) gfx_dp_load_tile(uint8_t tile, uint32_t uls, uint32_t ult, uint32_t lrs, uint32_t lrt) {
@@ -1697,7 +1633,7 @@ static void  __attribute__((noinline)) gfx_dp_load_tile(uint8_t tile, uint32_t u
     rdp.texture_tile.lrs = lrs;
     rdp.texture_tile.lrt = lrt;
 
-    rdp.textures_changed = true;
+    rdp.texture_changed = true;
 }
 
 
@@ -1751,6 +1687,7 @@ static void  __attribute__((noinline)) gfx_dp_set_prim_color(uint8_t r, uint8_t 
 }
 
 #define recip255 0.00392157f
+
 static void  __attribute__((noinline)) gfx_dp_set_fog_color(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     rdp.fog_color.r = r;
     rdp.fog_color.g = g;
@@ -1771,10 +1708,10 @@ static void __attribute__((noinline))  gfx_dp_set_fill_color(uint32_t packed_col
     uint32_t g = (col16 >> 6) & 0x1f;
     uint32_t b = (col16 >> 1) & 0x1f;
     uint32_t a = col16 & 1;
-    rdp.fill_color.r = SCALE_5_8(r);
-    rdp.fill_color.g = SCALE_5_8(g);
-    rdp.fill_color.b = SCALE_5_8(b);
-    rdp.fill_color.a = a * 255;
+    rdp.fill_color.r = r << 3;
+    rdp.fill_color.g = g << 3;
+    rdp.fill_color.b = b << 3;
+    rdp.fill_color.a = a ? 255 : 0;
 }
 
 void gfx_opengl_2d_projection(void) {
@@ -1804,21 +1741,22 @@ static void  __attribute__((noinline)) gfx_draw_rectangle(int32_t ulx, int32_t u
     float lrxf = lrx;
     float lryf = lry;
 
-    ulxf = ulxf * 0.0015625f - 1.0f;
-    ulyf = ulyf * 0.00208333f - 1.0f;
-    lrxf = lrxf * 0.0015625f - 1.0f;
-    lryf = lryf * 0.00208333f - 1.0f;
 #if 0
     ulxf = ulxf / (4.0f * HALF_SCREEN_WIDTH) - 1.0f;
     ulyf = (ulyf / (4.0f * HALF_SCREEN_HEIGHT)) - 1.0f;
     lrxf = lrxf / (4.0f * HALF_SCREEN_WIDTH) - 1.0f;
     lryf = (lryf / (4.0f * HALF_SCREEN_HEIGHT)) - 1.0f;
 #endif    
-    ulxf = gfx_adjust_x_for_aspect_ratio(ulxf);
-    lrxf = gfx_adjust_x_for_aspect_ratio(lrxf);
+    ulxf = ulxf * 0.0015625f - 1.0f;
+    ulyf = ulyf * 0.00208333f - 1.0f;
+    lrxf = lrxf * 0.0015625f - 1.0f;
+    lryf = lryf * 0.00208333f - 1.0f;
 
-    ulxf = (ulxf*320.0f) + 320.0f;
-    lrxf = (lrxf*320.0f) + 320.0f;
+    ulxf = ulxf;
+    lrxf = lrxf;
+
+    ulxf = (ulxf * 320.0f) + 320.0f;
+    lrxf = (lrxf * 320.0f) + 320.0f;
 
     ulyf = (ulyf * 240.0f) + 240.0f;
     lryf = (lryf * 240.0f) + 240.0f;
@@ -1870,7 +1808,8 @@ static void  __attribute__((noinline)) gfx_draw_rectangle(int32_t ulx, int32_t u
 
 static void  __attribute__((noinline)) gfx_dp_texture_rectangle(int32_t ulx, int32_t uly, int32_t lrx, int32_t lry, int16_t uls, int16_t ult, int16_t dsdx, int16_t dtdy, bool flip) {
     uint32_t saved_combine_mode = rdp.combine_mode;
-        do_ext_fill = 0;
+
+    do_ext_fill = 0;
 
     if ((rdp.other_mode_h & (3U << G_MDSFT_CYCLETYPE)) == G_CYC_COPY) {
         // Per RDP Command Summary Set Tile's shift s and this dsdx should be set to 4 texels
@@ -1924,6 +1863,7 @@ static void  __attribute__((noinline)) gfx_dp_texture_rectangle(int32_t ulx, int
 
 static void gfx_dp_fill_rectangle(int32_t ulx, int32_t uly, int32_t lrx, int32_t lry) {
     int i;
+
     do_ext_fill = 1;
 
     if (rdp.color_image_address == rdp.z_buf_address) {
@@ -1960,7 +1900,7 @@ static void gfx_dp_set_z_image(void *z_buf_address) {
     rdp.z_buf_address = z_buf_address;
 }
 
-static void gfx_dp_set_color_image(UNUSED uint32_t format, UNUSED uint32_t size, UNUSED uint32_t width, void* address) {
+static void gfx_dp_set_color_image(void* address) {
     rdp.color_image_address = address;
 }
 
@@ -2040,6 +1980,8 @@ static void __attribute__((noinline)) gfx_run_dl(Gfx* cmd) {
 
     for (;;) {
         uint32_t opcode = cmd->words.w0 >> 24;
+        // work on placement
+        __builtin_prefetch(clip_rej);
 
         if (cmd == dl_transition_draw_filled_region) {
             transition_verts = 1;
@@ -2277,10 +2219,10 @@ static void __attribute__((noinline)) gfx_run_dl(Gfx* cmd) {
                 gfx_dp_load_tile(C1(24, 3), C0(12, 12), C0(0, 12), C1(12, 12), C1(0, 12));
                 break;
             case G_SETTILE:
-                gfx_dp_set_tile(C0(21, 3), C0(19, 2), C0(9, 9), C0(0, 9), C1(24, 3), C1(20, 4), C1(18, 2), C1(14, 4), C1(10, 4), C1(8, 2), C1(4, 4), C1(0, 4));
+                gfx_dp_set_tile(C0(21, 3), C0(19, 2), C0(9, 9), C1(24, 3), C1(20, 4), C1(18, 2), C1(14, 4), C1(10, 4), C1(8, 2), C1(4, 4), C1(0, 4));
                 break;
             case G_SETTILESIZE:
-                gfx_dp_set_tile_size(/* C1(24, 3),  */C0(12, 12), C0(0, 12), C1(12, 12), C1(0, 12));
+                gfx_dp_set_tile_size(C0(12, 12), C0(0, 12), C1(12, 12), C1(0, 12));
                 break;
             case G_SETENVCOLOR:
                 gfx_dp_set_env_color(C1(24, 8), C1(16, 8), C1(8, 8), C1(0, 8));
@@ -2354,7 +2296,7 @@ static void __attribute__((noinline)) gfx_run_dl(Gfx* cmd) {
                 gfx_dp_set_z_image(seg_addr(cmd->words.w1));
                 break;
             case G_SETCIMG:
-                gfx_dp_set_color_image(C0(21, 3), C0(19, 2), C0(0, 11), seg_addr(cmd->words.w1));
+                gfx_dp_set_color_image(seg_addr(cmd->words.w1));
                 break;
         }
 
@@ -2368,7 +2310,6 @@ static void gfx_sp_reset() {
     rsp.lights_changed = true;
     rendering_state.fog_col_change = 0;
     rendering_state.fog_change = 0;
-    memset(rsp.current_lookat, 0, sizeof(Light_t) * 2);
     rsp.current_lookat[0].dir[0] = 0;
     rsp.current_lookat[0].dir[1] = 127;
     rsp.current_lookat[0].dir[2] = 0;
