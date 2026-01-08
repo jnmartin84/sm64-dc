@@ -168,7 +168,7 @@ void main_func(void) {
     audio_attr.create_detached = 1;
 	audio_attr.stack_size = 32768;
 	audio_attr.stack_ptr = NULL;
-	audio_attr.prio = PRIO_DEFAULT + 1;
+	audio_attr.prio = PRIO_DEFAULT - 1;
 	audio_attr.label = "AudioSynthesis";
     thd_create_ex(&audio_attr, &AudioSynthesisThread, NULL);
 
