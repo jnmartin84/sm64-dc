@@ -670,8 +670,11 @@ inline static uint8_t trivial_reject(float x, float y, float z, float w) {
 #define MAX4(a, b, c, d) (MAX(MAX3((a), (b), (c)), (d)))
 #define MAX5(a, b, c, d, e) (MAX(MAX4((a), (b), (c), (d)), (e)))
 
+static void  __attribute__((noinline)) gfx_sp_vertex_no(size_t n_vertices, size_t dest_index, const Vtx *vertices);
+static void  __attribute__((noinline)) gfx_sp_vertex_light(size_t n_vertices, size_t dest_index, const Vtx *vertices);
+
+
 static void  __attribute__((noinline)) gfx_sp_vertex(size_t n_vertices, size_t dest_index, const Vtx *vertices) {
-    size_t i;
     shz_xmtrx_load_4x4((const shz_matrix_4x4_t *)&rsp.MP_matrix);
     if (rsp.geometry_mode & G_LIGHTING) {
         if (rsp.lights_changed) {
@@ -679,21 +682,109 @@ static void  __attribute__((noinline)) gfx_sp_vertex(size_t n_vertices, size_t d
             for (i = 0; i < rsp.current_num_lights - 1; i++) {
                 calculate_normal_dir(&rsp.current_lights[i], rsp.current_lights_coeffs[i]);
             }
-            //static const Light_t lookat_x = {{0, 0, 0}, 0, {0, 0, 0}, 0, {127, 0, 0}, 0};
-            //static const Light_t lookat_y = {{0, 0, 0}, 0, {0, 0, 0}, 0, {0, 127, 0}, 0};
             calculate_normal_dir(&rsp.current_lookat[1], rsp.current_lookat_coeffs[0]);
             calculate_normal_dir(&rsp.current_lookat[0], rsp.current_lookat_coeffs[1]);
             rsp.lights_changed = false;
         }
+        gfx_sp_vertex_light(n_vertices, dest_index, vertices);
+    } else {
+        gfx_sp_vertex_no(n_vertices, dest_index, vertices);
     }
+}
+
+static void __attribute__((noinline)) gfx_sp_vertex_light(size_t n_vertices, size_t dest_index, const Vtx *vertices) {
+    size_t i;
+
+    for (i = 0; i < n_vertices; i++, dest_index++) {
+        const Vtx_tn *vn = &vertices[i].n;
+        struct LoadedVertex *d = &rsp.loaded_vertices[dest_index];
+
+        shz_vec4_t out = shz_xmtrx_trans_vec4(shz_vec3_vec4(shz_vec3_deref(vn->ob), 1.0f));
+        MEM_BARRIER_PREF(vn + 1);
+        d->x = vn->ob[0];
+        d->y = vn->ob[1];
+        d->z = vn->ob[2];
+
+        short U = vn->tc[0] * rsp.texture_scaling_factor.s >> 16;
+        short V = vn->tc[1] * rsp.texture_scaling_factor.t >> 16;
+        d->color.a = vn->a;
+
+        MEM_BARRIER();
+        float x, y, z, w;
+        x = out.x;
+        y = out.y;
+        z = out.z;
+        w = out.w;
+        MEM_BARRIER();
+
+        float recw = shz_fast_invf(w);
+
+        int r = rsp.current_lights[rsp.current_num_lights - 1].col[0];
+        int g = rsp.current_lights[rsp.current_num_lights - 1].col[1];
+        int b = rsp.current_lights[rsp.current_num_lights - 1].col[2];
+        int i;
+
+        for (i = 0; i < rsp.current_num_lights - 1; i++) {
+            float intensity = MAX((float) 0.0f, (float) (recip127 * shz_dot6f((float) vn->n[0], (float) vn->n[1], (float) vn->n[2], rsp.current_lights_coeffs[i][0], rsp.current_lights_coeffs[i][1], rsp.current_lights_coeffs[i][2])));
+
+            if (intensity > 0.0f) {
+                r += intensity * rsp.current_lights[i].col[0];
+                g += intensity * rsp.current_lights[i].col[1];
+                b += intensity * rsp.current_lights[i].col[2];
+            }
+        }
+
+        d->color.r = MIN(255, r);
+        d->color.g = MIN(255, g);
+        d->color.b = MIN(255, b);
+
+#define recip2pi 0.159155f
+
+        if (rsp.geometry_mode & G_TEXTURE_GEN) {
+            float dotx;
+            float doty;
+            {
+                register float fr8 asm("fr8") = vn->n[0];
+                register float fr9 asm("fr9") = vn->n[1];
+                register float fr10 asm("fr10") = vn->n[2];
+                register float fr11 asm("fr11") = 0;
+
+                dotx = recip127 * shz_dot8f(fr8, fr9, fr10, fr11, rsp.current_lookat_coeffs[0][0], rsp.current_lookat_coeffs[0][1], rsp.current_lookat_coeffs[0][2], 0);
+
+                doty = recip127 * shz_dot8f(fr8, fr9, fr10, fr11, rsp.current_lookat_coeffs[1][0], rsp.current_lookat_coeffs[1][1], rsp.current_lookat_coeffs[1][2], 0);
+            }
+
+            if (rsp.geometry_mode & G_TEXTURE_GEN_LINEAR) {
+                dotx = shz_acosf(dotx) * recip2pi;
+                doty = shz_acosf(doty) * recip2pi;
+            } else {
+                dotx = (dotx * 0.25f) + 0.25f;
+                doty = (doty * 0.25f) + 0.25f;
+            }
+
+            U = (int32_t) (dotx * rsp.texture_scaling_factor.s);
+            V = (int32_t) (doty * rsp.texture_scaling_factor.t);
+        }
+
+        d->u = U;
+        d->v = V;
+
+        // trivial clip rejection
+        uint8_t cr = 128 | ((w < 0) ? 64 : 0x00);
+        clip_rej[dest_index] = cr | trivial_reject(x, y, z, w);
+        d->_x = x * recw;
+        d->_y = y * recw;
+    }
+}
+
+static void  __attribute__((noinline)) gfx_sp_vertex_no(size_t n_vertices, size_t dest_index, const Vtx *vertices) {
+    size_t i;
 
 	for (i = 0; i < n_vertices; i++, dest_index++) {
 		const Vtx_t* v = &vertices[i].v;
-		const Vtx_tn* vn = &vertices[i].n;
 		struct LoadedVertex* d = &rsp.loaded_vertices[dest_index];
 
         shz_vec4_t out = shz_xmtrx_trans_vec4(shz_vec3_vec4(shz_vec3_deref(v->ob), 1.0f));
-            //(shz_vec4_t) { .x = v->ob[0], .y = v->ob[1], .z = v->ob[2], .w = 1.0f });
         MEM_BARRIER_PREF(v + 1);
         d->x = v->ob[0];
         d->y = v->ob[1];
@@ -713,98 +804,15 @@ static void  __attribute__((noinline)) gfx_sp_vertex(size_t n_vertices, size_t d
 
         float recw = shz_fast_invf(w);
 
-        if (rsp.geometry_mode & G_LIGHTING) {
-            /* if (rsp.lights_changed) {
-                int i;
-                for (i = 0; i < rsp.current_num_lights - 1; i++) {
-                    calculate_normal_dir(&rsp.current_lights[i], rsp.current_lights_coeffs[i]);
-                }
-                static const Light_t lookat_x = {{0, 0, 0}, 0, {0, 0, 0}, 0, {127, 0, 0}, 0};
-                static const Light_t lookat_y = {{0, 0, 0}, 0, {0, 0, 0}, 0, {0, 127, 0}, 0};
-                calculate_normal_dir(&lookat_x, rsp.current_lookat_coeffs[0]);
-                calculate_normal_dir(&lookat_y, rsp.current_lookat_coeffs[1]);
-                rsp.lights_changed = false;
-            } */
-            
-            int r = rsp.current_lights[rsp.current_num_lights - 1].col[0];
-            int g = rsp.current_lights[rsp.current_num_lights - 1].col[1];
-            int b = rsp.current_lights[rsp.current_num_lights - 1].col[2];
-            int i;
-
-            for (i = 0; i < rsp.current_num_lights - 1; i++) {
-                float intensity = MAX((float)0.0f, (float)(recip127*shz_dot6f((float)vn->n[0], (float)vn->n[1], (float)vn->n[2],
-                rsp.current_lights_coeffs[i][0], rsp.current_lights_coeffs[i][1],rsp.current_lights_coeffs[i][2])));
-
-                if (intensity > 0.0f) {
-                    r += intensity * rsp.current_lights[i].col[0];
-                    g += intensity * rsp.current_lights[i].col[1];
-                    b += intensity * rsp.current_lights[i].col[2];
-                }
-            }
-
-#if 0
-//            d->color.r = r > 255 ? 255 : r;
- //           d->color.g = g > 255 ? 255 : g;
- //           d->color.b = b > 255 ? 255 : b;
-            float max_c = MAX4(255.0f, (float)r, (float)g, (float)b);
-            float maxc = shz_div_posf(255.0f, (float) max_c);
-
-            d->color.r = (uint8_t) ((float)r * maxc);
-            d->color.g = (uint8_t) ((float)g * maxc);
-            d->color.b = (uint8_t) ((float)b * maxc);
-#endif
-            d->color.r = MIN(255,r);
-            d->color.g = MIN(255,g);
-            d->color.b = MIN(255,b);
-            #define recip2pi 0.159155f
-
-            if (rsp.geometry_mode & G_TEXTURE_GEN) {
-                float dotx; // = 0,
-                float doty; // = 0;
-                {
-                    register float fr8  asm ("fr8")  = vn->n[0];
-                    register float fr9  asm ("fr9")  = vn->n[1];
-                    register float fr10 asm ("fr10") = vn->n[2];
-                    register float fr11 asm ("fr11") = 0;
-    
-                    dotx = recip127 * shz_dot8f(fr8, fr9, fr10, fr11, rsp.current_lookat_coeffs[0][0],
-                                                rsp.current_lookat_coeffs[0][1], rsp.current_lookat_coeffs[0][2], 0);
-
-                    doty = recip127 * shz_dot8f(fr8, fr9, fr10, fr11, rsp.current_lookat_coeffs[1][0],
-                                                rsp.current_lookat_coeffs[1][1], rsp.current_lookat_coeffs[1][2], 0);
-                }
-                if (dotx < -1.0f)
-                    dotx = -1.0f;
-                else if (dotx > 1.0f)
-                    dotx = 1.0f;
-
-                if (doty < -1.0f)
-                    doty = -1.0f;
-                else if (doty > 1.0f)
-                    doty = 1.0f;
-
-                if (rsp.geometry_mode & G_TEXTURE_GEN_LINEAR) {
-                    dotx = acosf(/* - */dotx) * recip2pi;
-                    doty = acosf(/* - */doty) * recip2pi;
-                } else {
-                    dotx = (dotx * 0.25f) + 0.25f; ////1.0f) / 4.0f;
-                    doty = (doty * 0.25f) + 0.25f; // 1.0f) / 4.0f;
-                }
-
-                U = (int32_t) (dotx * rsp.texture_scaling_factor.s);
-                V = (int32_t) (doty * rsp.texture_scaling_factor.t);
-            }
-        } else {
-            d->color.r = v->cn[0];
-            d->color.g = v->cn[1];
-            d->color.b = v->cn[2];
-        }
+        d->color.r = v->cn[0];
+        d->color.g = v->cn[1];
+        d->color.b = v->cn[2];
         
         d->u = U;
         d->v = V;
         
         // trivial clip rejection
-        uint8_t cr = ((rsp.geometry_mode & G_LIGHTING) ? 128 : 0) | ((w < 0) ? 64 : 0x00);
+        uint8_t cr = ((w < 0) ? 64 : 0x00);
         clip_rej[dest_index] = cr | trivial_reject(x, y, z, w);
         d->_x = x * recw;
         d->_y = y * recw;

@@ -247,6 +247,7 @@ extern void reset_texcache(void);
 
 void nuke_everything(void) {
     gfx_clear_all_textures();
+    glDefragmentTextureMemory_KOS();
     reset_texcache();
 }
 
