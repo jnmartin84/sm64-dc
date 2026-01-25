@@ -46,6 +46,7 @@ int run_press_start_demo_timer(s32 timer) {
             if ((++gDemoCountdown) == PRESS_START_DEMO_TIMER) {
                 // start the demo. 800 frames has passed while
                 // player is idle on PRESS START screen.
+                D_U_801A7C34 = 1;
 
                 // start the Mario demo animation for the demo list.
                 load_patchable_table(&gDemo, gDemoInputListID);
