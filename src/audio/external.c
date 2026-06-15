@@ -1630,6 +1630,7 @@ void update_game_sound(void) {
 #undef ARG2_VAL2
 
 void play_sequence(u8 player, u8 seqId, u16 fadeTimer) {
+    //return;
     u8 temp_ret;
     u8 i;
 

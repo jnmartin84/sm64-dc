@@ -84,12 +84,13 @@ void send_display_list(struct SPTask *spTask) {
 #define false 0
 #define true 1
 //void create_thread(OSThread *thread, OSId id, void (*entry)(void *), void *arg, void *sp, OSPri pri);
-static volatile uint64_t vblticker=0;
+volatile uint64_t vblticker=0;
 void vblfunc(uint32_t c, void *d) {
 	(void)c;
 	(void)d;
     vblticker++;
-    genwait_wake_one((void*)&vblticker);
+    genwait_wake_all/* one */((void*)&vblticker);
+    //thd_schedule(false, 0);
 }    
 
 #define SAMPLES_HIGH 448 
@@ -103,7 +104,7 @@ void *AudioSynthesisThread(UNUSED void *arg) {
 
     while (1) {
         while (vblticker <= last_vbltick)
-            genwait_wait((void*)&vblticker, NULL, 3, NULL);
+            genwait_wait((void*)&vblticker, NULL, 0/* 3 */);//, NULL);
         last_vbltick = vblticker;
 // if you notice the sound starts skipping, re-enable the irq_disable/enable around synthesis
 //        irq_disable();
@@ -171,7 +172,7 @@ void main_func(void) {
 	audio_attr.prio = PRIO_DEFAULT - 1;
 	audio_attr.label = "AudioSynthesis";
     thd_create_ex(&audio_attr, &AudioSynthesisThread, NULL);
-
+//    (void)audio_attr;
     thread5_game_loop(NULL);
 
     inited = 1;
@@ -181,6 +182,7 @@ void main_func(void) {
         game_loop_one_iteration();
         gfx_end_frame();
         gSysFrameCount++;
+        thd_pass();
     }
 }
 

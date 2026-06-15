@@ -297,7 +297,7 @@ endif
 
   # Use a default opt flag for gcc
   ifeq ($(COMPILER),gcc)
-    OPT_FLAGS := -Os -flto=auto -fno-pic -fno-pie
+    OPT_FLAGS := -Os -flto=auto -fipa-pta -fno-pic -fno-pie 
   endif
 
 else
@@ -607,7 +607,7 @@ endif
 #endif
 
 CC_CHECK := $(CC) -fsyntax-only -fsigned-char $(INCLUDE_CFLAGS) -Wall -Wextra -Wno-format-security -D_LANGUAGE_C $(VERSION_CFLAGS) $(MATCH_CFLAGS) $(PLATFORM_CFLAGS) $(GFX_CFLAGS) $(GRUCODE_CFLAGS)
-CFLAGS := $(OPT_FLAGS) $(INCLUDE_CFLAGS) -D_LANGUAGE_C $(VERSION_CFLAGS) $(MATCH_CFLAGS) $(PLATFORM_CFLAGS) $(GFX_CFLAGS) $(GRUCODE_CFLAGS) -fno-pic -fno-pie -fno-strict-aliasing -fwrapv -fipa-pta
+CFLAGS := $(OPT_FLAGS) $(INCLUDE_CFLAGS) -D_LANGUAGE_C $(VERSION_CFLAGS) $(MATCH_CFLAGS) $(PLATFORM_CFLAGS) $(GFX_CFLAGS) $(GRUCODE_CFLAGS) -fno-strict-aliasing -fwrapv -fipa-pta -fno-pic -fno-pie 
 
 ASFLAGS := -I include -I $(BUILD_DIR) $(VERSION_ASFLAGS)
 
@@ -811,6 +811,34 @@ $(SOUND_BIN_DIR)/sound_data.ctl: sound/sound_banks/ $(SOUND_BANK_FILES) $(SOUND_
 
 $(SOUND_BIN_DIR)/sound_data.tbl: $(SOUND_BIN_DIR)/sound_data.ctl
 	@true
+
+ifeq ($(TARGET_DC),1)
+# AICA hardware mixing replaces the software render path, so the raw VADPCM
+# sample bytes are never dereferenced at runtime. Link only the .tbl ALSeqFile
+# header (0x140 bytes) -- sampleAddr keying needs the base symbol + seqArray
+# offsets, not the ~2.2 MB of samples -- so gSoundDataRaw doesn't bloat RAM.
+$(SOUND_BIN_DIR)/sound_data.tbl.inc.c: $(SOUND_BIN_DIR)/sound_data.tbl
+	head -c 320 $< | hexdump -v -e '1/1 "0x%X,"' > $@
+	echo >> $@
+
+# AICA voice driver: regenerate the Yamaha-ADPCM pool + sample table from the
+# built sound_data banks (timestamp-gated; only re-runs when the banks change).
+# scipy-optional -- a clean checkout builds with stock python3.
+AICA_TOOLS := $(wildcard tools/aica/*.py)
+SOUND_OBJ_FILES += $(SOUND_BIN_DIR)/aica_pool.o $(SOUND_BIN_DIR)/aica_sample_table.o
+
+$(SOUND_BIN_DIR)/aica_pool.c: $(SOUND_BIN_DIR)/sound_data.tbl $(SOUND_BIN_DIR)/sound_data.ctl $(AICA_TOOLS)
+	PYTHONPATH=tools/aica $(PYTHON) tools/aica/sm64_emit.py \
+		--ctl $(SOUND_BIN_DIR)/sound_data.ctl --tbl $(SOUND_BIN_DIR)/sound_data.tbl \
+		--outdir $(SOUND_BIN_DIR) --incdir $(BUILD_DIR)
+
+# emitted together with aica_pool.c by the one recipe above
+$(SOUND_BIN_DIR)/aica_sample_table.c $(BUILD_DIR)/aica_sample_table.h: $(SOUND_BIN_DIR)/aica_pool.c
+	@true
+
+# aica_synth.c #includes the generated header
+$(BUILD_DIR)/src/audio/aica_synth.o: $(BUILD_DIR)/aica_sample_table.h
+endif
 
 ifeq ($(VERSION),sh)
 $(SOUND_BIN_DIR)/sequences.bin: $(SOUND_BANK_FILES) sound/sequences.json sound/sequences/ sound/sequences/jp/ $(SOUND_SEQUENCE_FILES) $(ENDIAN_BITWIDTH)

@@ -11,6 +11,10 @@
 #include "../pc/mixer.h"
 #endif
 
+#ifdef TARGET_DC
+#include "aica_synth.h"
+#endif
+
 #define DMEM_ADDR_TEMP 0x0
 #define DMEM_ADDR_UNCOMPRESSED_NOTE 0x180
 #define DMEM_ADDR_RESAMPLED 0x20
@@ -321,6 +325,19 @@ u64 *synthesis_execute(u64 *cmdBuf, s32 *writtenCmds, s16 *aiBufL, s16 *aiBufR, 
     aSegment(cmdBuf, 0, 0);
     aiBufPtr[0] = (s32*) aiBufL;
     aiBufPtr[1] = (s32*) aiBufR;
+
+#ifdef TARGET_DC
+    /* AICA hardware mixing: keep the sequence tick (process_sequences advances
+       gNotes[] each update), drop the RSP render, drive AICA voices once from
+       the finalized note state. No DSP command list is produced. */
+    (void)chunkLen; (void)aiBufPtr; (void)v0;
+    for (i = gAudioUpdatesPerFrame; i > 0; i--) {
+        process_sequences(i - 1);
+    }
+    AicaSynth_Update();
+    *writtenCmds = 0;
+    return cmd;
+#endif
 
     for (i = gAudioUpdatesPerFrame; i > 0; i--) {
         if (i == 1) {

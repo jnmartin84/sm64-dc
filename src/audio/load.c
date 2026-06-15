@@ -1035,5 +1035,12 @@ void audio_init() {
 
     init_sequence_players();
     gAudioLoadLock = AUDIO_LOCK_NOT_LOADING;
+
+#ifdef TARGET_DC
+    {
+        extern void AicaSynth_Init(void);
+        AicaSynth_Init();
+    }
+#endif
 }
 

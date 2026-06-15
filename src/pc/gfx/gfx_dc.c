@@ -19,7 +19,7 @@
 #define false 0
 
 
-static int force_30fps = 1;
+//static int force_30fps = 1;
 static unsigned int last_time = 0;
 
 extern void glKosSwapBuffers(void);
@@ -72,7 +72,7 @@ static void gfx_dc_handle_events(void) {
 
 float cpu_time = 0.f, gpu_time = 0.f;
 uint8_t skip_debounce = 0;
-const unsigned int FRAME_TIME_MS = 33; // hopefully get right on target @ 33.3
+const unsigned int FRAME_TIME_MS = 32; // hopefully get right on target @ 33.3
 
 static bool gfx_dc_start_frame(void) {
 #if 0
@@ -97,14 +97,20 @@ static bool gfx_dc_start_frame(void) {
 static void gfx_dc_swap_buffers_begin(void) {
 }
 
+unsigned int last_elapsed = 0;
+extern volatile uint64_t vblticker;
+uint64_t last_ticker = 0;
 static void gfx_dc_swap_buffers_end(void) {
+    /* Lets us yield to other threads*/
+    glKosSwapBuffers();
     // Number of microseconds a frame should take (30 fps)
     const unsigned int cur_time = GetSystemTimeLow();
     const unsigned int elapsed = cur_time - last_time;
+    float fps = 1000.0f / (float)elapsed;
+    last_elapsed = (unsigned int)fps;
     last_time = cur_time;
 
-    /* Lets us yield to other threads*/
-    glKosSwapBuffers();
+#if 0
 
     if (force_30fps && elapsed < FRAME_TIME_MS) {
 #ifdef DEBUG
@@ -113,6 +119,15 @@ static void gfx_dc_swap_buffers_end(void) {
         DelayThread(FRAME_TIME_MS - elapsed);
         last_time += (FRAME_TIME_MS - elapsed);
     }
+#endif
+    while (vblticker < (last_ticker + 2))
+        genwait_wait((void*)&vblticker, NULL, 0);//, NULL);
+    last_ticker = vblticker;
+
+//    while ((vblticker - last_ticker) < 2) {
+//        thd_pass();
+//    }
+//    last_ticker = vblticker;
 }
 
 /* Idk what this is for? */
