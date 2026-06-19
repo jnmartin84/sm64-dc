@@ -104,7 +104,7 @@ void *AudioSynthesisThread(UNUSED void *arg) {
 
     while (1) {
         while (vblticker <= last_vbltick)
-            genwait_wait((void*)&vblticker, NULL, 0/* 3 */);//, NULL);
+            genwait_wait((void*)&vblticker, NULL, 0/* 3 */, NULL);
         last_vbltick = vblticker;
 // if you notice the sound starts skipping, re-enable the irq_disable/enable around synthesis
 //        irq_disable();

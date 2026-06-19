@@ -121,7 +121,7 @@ static void gfx_dc_swap_buffers_end(void) {
     }
 #endif
     while (vblticker < (last_ticker + 2))
-        genwait_wait((void*)&vblticker, NULL, 0);//, NULL);
+        genwait_wait((void*)&vblticker, NULL, 0, NULL);
     last_ticker = vblticker;
 
 //    while ((vblticker - last_ticker) < 2) {

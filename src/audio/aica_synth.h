@@ -8,13 +8,17 @@
  * MK64/OoT EU drivers, adapted to the US audio engine (struct Note / gNotes,
  * note->frequency, note->sound).
  *
- *   AicaSynth_Update() : call from synthesis_execute, after the
- *                        process_sequences loop (replaces the render).
- *   AicaSynth_Init()   : call once at the end of audio_init() (uploads the
- *                        synthetic wavetables, anchors the linked sample pool).
+ *   AicaSynth_Update()       : call from synthesis_execute, after the
+ *                              process_sequences loop (lifecycle, once/frame).
+ *   AicaSynth_RefreshActive(): call inside the sub-update loop, after each
+ *                              process_sequences, to keep sub-frame pan/vol/freq
+ *                              resolution (fast pan/tremolo/vibrato).
+ *   AicaSynth_Init()         : call once at the end of audio_init() (uploads the
+ *                              synthetic wavetables, anchors the linked pool).
  */
 
 void AicaSynth_Init(void);
 void AicaSynth_Update(void);
+void AicaSynth_RefreshActive(void);
 
 #endif /* AICA_SYNTH_H */

@@ -27,6 +27,8 @@ extern int snd_sh4_to_aica(void* packet, uint32_t size);
 extern u8 gSoundDataRaw[];   /* .tbl base; sample keys are offsets from here */
 
 #define AICA_DEBUG 0
+#define AICA_PAN_LOG 0      /* trace pan/vol per sub-update to diagnose fast pan/tremolo effects */
+#define AICA_OCTAVE_LOG 1   /* log ADPCM samples pitched past ~+1 octave -> FORCE_PCM candidates */
 
 #include "aica_sample_table.h"
 
@@ -39,6 +41,13 @@ static u8* sTblBase = NULL;                      /* gSoundDataRaw */
 #define AICA_LEN_MAX 65534
 #define WAVE_SAMPLE_COUNT 64
 #define NUM_WAVEFORMS 4
+#define NUM_WAVE_BANDS 4   /* US sampleCount 64/32/16/8 -> band 0..3 */
+
+/* Synthetic waves are full-scale (+/-0x7FFF); two same-waveform voices summing on
+   the AICA mix bus clip ("crunchy") where the N64's wider-accumulator mixer had
+   headroom. Attenuate synth voices to leave room for a few to stack. Out of 256
+   (256 = unity); tune on HW -- lower if still crunchy, raise if too quiet. */
+#define SYNTH_VOL_SCALE 192
 #define KEY_EMPTY 0xFFFFFFFFu
 #define SYNTH_KEY(wf) (0x80000000u | (u32)(wf))
 
@@ -61,9 +70,12 @@ typedef struct {
     u32 sampleKey;
     AramEntry* entry;
     s32 samplesLeft;   /* one-shot play-out countdown in samples; <0 = looped/untracked */
+    u8  waveSc;        /* synth voice: sampleCount (64/32/16/8) of the loaded band buffer; 0 = non-synth */
+    u32 sentFreq;      /* last freq/vol/pan pushed to the channel; gates redundant updates */
+    u8  sentVol, sentPan;
 } Voice;
 static Voice sVoices[MAX_VOICES];
-static u32 sWaveAram[NUM_WAVEFORMS];
+static u32 sWaveAram[NUM_WAVEFORMS][NUM_WAVE_BANDS];
 
 /* ---- Long-sample streamer ----------------------------------------------------
    Samples longer than the AICA 16-bit channel cap (stream=1) can't be a single
@@ -164,14 +176,39 @@ static u32 fix_aica_freq_gap(u32 freq) {
    scaled by 32000/gAiFrequency in playback.c, so freq * gAiFrequency yields the
    game's intended 32000-referenced playback rate regardless of the session AI
    rate. Use the live gAiFrequency global (OoT lesson: read the runtime field). */
-static u32 calc_freq(struct Note* note) {
+/* Normalize note->sampleCount to the canonical band value the engine emits. */
+static u32 norm_sc(u32 sampleCount) {
+    switch (sampleCount) {
+        case 32: return 32;
+        case 16: return 16;
+        case 8:  return 8;
+        default: return 64;   /* 64, and any unexpected value */
+    }
+}
+
+/* Map the US engine's note->sampleCount (64/32/16/8) to a wave-buffer band. */
+static u32 wave_band(u32 sampleCount) {
+    switch (sampleCount) {
+        case 32: return 1;
+        case 16: return 2;
+        case 8:  return 3;
+        default: return 0;   /* 64, and any unexpected value */
+    }
+}
+
+/* note->frequency*gAiFrequency is the intended playback rate when the loaded
+   wave buffer's band matches the engine's current note->sampleCount. A sustained
+   synth note can drift across a band boundary (build_synthetic_wave re-runs and
+   nudges freqScale), but we keep its original buffer to avoid a restart-from-0
+   stutter; loadedSc carries that buffer's sampleCount so we rescale the rate by
+   loadedSc/currentSc and the pitch stays continuous across the drift. loadedSc=0
+   (non-synth, or matched band) means no rescale. */
+static u32 calc_freq(struct Note* note, u32 loadedSc) {
     f32 f = note->frequency * (f32)gAiFrequency;
     s32 fi;
-    /* Synthetic waves: the engine packs one cycle into note->sampleCount samples
-       (64/32/16/8) and scales freqScale to suit, but we loop the raw 64-sample
-       gWaveSamples cycle, so scale up by 64/sampleCount to land the right pitch. */
-    if (note->sound == NULL && note->sampleCount) {
-        f = f * (64.0f / (f32)note->sampleCount);
+    if (loadedSc) {
+        u32 cur = norm_sc(note->sampleCount);
+        if (cur && cur != loadedSc) f = f * (f32)loadedSc / (f32)cur;
     }
     fi = (s32)f;
     if (fi < 1) fi = 1;
@@ -185,7 +222,10 @@ static u32 calc_vol(struct Note* note) {
     u32 l = note->targetVolLeft, r = note->targetVolRight;
     u32 m = (l > r) ? l : r;
     u32 v = m >> 7;
-    return v > 255 ? 255 : v;
+    if (v > 255) v = 255;
+    /* Headroom for full-scale synth waves summing without clipping (see above). */
+    if (note->sound == NULL) v = (v * SYNTH_VOL_SCALE) >> 8;
+    return v;
 }
 
 /* AICA pan (DIPAN) attenuates the opposite channel in ~3 dB steps. KOS
@@ -220,11 +260,16 @@ static int resolve(struct Note* note, u32* outKey, Resolved* res, AramEntry** ou
     *outDesc = NULL;
 
     if (note->sound == NULL) {
-        /* synthetic wave: gWaveSamples[instOrWave-0x80], 64 s16 samples, looped */
+        /* synthetic wave: per-band decimated copy of gWaveSamples[instOrWave-0x80],
+           64 s16 samples, looped. Folding the band into the key makes a band change
+           (rare: pitch bend/vibrato crossing a 2x boundary) re-trigger onto the
+           correct buffer. */
         u32 wf = (u32)(note->instOrWave - 0x80);
+        u32 band;
         if (wf >= NUM_WAVEFORMS) return 0;
+        band = wave_band(note->sampleCount);
         *outKey = SYNTH_KEY(wf);
-        res->base = sWaveAram[wf];
+        res->base = sWaveAram[wf][band];
         res->type = AICA_SM_16BIT;
         res->length = WAVE_SAMPLE_COUNT;
         res->loop = 1; res->loopstart = 0; res->loopend = WAVE_SAMPLE_COUNT;
@@ -245,7 +290,7 @@ static int resolve(struct Note* note, u32* outKey, Resolved* res, AramEntry** ou
         if (!e) return 0;
         *outEntry = e; *outKey = key;
         res->base = e->aram;
-        res->type = AICA_SM_ADPCM;
+        res->type = d->fmt;   /* AICA_SM_16BIT/8BIT/ADPCM, chosen offline by SNR */
         res->length = d->nsamples > AICA_LEN_MAX ? AICA_LEN_MAX : d->nsamples;
         res->loop = d->loop_flag;
         res->loopstart = d->loop_start;
@@ -287,7 +332,7 @@ static void voice_stop(s32 i) {
     if (v->channel >= 0) { chan_stop(v->channel); chan_release(v->channel); }
     cache_release(v->entry);
     v->channel = -1; v->active = 0; v->entry = NULL; v->sampleKey = KEY_EMPTY;
-    v->samplesLeft = -1;
+    v->samplesLeft = -1; v->waveSc = 0; v->sentFreq = 0; v->sentVol = 0; v->sentPan = 0;
 }
 
 /* Decode the next source sample, advancing decoder + loop state. Returns PCM16.
@@ -395,18 +440,36 @@ void AicaSynth_Init(void) {
     s32 i, ch; u32 w;
 
     for (i = 0; i < ARAM_CACHE_ENTRIES; i++) { sCache[i].key = KEY_EMPTY; sCache[i].aram = 0; sCache[i].refs = 0; }
-    for (i = 0; i < MAX_VOICES; i++) { sVoices[i].channel = -1; sVoices[i].active = 0; sVoices[i].entry = NULL; sVoices[i].sampleKey = KEY_EMPTY; sVoices[i].samplesLeft = -1; }
+    for (i = 0; i < MAX_VOICES; i++) { sVoices[i].channel = -1; sVoices[i].active = 0; sVoices[i].entry = NULL; sVoices[i].sampleKey = KEY_EMPTY; sVoices[i].samplesLeft = -1; sVoices[i].waveSc = 0; sVoices[i].sentFreq = 0; sVoices[i].sentVol = 0; sVoices[i].sentPan = 0; }
     sChanFreeTop = 0;
     for (ch = NUM_AICA_CHANNELS - 1; ch >= 0; ch--) sChanFree[sChanFreeTop++] = (s8)ch;
 
     sPoolBase = gAicaAdpcmPool;          /* linked, resident */
     sTblBase = (u8*)gSoundDataRaw;
 
-    for (w = 0; w < NUM_WAVEFORMS; w++) {
-        u32 bytes = WAVE_SAMPLE_COUNT * sizeof(s16);
-        u32 aram = (u32)snd_mem_malloc(bytes);
-        spu_memload_sq(aram, (void*)gWaveSamples[w], (bytes + 31) & ~31);
-        sWaveAram[w] = aram;
+    /* Build the four per-band wave buffers the US build_synthetic_wave produces
+       (sampleCount 64/32/16/8): decimate one cycle of the raw 64-sample wave by
+       stepSize, then repeat it to fill a 64-sample loop buffer. Uploading these
+       (rather than looping the raw wave at a scaled-up rate) keeps the AICA
+       playback rate near the output rate, so high notes don't alias, and the
+       timbre matches the N64 software synth. */
+    {
+        static const u32 kSampleCount[NUM_WAVE_BANDS] = { 64, 32, 16, 8 };
+        u32 band;
+        for (w = 0; w < NUM_WAVEFORMS; w++) {
+            for (band = 0; band < NUM_WAVE_BANDS; band++) {
+                s16 buf[WAVE_SAMPLE_COUNT] __attribute__((aligned(32)));
+                u32 sc = kSampleCount[band];
+                u32 step = WAVE_SAMPLE_COUNT / sc;   /* 1,2,4,8 */
+                u32 aram, i, pos, off, j;
+                for (i = 0, pos = 0; pos < WAVE_SAMPLE_COUNT; pos += step) buf[i++] = gWaveSamples[w][pos];
+                for (off = sc; off < WAVE_SAMPLE_COUNT; off += sc)
+                    for (j = 0; j < sc; j++) buf[off + j] = buf[j];
+                aram = (u32)snd_mem_malloc(WAVE_SAMPLE_COUNT * sizeof(s16));
+                spu_memload_sq(aram, buf, WAVE_SAMPLE_COUNT * sizeof(s16));
+                sWaveAram[w][band] = aram;
+            }
+        }
     }
 
     for (i = 0; i < MAX_STREAMS; i++) {
@@ -441,6 +504,57 @@ void AicaSynth_Init(void) {
 #endif
 }
 
+/* Re-push freq/vol/pan for already-active voices. Called once per sequence
+   sub-update (gAudioUpdatesPerFrame times/frame) so fast pan/tremolo/vibrato
+   keep the sub-frame resolution the N64 render had -- AicaSynth_Update alone
+   runs once/frame and would alias them to a single snapshot held flat. Voice
+   lifecycle (start/stop/retrigger, one-shot countdown) stays in AicaSynth_Update.
+   Gated on change so static notes generate no extra command-queue traffic. */
+void AicaSynth_RefreshActive(void) {
+    s32 numNotes = gMaxSimultaneousNotes;
+    s32 i;
+#if AICA_PAN_LOG
+    static u32 sRefreshTick = 0;
+    sRefreshTick++;
+#endif
+
+    if (sPoolBase == NULL) return;
+    if (numNotes > MAX_VOICES) numNotes = MAX_VOICES;
+
+    for (i = 0; i < numNotes; i++) {
+        Voice* v = &sVoices[i];
+        struct Note* note = &gNotes[i];
+        u32 freq, vol, pan;
+
+        if (!v->active || v->channel < 0) continue;     /* streams + idle slots */
+        if (!note->enabled || note->finished) continue; /* let AicaSynth_Update stop it */
+
+        if (note->sound == NULL)
+            freq = calc_freq(note, v->waveSc ? v->waveSc : norm_sc(note->sampleCount));
+        else
+            freq = calc_freq(note, 0);
+        vol = calc_vol(note);
+        pan = calc_pan(note);
+
+        if (freq != v->sentFreq || (u8)vol != v->sentVol || (u8)pan != v->sentPan) {
+            chan_update(v->channel, freq, vol, pan);
+            v->sentFreq = freq; v->sentVol = (u8)vol; v->sentPan = (u8)pan;
+#if AICA_PAN_LOG
+            {
+                static u32 lines = 0;
+                if (lines < 4000) {
+                    printf("PAN t=%u v=%d L=%d R=%d pan=%u vol=%u\n",
+                           (unsigned)sRefreshTick, (int)i,
+                           (int)note->targetVolLeft, (int)note->targetVolRight,
+                           (unsigned)pan, (unsigned)vol);
+                    lines++;
+                }
+            }
+#endif
+        }
+    }
+}
+
 void AicaSynth_Update(void) {
     s32 numNotes = gMaxSimultaneousNotes;
     s32 i;
@@ -471,12 +585,12 @@ void AicaSynth_Update(void) {
             continue;
         }
 
-        freq = calc_freq(note);
         vol = calc_vol(note);
         pan = calc_pan(note);
 
         if (rc == 2) {
             /* Streamed long sample: dedicated channel + SH4-fed PCM ring. */
+            freq = calc_freq(note, 0);
             if (v->active) voice_stop(i);          /* this note is never a normal voice */
             st = stream_for_note(i);
             if (st && (st->key != desc->src_offset || note->needsInit)) { stream_free(st); st = NULL; }
@@ -492,18 +606,47 @@ void AicaSynth_Update(void) {
            freshly-triggered each frame and the voice restarts ~60x/sec, so the
            sample never plays past its attack -> "robot noise". */
         note->needsInit = FALSE;
+
+        /* For a synth voice, freq is rescaled to the band buffer actually loaded:
+           on retrigger that's the current band (no rescale); otherwise the buffer
+           we started with (v->waveSc), so a band drift adjusts pitch instead of
+           restarting the channel. Non-synth voices pass loadedSc=0. */
+        if (note->sound == NULL)
+            freq = calc_freq(note, retrigger ? norm_sc(note->sampleCount)
+                                             : (v->waveSc ? v->waveSc : norm_sc(note->sampleCount)));
+        else
+            freq = calc_freq(note, 0);
+
         if (retrigger) {
             s32 chn;
             if (v->active) voice_stop(i);
             chn = chan_alloc();
             if (chn < 0) { cache_release(entry); continue; }
             v->channel = chn; v->active = 1; v->sampleKey = key; v->entry = entry;
+            v->waveSc = (note->sound == NULL) ? (u8)norm_sc(note->sampleCount) : 0;
             v->samplesLeft = res.loop ? -1 : (s32)res.length;
             chan_start(chn, &res, freq, vol, pan);
+            v->sentFreq = freq; v->sentVol = (u8)vol; v->sentPan = (u8)pan;
+#if AICA_OCTAVE_LOG
+            /* Find ADPCM samples the game pitches past ~+1 octave (note->frequency
+               > ~2). Those pitch-clamp on AICA ADPCM and need FORCE_PCM. nf=1.89
+               was fine, nf=4.0 (BEC60) was broken; log from 1.5 to see the spread.
+               One print per sample per new high; capped so it can't flood. */
+            if (note->sound != NULL && res.type == AICA_SM_ADPCM && note->frequency > 2.0f) {
+                static u32 oKey[128]; static float oMax[128]; static s32 oN = 0;
+                s32 j, hit = -1;
+                for (j = 0; j < oN; j++) if (oKey[j] == key) { hit = j; break; }
+                if (hit < 0 && oN < 128) { hit = oN++; oKey[hit] = key; oMax[hit] = 0.0f; }
+                if (hit >= 0 && note->frequency > oMax[hit]) {
+                    oMax[hit] = note->frequency;
+                    printf("OCTAVE key=%X maxnf=%f\n", (unsigned)key, (double)note->frequency);
+                }
+            }
+#endif
 #if AICA_DEBUG
             {
                 static s32 dbgStarts = 0;
-                if (dbgStarts < 32) {
+                if (dbgStarts < 4096) {
                     printf("AICAstart ch=%d key=%X synth=%d type=%u base=%X len=%u loop=%u ls=%u le=%u freq=%u vol=%u pan=%u nf=%f\n",
                            (int)chn, (unsigned)key, (note->sound == NULL),
                            (unsigned)res.type, (unsigned)res.base, (unsigned)res.length,
@@ -515,7 +658,10 @@ void AicaSynth_Update(void) {
 #endif
         } else {
             if (entry) cache_release(entry);
-            chan_update(v->channel, freq, vol, pan);
+            if (freq != v->sentFreq || (u8)vol != v->sentVol || (u8)pan != v->sentPan) {
+                chan_update(v->channel, freq, vol, pan);
+                v->sentFreq = freq; v->sentVol = (u8)vol; v->sentPan = (u8)pan;
+            }
         }
 
         /* One-shot play-out: AicaSynth_Update runs ~once per video frame, so the
@@ -537,4 +683,5 @@ void AicaSynth_Update(void) {
 #else
 void AicaSynth_Init(void) {}
 void AicaSynth_Update(void) {}
+void AicaSynth_RefreshActive(void) {}
 #endif

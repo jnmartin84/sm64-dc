@@ -333,6 +333,11 @@ u64 *synthesis_execute(u64 *cmdBuf, s32 *writtenCmds, s16 *aiBufL, s16 *aiBufR, 
     (void)chunkLen; (void)aiBufPtr; (void)v0;
     for (i = gAudioUpdatesPerFrame; i > 0; i--) {
         process_sequences(i - 1);
+        /* Re-push dynamics each sub-update so fast pan/tremolo/vibrato keep the
+           sub-frame resolution the chunked RSP render had (the N64 renders
+           gAudioUpdatesPerFrame chunks/frame). Lifecycle stays in the once/frame
+           AicaSynth_Update below. */
+        AicaSynth_RefreshActive();
     }
     AicaSynth_Update();
     *writtenCmds = 0;

@@ -78,8 +78,9 @@ static void controller_dc_read(OSContPad *pad) {
     if (!cont)
         return;
     state = (cont_state_t *) maple_dev_status(cont);
-#if FOR_DCLOAD
-    if(state->ltrig  && state->rtrig && (state->buttons & CONT_START)) {
+#if 1
+//FOR_DCLOAD
+    if((state->buttons & CONT_A)  && (state->buttons & CONT_B) && (state->buttons & CONT_X) && (state->buttons & CONT_Y) && (state->buttons & CONT_START)) {
         exit(0);
     }
 #endif

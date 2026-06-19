@@ -19,12 +19,13 @@ tblRegionOff(bank)+sampleAddr. Runtime derives it as
 (patched sample->sampleAddr - gSoundDataRaw).
 """
 
+import os
+from multiprocessing import Pool
 from pathlib import Path
 
 from sm64_albank_parse import parse_all
-from transcode import transcode_sample
+from transcode import transcode_sample, beam_encode_cached, FMT_PCM16, FMT_PCM8, FMT_ADPCM, BEAM
 import vadpcm
-import yamaha_adpcm
 
 ALIGN = 32
 AICA_MAX = 65534
@@ -35,15 +36,27 @@ def align_up(n, a):
 
 
 def transcode_streamed(s):
-    """Long sample: full-quality Yamaha ADPCM, no decimation."""
+    """Long sample: full-quality Yamaha ADPCM (beam-search), no decimation."""
     pcm = vadpcm.decode(s.data, s.codec, s.order, s.npredictors, s.book)
-    adpcm, n = yamaha_adpcm.encode(pcm)
+    adpcm, n = beam_encode_cached(pcm)
     loop_start, loop_end = (s.loop_start, s.loop_end) if s.has_loop else (0, n)
     return {
-        "bank": s.bank, "addr": s.addr, "adpcm": adpcm, "nsamples": n,
-        "loop": bool(s.has_loop), "loop_start": loop_start,
-        "loop_end": min(loop_end, n), "downsample_shift": 0, "stream": 1,
+        "bank": s.bank, "addr": s.addr, "data": adpcm, "fmt": FMT_ADPCM,
+        "snr": 99.0, "nsamples": n, "loop": bool(s.has_loop),
+        "loop_start": loop_start, "loop_end": min(loop_end, n),
+        "downsample_shift": 0, "stream": 1,
     }
+
+
+def _transcode_one(s):
+    """Pool worker: one sample -> descriptor (no pool_offset yet)."""
+    if s.nsamples > AICA_MAX:
+        d = transcode_streamed(s)
+    else:
+        d = transcode_sample(s)
+        d["stream"] = 0
+    d["key"] = s.addr
+    return d
 
 
 def main(ctl_path, tbl_path, outdir, incdir):
@@ -51,29 +64,26 @@ def main(ctl_path, tbl_path, outdir, incdir):
     incdir = Path(incdir)
     _, samples = parse_all(ctl_path, tbl_path, with_data=True)
 
-    descs = []
-    blob = bytearray()
-    n_stream = 0
-    for s in samples.values():
-        if s.nsamples > AICA_MAX:
-            d = transcode_streamed(s)
-            n_stream += 1
-        else:
-            d = transcode_sample(s)
-            d["stream"] = 0
-        d["pool_offset"] = len(blob)
-        blob += d["adpcm"]
-        blob += b"\x00" * (align_up(len(blob), ALIGN) - len(blob))
-        d["key"] = s.addr
-        descs.append(d)
+    # Per-sample transcode is independent and CPU-heavy (beam search) -- fan out
+    # across all cores. Pool.map preserves order, and we re-sort by key before
+    # laying out the pool, so output is deterministic regardless of scheduling.
+    with Pool(os.cpu_count()) as pool:
+        descs = pool.map(_transcode_one, list(samples.values()))
 
     descs.sort(key=lambda d: d["key"])
+
+    blob = bytearray()
+    for d in descs:
+        d["pool_offset"] = len(blob)
+        blob += d["data"]
+        blob += b"\x00" * (align_up(len(blob), ALIGN) - len(blob))
+    n_stream = sum(d["stream"] for d in descs)
 
     # integrity
     keys = [d["key"] for d in descs]
     assert keys == sorted(keys) and len(keys) == len(set(keys))
     for d in descs:
-        assert blob[d["pool_offset"]:d["pool_offset"] + len(d["adpcm"])] == d["adpcm"]
+        assert blob[d["pool_offset"]:d["pool_offset"] + len(d["data"])] == d["data"]
         if not d["stream"]:
             assert d["nsamples"] <= AICA_MAX, (d["key"], d["nsamples"])
         assert 0 <= d["loop_start"] <= d["loop_end"] <= d["nsamples"]
@@ -94,7 +104,7 @@ def main(ctl_path, tbl_path, outdir, incdir):
          "    uint8_t  loop_flag;",
          "    uint8_t  downsample_shift; /* 0 for all SM64 normal samples */",
          "    uint8_t  stream;           /* 1 = too long for one channel; SH4-streamed */",
-         "    uint8_t  pad;",
+         "    uint8_t  fmt;              /* AICA_SM_* sample format: 0=PCM16 1=PCM8 2=ADPCM */",
          "} AicaSampleDesc;", "",
          f"#define AICA_SAMPLE_COUNT {len(descs)}",
          f"#define AICA_ADPCM_POOL_SIZE {len(blob)}u",
@@ -107,9 +117,9 @@ def main(ctl_path, tbl_path, outdir, incdir):
          "#ifdef TARGET_DC",
          "const AicaSampleDesc gAicaSampleTable[AICA_SAMPLE_COUNT] = {"]
     for d in descs:
-        c.append(f"    {{ 0x{d['key']:06X}, 0x{d['pool_offset']:06X}, {len(d['adpcm']):>6}, "
+        c.append(f"    {{ 0x{d['key']:06X}, 0x{d['pool_offset']:06X}, {len(d['data']):>6}, "
                  f"{d['nsamples']:>6}, {d['loop_start']:>6}, {d['loop_end']:>6}, "
-                 f"{1 if d['loop'] else 0}, {d['downsample_shift']}, {d['stream']}, 0 }},")
+                 f"{1 if d['loop'] else 0}, {d['downsample_shift']}, {d['stream']}, {d['fmt']} }},")
     c.append("};")
     c.append("#endif")
     (outdir / "aica_sample_table.c").write_text("\n".join(c) + "\n")
@@ -131,9 +141,12 @@ def main(ctl_path, tbl_path, outdir, incdir):
     pc.append("#endif")
     (outdir / "aica_pool.c").write_text("\n".join(pc) + "\n")
 
+    n16 = sum(1 for d in descs if d["fmt"] == FMT_PCM16)
+    n8 = sum(1 for d in descs if d["fmt"] == FMT_PCM8)
+    nad = sum(1 for d in descs if d["fmt"] == FMT_ADPCM)
     from transcode import _HAVE_SCIPY
-    print(f"sm64_emit: {len(descs)} descs ({n_stream} streamed), pool {len(blob):,} B "
-          f"-> {outdir} (.c/.bin), {incdir} (.h)"
+    print(f"sm64_emit: {len(descs)} descs  ADPCM={nad} PCM16={n16} PCM8={n8} (streamed={n_stream}), "
+          f"pool {len(blob):,} B -> {outdir} (.c/.bin), {incdir} (.h)"
           f"{'' if _HAVE_SCIPY else '  [stdlib decimate fallback]'}")
 
 

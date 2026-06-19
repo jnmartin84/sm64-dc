@@ -2,6 +2,9 @@
 mario64.cdi
 sm64.bin
 
+# AICA beam-encode cache (tools/aica)
+tools/aica/.encode_cache/
+tools/aica/__pycache__/
 # other stuff
 *.tgz
 
