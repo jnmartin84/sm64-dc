@@ -521,8 +521,8 @@ static void geo_process_background(struct GraphNodeBackground *node) {
         geo_append_display_list((void *) VIRTUAL_TO_PHYSICAL(list), node->fnNode.node.flags >> 8);
     } else if (gCurGraphNodeMasterList != NULL) {
         clear_color = node->background;
-#if 0
-        #ifndef F3DEX_GBI_2E
+#if 1
+#ifndef F3DEX_GBI_2E
         Gfx *gfxStart = alloc_display_list(sizeof(Gfx) * (7+1));
 #else
         Gfx *gfxStart = alloc_display_list(sizeof(Gfx) * (8+1));

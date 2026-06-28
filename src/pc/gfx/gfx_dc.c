@@ -106,8 +106,11 @@ unsigned int last_elapsed = 0;
 extern volatile uint64_t vblticker;
 uint64_t last_ticker = 0;
 static void gfx_dc_swap_buffers_end(void) {
+#ifndef GFX_BACKEND_PVR
     /* Lets us yield to other threads*/
     glKosSwapBuffers();
+#endif
+    /* PVR backend (gfx_pvr.c) flips inside pvr_scene_finish (finish_render). */
     // Number of microseconds a frame should take (30 fps)
     const unsigned int cur_time = GetSystemTimeLow();
     const unsigned int elapsed = cur_time - last_time;

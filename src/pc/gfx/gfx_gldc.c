@@ -341,10 +341,15 @@ static bool is_zmode_decal = false;
 static void gfx_opengl_set_zmode_decal(bool zmode_decal) {
     is_zmode_decal = zmode_decal;
     if (zmode_decal) {
-        glDepthFunc(GL_LEQUAL);  
+        glDepthFunc(GL_LEQUAL);
     } else {
-        glDepthFunc(GL_LESS);  
+        glDepthFunc(GL_LESS);
     }
+}
+
+// GLdc derives texenv itself (per shader id in gfx_opengl_draw_triangles), so the front-end's
+// combiner-derived mode is ignored here. Present only to satisfy the rapi vtable.
+static void gfx_opengl_set_tex_env(UNUSED uint32_t mode) {
 }
 
 
@@ -771,10 +776,12 @@ struct GfxRenderingAPI gfx_opengl_api = {
     gfx_opengl_set_depth_test,
     gfx_opengl_set_depth_mask,
     gfx_opengl_set_zmode_decal,
+    gfx_opengl_set_tex_env,
     gfx_opengl_set_viewport,
     gfx_opengl_set_scissor,
     gfx_opengl_set_use_alpha,
     gfx_opengl_draw_triangles,
+    gfx_opengl_draw_triangles_2d,
     gfx_opengl_init,
     gfx_opengl_on_resize,
     gfx_opengl_start_frame,

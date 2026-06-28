@@ -146,7 +146,12 @@ void main_func(void) {
     configfile_load(CONFIG_FILE);
     atexit(save_config);
 
+#ifdef GFX_BACKEND_PVR
+    extern struct GfxRenderingAPI gfx_pvr_api;
+    rendering_api = &gfx_pvr_api;   // make GFX_BACKEND=pvr
+#else
     rendering_api = &gfx_opengl_api;
+#endif
     wm_api = &gfx_dc;
 
     gfx_init(wm_api, rendering_api, "Super Mario 64", configFullscreen);

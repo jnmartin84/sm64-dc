@@ -560,6 +560,14 @@ ifeq ($(FOR_DCLOAD),1)
   PLATFORM_CFLAGS += -DFOR_DCLOAD=1
 endif
 
+# GFX_BACKEND - selects the renderer backend (DC):
+#   gldc - OpenGL-on-DC via GLdc (default, gfx_gldc.c)
+#   pvr  - raw KOS PVR direct-render (gfx_pvr.c)
+GFX_BACKEND ?= gldc
+ifeq ($(GFX_BACKEND),pvr)
+  PLATFORM_CFLAGS += -DGFX_BACKEND_PVR=1
+endif
+
 # need to finish working through these
 #  PLATFORM_CFLAGS += -Wdouble-promotion
 
@@ -985,6 +993,7 @@ $(BUILD_DIR)/src/engine/math_util.o: CFLAGS += -O3
 $(BUILD_DIR)/src/pc/mixer.o: CFLAGS += -O3
 $(BUILD_DIR)/src/pc/gfx/gfx_gldc.o: CFLAGS += -O3
 $(BUILD_DIR)/src/pc/gfx/gfx_retro_dc.o: CFLAGS += -O3
+$(BUILD_DIR)/src/pc/gfx/gfx_pvr.o: CFLAGS += -O3
 
 ifeq ($(TARGET_DC),1)
 # Unused for now, might be later

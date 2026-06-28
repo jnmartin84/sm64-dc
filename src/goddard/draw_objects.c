@@ -482,7 +482,7 @@ void draw_face(struct ObjFace *face) {
     imout();
 }
 
-#if 0
+#if 1
 /**
  * Render a filled rectangle from (`ulx`, `uly`) to (`lrx`, `lry`).
  *
