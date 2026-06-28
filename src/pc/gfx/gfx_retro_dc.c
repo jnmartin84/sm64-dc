@@ -748,8 +748,8 @@ static void  __attribute__((noinline)) gfx_sp_vertex(size_t n_vertices, size_t d
             for (i = 0; i < rsp.current_num_lights - 1; i++) {
                 calculate_normal_dir(&rsp.current_lights[i], rsp.current_lights_coeffs[i]);
             }
-            calculate_normal_dir(&rsp.current_lookat[1], rsp.current_lookat_coeffs[0]);
-            calculate_normal_dir(&rsp.current_lookat[0], rsp.current_lookat_coeffs[1]);
+            calculate_normal_dir(&rsp.current_lookat[0], rsp.current_lookat_coeffs[0]);
+            calculate_normal_dir(&rsp.current_lookat[1], rsp.current_lookat_coeffs[1]);
             rsp.lights_changed = false;
         }
         gfx_sp_vertex_light(n_vertices, dest_index, vertices);
@@ -819,7 +819,15 @@ static void __attribute__((noinline)) gfx_sp_vertex_light(size_t n_vertices, siz
 
                 doty = recip127 * shz_dot8f(fr8, fr9, fr10, fr11, rsp.current_lookat_coeffs[1][0], rsp.current_lookat_coeffs[1][1], rsp.current_lookat_coeffs[1][2], 0);
             }
+            if (dotx < -1.0f)
+                dotx = -1.0f;
+            else if (dotx > 1.0f)
+                dotx = 1.0f;
 
+            if (doty < -1.0f)
+                doty = -1.0f;
+            else if (doty > 1.0f)
+                doty = 1.0f;
             if (rsp.geometry_mode & G_TEXTURE_GEN_LINEAR) {
                 dotx = shz_acosf(dotx) * recip2pi;
                 doty = shz_acosf(doty) * recip2pi;
@@ -1540,10 +1548,10 @@ static void gfx_calc_and_set_viewport(const Vp_t *viewport) {
     float x = (viewport->vtrans[0] * 0.25f /* / 4.0f */) - width * 0.5f /* / 2.0f */;
     float y = SCREEN_HEIGHT - ((viewport->vtrans[1] * 0.25f /* / 4.0f */) + height * 0.5f /* / 2.0f */);
     
-    width *= 2; //RATIO_X;
-    height *= 2; //RATIO_Y;
-    x *= 2; //RATIO_X;
-    y *= 2; //RATIO_Y;
+    width *= RATIO_X;
+    height *= RATIO_Y;
+    x *= RATIO_X;
+    y *= RATIO_Y;
     
     rdp.viewport.x = x;
     rdp.viewport.y = y;
@@ -1552,26 +1560,22 @@ static void gfx_calc_and_set_viewport(const Vp_t *viewport) {
     
     rdp.viewport_or_scissor_changed = true;
 }
-#define G_MV_LOOKATY 0x82
-#define G_MV_LOOKATX 0x84
 static void  __attribute__((noinline)) gfx_sp_movemem(uint8_t index, uint8_t offset, const void* data) {
     switch (index) {
         case G_MV_VIEWPORT:
             gfx_calc_and_set_viewport((const Vp_t *) data);
             break;
-#if 0
-        case G_MV_LOOKATY:
-        case G_MV_LOOKATX:
-            memcpy(rsp.current_lookat + (index - G_MV_LOOKATY) >> 1, data, sizeof(Light_t));
-            rsp.lights_changed = 1;
-            break;
-#endif
 #ifdef F3DEX_GBI_2
         case G_MV_LIGHT: {
             int lightidx = offset / 24 - 2;
             if (lightidx >= 0 && lightidx <= MAX_LIGHTS) { // skip lookat
                 // NOTE: reads out of bounds if it is an ambient light
                 memcpy(rsp.current_lights + lightidx, data, sizeof(Light_t));
+            } else {
+                if (lightidx == -2)
+                    memcpy(rsp.current_lookat, data, sizeof(Light_t));
+                else if (lightidx == -1)
+                    memcpy(rsp.current_lookat + 1, data, sizeof(Light_t));
             }
             break;
         }
@@ -1644,10 +1648,10 @@ static void gfx_sp_texture(uint16_t sc, uint16_t tc) {
 }
 
 static void  __attribute__((noinline)) gfx_dp_set_scissor(uint32_t ulx, uint32_t uly, uint32_t lrx, uint32_t lry) {
-    float x = ulx * 0.5f;
-    float y = (SCREEN_HEIGHT - lry * 0.25f) * 2.0f;
-    float width = (lrx - ulx) * 0.5f;
-    float height = (lry - uly) * 0.5f;
+    float x = (ulx * 0.25f) * RATIO_X;
+    float y = (SCREEN_HEIGHT - lry * 0.25f) * RATIO_Y;
+    float width = ((lrx - ulx) * 0.25f) * RATIO_X;
+    float height = ((lry - uly) * 0.25f) * RATIO_Y;
     
     rdp.scissor.x = x;
     rdp.scissor.y = y;

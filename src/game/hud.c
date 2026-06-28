@@ -259,6 +259,7 @@ void render_hud_power_meter(void) {
 #else
 #define HUD_TOP_Y 209
 #endif
+extern unsigned int last_elapsed;
 
 /**
  * Renders the amount of lives Mario has.
@@ -266,9 +267,9 @@ void render_hud_power_meter(void) {
 void render_hud_mario_lives(void) {
     print_text(GFX_DIMENSIONS_RECT_FROM_LEFT_EDGE(22), HUD_TOP_Y, ","); // 'Mario Head' glyph
     print_text(GFX_DIMENSIONS_RECT_FROM_LEFT_EDGE(38), HUD_TOP_Y, "*"); // 'X' glyph
-    print_text_fmt_int(GFX_DIMENSIONS_RECT_FROM_LEFT_EDGE(54), HUD_TOP_Y, "%d", gHudDisplay.lives);
+    print_text_fmt_int(GFX_DIMENSIONS_RECT_FROM_LEFT_EDGE(54), HUD_TOP_Y, "%d", //last_elapsed);// 
+    gHudDisplay.lives);
 }
-
 /**
  * Renders the amount of coins collected.
  */
@@ -283,7 +284,7 @@ void render_hud_coins(void) {
 #else
 #define HUD_STARS_X 78
 #endif
-
+extern uint32_t newest_texture;
 /**
  * Renders the amount of stars collected.
  * Disables "X" glyph when Mario has 100 stars or more.
@@ -304,7 +305,8 @@ void render_hud_stars(void) {
         print_text(GFX_DIMENSIONS_RECT_FROM_RIGHT_EDGE(HUD_STARS_X) + 16, HUD_TOP_Y, "*"); // 'X' glyph
     }
     print_text_fmt_int((showX * 14) + GFX_DIMENSIONS_RECT_FROM_RIGHT_EDGE(HUD_STARS_X - 16),
-                       HUD_TOP_Y, "%d", gHudDisplay.stars);
+                       HUD_TOP_Y, "%d", //newest_texture);// 
+                       gHudDisplay.stars);
 }
 
 /**

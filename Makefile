@@ -27,6 +27,8 @@ TARGET_WEB ?= 0
 TARGET_PSP ?= 0
 # Build for Dreamcast
 TARGET_DC ?= 0
+# Render at 240p (320x240) instead of 480i/VGA (640x480) on Dreamcast
+LOWRES ?= 0
 # Compiler to use (ido or gcc)
 #COMPILER ?= ido
 
@@ -549,6 +551,10 @@ ifeq ($(TARGET_DC),1)
   #-gdwarf-2 -gstrict-dwarf -g3 --ffunction-sections -fdata-sections -Wl,-gc-sections
   PLATFORM_CFLAGS  := $(KOS_CFLAGS) -Os -flto=auto -DTARGET_DC -Wall -Wextra -DNDEBUG -Werror -Wno-missing-braces -Wno-old-style-declaration
 # -Wno-unused-variable -Wno-unused-parameter -fno-strict-aliasing
+
+ifeq ($(LOWRES),1)
+  PLATFORM_CFLAGS += -DLOWRES
+endif
 
 ifeq ($(FOR_DCLOAD),1)
   PLATFORM_CFLAGS += -DFOR_DCLOAD=1

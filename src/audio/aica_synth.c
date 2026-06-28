@@ -69,7 +69,6 @@ typedef struct {
     u8 active;
     u32 sampleKey;
     AramEntry* entry;
-    s32 samplesLeft;   /* one-shot play-out countdown in samples; <0 = looped/untracked */
     u8  waveSc;        /* synth voice: sampleCount (64/32/16/8) of the loaded band buffer; 0 = non-synth */
     u32 sentFreq;      /* last freq/vol/pan pushed to the channel; gates redundant updates */
     u8  sentVol, sentPan;
@@ -84,7 +83,7 @@ static u32 sWaveAram[NUM_WAVEFORMS][NUM_WAVE_BANDS];
    ahead of a timer-estimated read pointer. PCM (not ADPCM) in the ring so refills
    never splice an ADPCM decoder mid-stream; for the one looped long sample we
    snapshot the decoder state at loopStart and restore it on wrap. */
-#define MAX_STREAMS 2
+#define MAX_STREAMS 8
 #define STREAM_RING_SAMPLES 4096u   /* PCM16 ring per slot (8 KB ARAM) */
 #define STREAM_GUARD 256u           /* keep the write head this far behind a full ring */
 
@@ -332,7 +331,7 @@ static void voice_stop(s32 i) {
     if (v->channel >= 0) { chan_stop(v->channel); chan_release(v->channel); }
     cache_release(v->entry);
     v->channel = -1; v->active = 0; v->entry = NULL; v->sampleKey = KEY_EMPTY;
-    v->samplesLeft = -1; v->waveSc = 0; v->sentFreq = 0; v->sentVol = 0; v->sentPan = 0;
+    v->waveSc = 0; v->sentFreq = 0; v->sentVol = 0; v->sentPan = 0;
 }
 
 /* Decode the next source sample, advancing decoder + loop state. Returns PCM16.
@@ -440,7 +439,7 @@ void AicaSynth_Init(void) {
     s32 i, ch; u32 w;
 
     for (i = 0; i < ARAM_CACHE_ENTRIES; i++) { sCache[i].key = KEY_EMPTY; sCache[i].aram = 0; sCache[i].refs = 0; }
-    for (i = 0; i < MAX_VOICES; i++) { sVoices[i].channel = -1; sVoices[i].active = 0; sVoices[i].entry = NULL; sVoices[i].sampleKey = KEY_EMPTY; sVoices[i].samplesLeft = -1; sVoices[i].waveSc = 0; sVoices[i].sentFreq = 0; sVoices[i].sentVol = 0; sVoices[i].sentPan = 0; }
+    for (i = 0; i < MAX_VOICES; i++) { sVoices[i].channel = -1; sVoices[i].active = 0; sVoices[i].entry = NULL; sVoices[i].sampleKey = KEY_EMPTY; sVoices[i].waveSc = 0; sVoices[i].sentFreq = 0; sVoices[i].sentVol = 0; sVoices[i].sentPan = 0; }
     sChanFreeTop = 0;
     for (ch = NUM_AICA_CHANNELS - 1; ch >= 0; ch--) sChanFree[sChanFreeTop++] = (s8)ch;
 
@@ -624,7 +623,6 @@ void AicaSynth_Update(void) {
             if (chn < 0) { cache_release(entry); continue; }
             v->channel = chn; v->active = 1; v->sampleKey = key; v->entry = entry;
             v->waveSc = (note->sound == NULL) ? (u8)norm_sc(note->sampleCount) : 0;
-            v->samplesLeft = res.loop ? -1 : (s32)res.length;
             chan_start(chn, &res, freq, vol, pan);
             v->sentFreq = freq; v->sentVol = (u8)vol; v->sentPan = (u8)pan;
 #if AICA_OCTAVE_LOG
@@ -661,20 +659,6 @@ void AicaSynth_Update(void) {
             if (freq != v->sentFreq || (u8)vol != v->sentVol || (u8)pan != v->sentPan) {
                 chan_update(v->channel, freq, vol, pan);
                 v->sentFreq = freq; v->sentVol = (u8)vol; v->sentPan = (u8)pan;
-            }
-        }
-
-        /* One-shot play-out: AicaSynth_Update runs ~once per video frame, so the
-           voice consumes ~freq/60 samples per call. When a non-looping sample
-           has played its length, tell the engine the note is finished so it gets
-           released promptly (otherwise it lingers and overlaps a re-trigger of
-           the same sound -> audible doubling). The next frame's gate stops the
-           now-silent channel. */
-        if (v->samplesLeft > 0) {
-            v->samplesLeft -= (s32)(freq / 60u);
-            if (v->samplesLeft <= 0) {
-                v->samplesLeft = -1;
-                note->finished = TRUE;
             }
         }
     }

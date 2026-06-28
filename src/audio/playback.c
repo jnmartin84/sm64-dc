@@ -1053,7 +1053,7 @@ void note_init_all(void) {
 #ifdef VERSION_EU
         note->synthesisState.synthesisBuffers = soundAlloc(&gNotesAndBuffersPool, sizeof(struct NoteSynthesisBuffers));
 #else
-        note->synthesisBuffers = soundAlloc(&gNotesAndBuffersPool, sizeof(struct NoteSynthesisBuffers));
+        note->synthesisBuffers = NULL; // soundAlloc(&gNotesAndBuffersPool, sizeof(struct NoteSynthesisBuffers));
 #endif
     }
 }

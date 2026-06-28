@@ -10,8 +10,13 @@
 #include <assert.h>
 
 #define GFX_API_NAME "Dreamcast GLdc"
+#if LOWRES
+#define SCR_WIDTH (320)
+#define SCR_HEIGHT (240)
+#else
 #define SCR_WIDTH (640)
 #define SCR_HEIGHT (480)
+#endif
 
 #undef bool
 #define bool uint8_t

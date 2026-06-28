@@ -1,5 +1,5 @@
 #include <PR/ultratypes.h>
-
+#include <PR/gbi.h>
 #include "area.h"
 #include "engine/math_util.h"
 #include "game_init.h"

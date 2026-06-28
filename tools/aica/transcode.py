@@ -44,6 +44,30 @@ PROMOTE_SNR_DB = float(os.environ.get("AICA_PROMOTE_SNR_DB", "18.0"))
 PCM16_MAX_SAMPLES = int(os.environ.get("AICA_PCM16_MAX_SAMPLES", "2048"))
 BEAM = int(os.environ.get("AICA_BEAM", "32"))
 
+# --- optional baked-in software reverb (AICA_REVERB=1) -------------------------
+# A light Freeverb (Schroeder comb+allpass) convolved into each sample's PCM
+# BEFORE ADPCM/PCM encode, so the dry hardware path carries a touch of room.
+# This is a blunt tool: the reverb time repitches with the note (no fix), and
+# looped samples can't have a decaying tail, so the loop region is run to steady
+# state and the head crossfaded in (REVERB_XFADE). One-shots get a real tail,
+# capped to AICA_MAX. Params are intentionally fixed -- edit the constants below
+# to taste; keep WET low and DRY < 1 for headroom (AICA has no overflow clamp).
+REVERB = os.environ.get("AICA_REVERB", "0") not in ("0", "", "false", "False")
+REVERB_RATE = 32000            # nominal playback rate used to scale delay lengths
+REVERB_DRY = 0.84              # dry gain (<1 for summing headroom)
+REVERB_WET = 0.26              # wet gain -- keep light
+REVERB_INPUT_GAIN = 0.015      # Freeverb pre-scale into the comb bank
+REVERB_ROOMSIZE = 0.55         # -> comb feedback = roomsize*0.28 + 0.7
+REVERB_DAMPING = 0.5           # -> comb lowpass damp1 = damping*0.4
+REVERB_FEEDBACK = REVERB_ROOMSIZE * 0.28 + 0.7
+REVERB_DAMP1 = REVERB_DAMPING * 0.4
+REVERB_XFADE = 96              # head->steady-loop crossfade length (samples)
+REVERB_PREWARM = 64000         # loop samples run to reach steady state (~>RT60)
+REVERB_MAX_PREWARM = 96000     # hard cap on warmup work for tiny loops
+REVERB_TAIL_CAP = 20000        # hard cap on one-shot tail appended (samples)
+REVERB_TAIL_FLOOR = 0.01       # stop the tail once it decays this far below body peak (-40 dB)
+REVERB_TAIL_QUIET = 256        # ...for this many consecutive samples
+
 # Samples the game pitches beyond the AICA's ADPCM +1-octave playback limit
 # (AICA_E.pdf: "PCM enables -8..+7 octaves; ADPCM ... is limited to +1 octave").
 # Those notes pitch-clamp on ADPCM (the rising-arpeggio "weird jingle"), so they
@@ -53,7 +77,7 @@ BEAM = int(os.environ.get("AICA_BEAM", "32"))
 # Samples the game pitches above nf=2.0 (+1 octave), found via the AICA_OCTAVE_LOG
 # sweep; ADPCM pitch-clamps past +1 octave, so these must be PCM regardless of SNR.
 # (Cutoff 2.0: the "fine" group topped out at nf=1.888, a clean gap below.)
-FORCE_PCM_KEYS = {int(k, 16) for k in os.environ.get("AICA_FORCE_PCM_KEYS", "BEC60 86A0 18B570 187110 BC130 1AD350 1DBF50 127C80 132150 153E0 19CAB0 158E70 179810").replace(",", " ").split()}
+FORCE_PCM_KEYS = {int(k, 16) for k in os.environ.get("AICA_FORCE_PCM_KEYS", "BEC60 86A0 18B570 187110 BC130 1AD350 1DBF50 127C80 132150 153E0 19CAB0 158E70 179810 198CB0 B9DF0 1CCE30 1C41D0").replace(",", " ").split()}
 
 
 # --- beam-encode result cache --------------------------------------------------
@@ -147,6 +171,123 @@ def _decimate2(pcm):
     return out
 
 
+class _Comb:
+    """Lowpass-feedback comb filter (one Freeverb voice)."""
+    __slots__ = ("buf", "idx", "store", "fb", "d1", "d2")
+
+    def __init__(self, size, fb, d1):
+        self.buf = [0.0] * size
+        self.idx = 0
+        self.store = 0.0
+        self.fb = fb
+        self.d1 = d1
+        self.d2 = 1.0 - d1
+
+    def process(self, x):
+        y = self.buf[self.idx]
+        self.store = y * self.d2 + self.store * self.d1
+        self.buf[self.idx] = x + self.store * self.fb
+        self.idx += 1
+        if self.idx >= len(self.buf):
+            self.idx = 0
+        return y
+
+
+class _Allpass:
+    __slots__ = ("buf", "idx", "fb")
+
+    def __init__(self, size, fb):
+        self.buf = [0.0] * size
+        self.idx = 0
+        self.fb = fb
+
+    def process(self, x):
+        bufout = self.buf[self.idx]
+        y = bufout - x
+        self.buf[self.idx] = x + bufout * self.fb
+        self.idx += 1
+        if self.idx >= len(self.buf):
+            self.idx = 0
+        return y
+
+
+class _Freeverb:
+    """Mono Freeverb: 8 parallel combs -> 4 series allpasses. Delay tunings are
+    the classic 44.1 kHz values scaled to REVERB_RATE."""
+    _COMB = (1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617)
+    _ALLP = (556, 441, 341, 225)
+
+    def __init__(self, rate):
+        sc = rate / 44100.0
+        self.combs = [_Comb(max(1, int(round(t * sc))), REVERB_FEEDBACK, REVERB_DAMP1)
+                      for t in self._COMB]
+        self.allps = [_Allpass(max(1, int(round(t * sc))), 0.5) for t in self._ALLP]
+
+    def process(self, x):
+        inp = x * REVERB_INPUT_GAIN
+        out = 0.0
+        for c in self.combs:
+            out += c.process(inp)
+        for a in self.allps:
+            out = a.process(out)
+        return out
+
+
+def _apply_reverb(pcm, has_loop, loop_start, loop_end):
+    """Bake a light reverb into pcm. One-shots gain a decaying tail (capped to
+    AICA_MAX); looped samples run the loop region to steady state so it stays
+    periodic across the seam, then crossfade the played-once head into it.
+    Returns (pcm, loop_start, loop_end)."""
+    rv = _Freeverb(REVERB_RATE)
+
+    if not has_loop:
+        out = [_clamp16(int(round(x * REVERB_DRY + rv.process(x) * REVERB_WET)))
+               for x in pcm]
+        floor = max(1.0, max((abs(v) for v in out), default=0) * REVERB_TAIL_FLOOR)
+        room = max(0, AICA_MAX - len(out))
+        quiet = 0
+        for _ in range(min(REVERB_TAIL_CAP, room)):
+            w = rv.process(0.0) * REVERB_WET
+            out.append(_clamp16(int(round(w))))
+            if abs(w) < floor:
+                quiet += 1
+                if quiet >= REVERB_TAIL_QUIET:
+                    break
+            else:
+                quiet = 0
+        return out, loop_start, loop_end
+
+    P = loop_end - loop_start
+    if P <= 0:
+        out = [_clamp16(int(round(x * REVERB_DRY + rv.process(x) * REVERB_WET)))
+               for x in pcm]
+        return out, loop_start, loop_end
+
+    head = pcm[:loop_start]
+    loop = pcm[loop_start:loop_end]
+    head_out = [x * REVERB_DRY + rv.process(x) * REVERB_WET for x in head]
+
+    reps = max(2, REVERB_PREWARM // P + 1)
+    reps = min(reps, max(2, REVERB_MAX_PREWARM // P))
+    for _ in range(reps - 1):
+        for x in loop:
+            rv.process(x)
+    loop_out = [x * REVERB_DRY + rv.process(x) * REVERB_WET for x in loop]
+
+    # Smooth the one-time head->loop entry: the steady loop is already seamless at
+    # its own wrap (loop_end->loop_start) by periodicity, so we only need to morph
+    # the tail of the played-once head into the steady loop's natural pre-roll.
+    xf = min(REVERB_XFADE, len(head_out), P)
+    base = len(head_out) - xf
+    for i in range(xf):
+        t = (i + 1) / (xf + 1)
+        head_out[base + i] = (1.0 - t) * head_out[base + i] + t * loop_out[P - xf + i]
+
+    out = [_clamp16(int(round(v))) for v in head_out]
+    out.extend(_clamp16(int(round(v))) for v in loop_out)
+    return out, loop_start, loop_start + P
+
+
 def transcode_sample(s):
     """s: albank_parse.Sample (parsed with_data=True). Returns descriptor dict.
     Beam-encodes to ADPCM, then promotes to PCM if the ADPCM SNR is below
@@ -161,6 +302,9 @@ def transcode_sample(s):
         shift = 1
         loop_start //= 2
         loop_end //= 2
+
+    if REVERB:
+        pcm, loop_start, loop_end = _apply_reverb(pcm, s.has_loop, loop_start, loop_end)
 
     adpcm, n = beam_encode_cached(pcm)
     assert n <= AICA_MAX, (s.bank, s.addr, n)

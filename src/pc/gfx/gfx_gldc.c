@@ -673,17 +673,33 @@ static void gfx_opengl_init(void) {
     config.initial_immediate_capacity = 0;
 
     if (vid_check_cable() != CT_VGA) {
+#if LOWRES
+        vid_set_mode(DM_320x240_NTSC, PM_RGB565);
+#else
         vid_set_mode(DM_640x480_NTSC_IL, PM_RGB565);
+#endif
     } else {
+#if LOWRES
+        vid_set_mode(DM_320x240_VGA, PM_RGB565);
+#else
         vid_set_mode(DM_640x480_VGA, PM_RGB565);
+#endif
     }
 
     glKosInitEx(&config);
 
     if (vid_check_cable() != CT_VGA) {
+#if LOWRES
+        vid_set_mode(DM_320x240_NTSC, PM_RGB565);
+#else
         vid_set_mode(DM_640x480_NTSC_IL, PM_RGB565);
+#endif
     } else {
+#if LOWRES
+        vid_set_mode(DM_320x240_VGA, PM_RGB565);
+#else
         vid_set_mode(DM_640x480_VGA, PM_RGB565);
+#endif
     }
 
     getRamStatus();
@@ -713,7 +729,11 @@ static void gfx_opengl_init(void) {
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
 
+#if LOWRES
+    glViewport(0, 0, 320, 240);
+#else
     glViewport(0, 0, 640, 480);
+#endif
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glMatrixMode(GL_MODELVIEW);
