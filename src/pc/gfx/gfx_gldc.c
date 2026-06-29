@@ -211,6 +211,16 @@ static bool gfx_opengl_shader_get_info(struct ShaderProgram *prg, uint8_t *num_i
 GLuint newest_texture = 0;
 
 static void gfx_clear_all_textures(void) {
+#ifdef GFX_BACKEND_PVR
+    // Same point GLdc reclaims its texture VRAM (nuke_everything @ course/memory resets): free
+    // ALL the raw-PVR backend's cached texture VRAM. Without this, PVR texture VRAM leaks across
+    // level/course resets until it exhausts -> uploads silently fail -> every texture collapses
+    // onto stale VRAM ("same texture everywhere", progressively worse, never recovers). Matches
+    // the fix already in mk64-dc.
+    extern void gfx_pvr_clear_all_textures(void);
+    gfx_pvr_clear_all_textures();
+    return;
+#endif
     GLuint index = 0;
     if (newest_texture != 0) {
         for (index = 2; index <= newest_texture; index++)

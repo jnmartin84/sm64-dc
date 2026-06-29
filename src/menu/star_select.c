@@ -302,13 +302,6 @@ void print_act_selector_strings(void) {
     }
     currLevelName = segmented_to_virtual(levelNameTbl[gCurrCourseNum - 1]);
 #endif
-    gDPSetRenderMode(gDisplayListHead++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
-    gDPSetCycleType(gDisplayListHead++, G_CYC_FILL);
-
-    gDPSetFillColor(gDisplayListHead++, 0xffffffff);
-    gDPFillRectangle(gDisplayListHead++,
-                     0, 0,
-                     SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1);
 
     // Print the coin highscore.
     gSPDisplayList(gDisplayListHead++, dl_rgba16_text_begin);

@@ -23,6 +23,8 @@
 #include <GL/glkos.h>
 #include "gl_fast_vert.h"
 
+#include "sh4zam.h"
+
 int in_trilerp = 0;
 int doing_peach = 0;
 int doing_bowser = 0;
@@ -93,6 +95,12 @@ struct __attribute__((aligned(32))) LoadedVertex {
     float u, v;
     // 28
     struct RGBA color;
+#ifdef GFX_BACKEND_PVR
+    // per-vertex N64 fog coefficient (0..255), computed at vertex-load from clip z/w and the RSP
+    // fog mul/offset (G_FOG). Emitted into the PVR vertex's offset-colour (oargb) ALPHA, which
+    // PVR hardware VERTEX fog reads as the fog density. (Ported from OoT/MK64.)
+    uint8_t fog;
+#endif
 };
 
 // clip_rej for all 32 LoadedVerts fits in a single cache line
@@ -205,8 +213,8 @@ static struct RenderingState {
     uint8_t fog_col_change;
     // 11: PVR texel<->colour combine (enum gfx_tex_env), derived from the N64 combiner
     uint8_t tex_env;
-    // 12
-    uint8_t pad;
+    // 12: PVR vertex fog on (G_FOG geometry mode)
+    uint8_t fog_enabled;
     // 13 through 21
     struct XYWidthHeight viewport, scissor;
 } rendering_state __attribute__((aligned(32)));
@@ -258,6 +266,20 @@ static void gfx_recompute_screen_map(void) {
 // the flush-on-change in gfx_sp_tri1. Persist across frames in lockstep with the backend.
 extern void gfx_pvr_set_blend(uint8_t kind);                    // 0=OP, 1=PT, 2=TR
 extern void gfx_pvr_set_blend_factors(uint8_t src, uint8_t dst); // gfx_blend_factor codes
+extern void gfx_pvr_set_fog(uint8_t enabled);                  // PVR vertex fog on/off (G_FOG)
+extern void gfx_pvr_set_fog_color(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+
+// N64 per-vertex fog coefficient from clip z/w (matches OoT/MK64 raw-PVR + the RSP G_MWO_FOG
+// math): fog = clamp(fog_mul*(z/w) + fog_offset, 0..255). 0 when fog is off (G_FOG clear) or the
+// vertex is behind the near plane, so non-fogged frames pay nothing.
+static inline uint8_t gfx_calc_fog(float z, float w) {
+    if (!(rsp.geometry_mode & G_FOG)) return 0;
+    if (z < -w) return 0;
+    float f = (float) rsp.fog_mul * (z * shz_fast_invf(w)) + (float) rsp.fog_offset;
+    if (f > 255.0f) f = 255.0f;
+    else if (f < 0.0f) f = 0.0f;
+    return (uint8_t) f;
+}
 static uint8_t pvr_cur_kind = 0;
 static uint8_t pvr_cur_bsrc = GFX_BLENDF_SRCALPHA, pvr_cur_bdst = GFX_BLENDF_INVSRCALPHA;
 
@@ -702,8 +724,6 @@ static void  __attribute__((noinline)) import_texture(void) {
     }
 }
 
-#include "sh4zam.h"
-
 static void gfx_normalize_vector(float v[3]) {
     shz_vec3_t norm = shz_vec3_normalize((shz_vec3_t) { .x = v[0], .y = v[1], .z = v[2] });
     v[0] = norm.x;
@@ -757,10 +777,13 @@ static void  __attribute__((noinline)) gfx_sp_matrix(uint8_t parameters, const i
             gfx_matrix_mul((shz_matrix_4x4_t *)rsp.P_matrix, (const shz_matrix_4x4_t *)matrix, (const shz_matrix_4x4_t *)rsp.P_matrix);
         }
 #ifdef GFX_BACKEND_PVR
-        // Ortho projection: [3][3]~=1, [3][2]~=0; perspective: [3][3]~=0, [3][2]~=-1. Drives the
-        // 2D-overlay-vs-backdrop depth logic (gfx_sp_tri1 / gfx_draw_rectangle). cur_frame_persp
-        // latches once a perspective projection is seen this frame (read next frame as backdrop cue).
-        proj_is_ortho = (rsp.P_matrix[3][3] > 0.5f) && (rsp.P_matrix[3][2] > -0.5f);
+        // Ortho vs perspective: the PERSPECTIVE term (the element that makes clip.w depend on z) is
+        // [2][3] (column 3), NOT [3][2] (which is just the z-translation). Ortho: [3][3]~=1 and
+        // [2][3]~=0; perspective: [3][3]~=0 and [2][3]~=-1. Using [3][2] here misclassified the
+        // hand-rolled screen matrix `matrix_fullscreen` (z-translate [3][2]=-1, but ortho with
+        // [2][3]=0) as perspective, so screen transitions / the cannon vignette never got the
+        // foreground z2d band. Drives the 2D-overlay-vs-backdrop depth logic in gfx_sp_tri1.
+        proj_is_ortho = (rsp.P_matrix[3][3] > 0.5f) && (rsp.P_matrix[2][3] > -0.5f);
         if (!proj_is_ortho) cur_frame_persp = 1;
 #endif
     } else { // G_MTX_MODELVIEW
@@ -935,6 +958,7 @@ static void __attribute__((noinline)) gfx_sp_vertex_light(size_t n_vertices, siz
         // raw CLIP coords (no perspective divide) — the PVR gfx_sp_tri1 path clips
         // homogeneously then bakes screen_x/y + 1/w from these (stage 3).
         d->_x = x; d->_y = y; d->_z = z; d->_w = w;
+        d->fog = gfx_calc_fog(z, w);   // per-vertex N64 fog coefficient -> oargb.alpha at emit
 #else
         d->_x = x * recw;
         d->_y = y * recw;
@@ -983,6 +1007,7 @@ static void  __attribute__((noinline)) gfx_sp_vertex_no(size_t n_vertices, size_
         clip_rej[dest_index] = cr | trivial_reject(x, y, z, w);
 #ifdef GFX_BACKEND_PVR
         d->_x = x; d->_y = y; d->_z = z; d->_w = w;   // raw clip (see gfx_sp_vertex_light)
+        d->fog = gfx_calc_fog(z, w);
 #else
         d->_x = x * recw;
         d->_y = y * recw;
@@ -1079,13 +1104,22 @@ static uint32_t derive_pvr_texenv(uint32_t cc_id) {
     int color_mul    = (cb == CC_0) && (cd == CC_0);    // colour = ca * cc
     int color_mix    = !color_single && (cb == cd);     // colour = lerp(cd, ca, cc)
     int alpha_single_tex = ((ac == CC_0) || (aa == ab)) && CC_ISTEX(ad);   // alpha = ad, a texel
+    int alpha_uses_texel = CC_ISTEX(aa) || CC_ISTEX(ab) || CC_ISTEX(ac) || CC_ISTEX(ad);
 
     uint32_t mode = GFX_TEXENV_MODULATE;
     if (color_mix && CC_ISTEX(ca) && CC_ISTEXA(cc)) {
         mode = GFX_TEXENV_DECAL;                         // lerp(base, TEXEL0, TEXEL0A) — the Boo, BLEND*
     } else if (color_single && CC_ISTEX(cd)) {
-        mode = alpha_single_tex ? GFX_TEXENV_REPLACE     // colour=TEXEL0, alpha=TEXEL0 (DECALRGBA)
-                                : GFX_TEXENV_DECAL;       // colour=TEXEL0, alpha=col   (DECALRGB)
+        // colour = TEXEL0; the ALPHA mux picks the mode:
+        //   alpha = TEXEL0          -> REPLACE        (DECALRGBA: rgb=tex, a=tex.a)
+        //   alpha = TEXEL0 * const  -> MODULATEALPHA  (DECALFADEA: a = tex.a*env.a). col.rgb evaluates
+        //          to white for a single-texel colour, so MODULATEALPHA's rgb=col*tex == tex while the
+        //          texel alpha is preserved. DECAL here would force a=col.a (const) and drop tex.a,
+        //          turning a transparent surround into a semi-opaque dark box (HMC wall flames).
+        //   alpha = const, no texel -> DECAL          (DECALRGB a=shade, DECALFADE a=env)
+        mode = alpha_single_tex ? GFX_TEXENV_REPLACE
+             : alpha_uses_texel  ? GFX_TEXENV_MODULATEALPHA
+                                 : GFX_TEXENV_DECAL;
     } else if (color_mul && (CC_ISTEX(ca) || CC_ISTEX(cc))) {
         mode = alpha_single_tex ? GFX_TEXENV_MODULATE        // colour=TEXEL0*col, alpha=TEXEL0
                                 : GFX_TEXENV_MODULATEALPHA;  // colour=TEXEL0*col, alpha=col(*tex)
@@ -1184,6 +1218,7 @@ static inline void sm_clip_lerp(struct LoadedVertex *o, const struct LoadedVerte
     o->color.g = (uint8_t)(a->color.g + t * ((float)b->color.g - (float)a->color.g));
     o->color.b = (uint8_t)(a->color.b + t * ((float)b->color.b - (float)a->color.b));
     o->color.a = (uint8_t)(a->color.a + t * ((float)b->color.a - (float)a->color.a));
+    o->fog     = (uint8_t)(a->fog     + t * ((float)b->fog     - (float)a->fog));
 }
 // Returns the output triangle count (0..2); out[ti] is a 3-pointer triangle into the originals
 // or into sm_clipv (valid until the next call — emit immediately).
@@ -1299,13 +1334,28 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
 
     bool depth_test = (rsp.geometry_mode & G_ZBUFFER) == G_ZBUFFER;
 
+#ifndef GFX_BACKEND_PVR
+    // GLdc keeps the water-bomb depth-off hack. On PVR the bomb is LAYER_TRANSPARENT (G_RM_AA_ZB_
+    // XLU_SURF, Z_CMP set), so it SHOULD depth-test and be occluded by the world — forcing depth
+    // off made it paint over hills. The Z_CMP-derived depth below handles it correctly instead.
     if (water_bomb) depth_test = 0;
+#endif
+
+#ifdef GFX_BACKEND_PVR
+    // Per-surface depth TEST follows the render mode's Z_CMP bit (the "ZB" in G_RM_AA_ZB_*), not
+    // just the global G_ZBUFFER geometry mode (which is set almost everywhere). This mirrors how
+    // depth WRITE already reads Z_UPD below. Non-ZB render modes — screen transitions, the cannon
+    // vignette, 2D overlays, paint-order effects — clear Z_CMP, i.e. the hardware itself says
+    // "don't depth-test me". They then passively fall into the ortho_overlay foreground path
+    // (frontmost z2d) instead of z-rejecting behind 3D. No DL-flag sniffing needed.
+    depth_test = depth_test && (rdp.other_mode_l & Z_CMP);
+#endif
 
     if (depth_test != rendering_state.depth_test) {
         gfx_rapi->set_depth_test(depth_test);
         rendering_state.depth_test = depth_test;
     }
-    
+
     bool z_upd = (rdp.other_mode_l & Z_UPD) == Z_UPD;
     if (z_upd != rendering_state.depth_mask) {
         gfx_rapi->set_depth_mask(z_upd);
@@ -1440,6 +1490,11 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         rendering_state.texture->cmt = cmt;
     }
 
+#ifndef GFX_BACKEND_PVR
+    // GLdc per-vertex colour resolution (the "packedc cascade"): GLdc can't evaluate the N64
+    // combiner, so it approximates one colour per primitive here. The PVR path uses
+    // pvr_eval_combiner per vertex instead and never reads any of this — so skip the whole thing
+    // (it was pure wasted CPU per triangle under PVR). Keep the recip_tw/th block below (shared).
     uint8_t lit = l_clip_rej[0] & 0x80;
 
     uint32_t color_r, color_g, color_b, color_a;
@@ -1553,6 +1608,7 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
             }
         }
     }
+#endif  // !GFX_BACKEND_PVR  (end of the GLdc packedc cascade)
 
     float recip_tw = 0.03125f;
     float recip_th = 0.03125f;
@@ -1564,6 +1620,7 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         recip_th = shz_fast_invf(tex_height);
     }
 
+#ifndef GFX_BACKEND_PVR
     packedc = PACK_ARGB8888(color_r, color_g, color_b, color_a);
 
     if (transition_verts) {
@@ -1581,15 +1638,15 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         color_b = 0;
         packedc = PACK_ARGB8888(color_r, color_g, color_b, color_a);
     }
+#endif  // !GFX_BACKEND_PVR
 
 #ifdef GFX_BACKEND_PVR
     // ---- 3-way OP/PT/TR classification (raw alpha mux + render-mode flags) --------------
     //   FORCE_BL set            -> TR (real alpha blend, autosorted, composited last)
     //   else alpha-test CUTOUT  -> PT (coverage edge OR texel-alpha WITH alpha compare on)
     //   else                    -> OP (opaque, live)
-    // The packedc material cascade above is the GLdc approximation — unused on the PVR path
-    // (pvr_eval_combiner replaces it in the emit loop); silence its set-but-unused warnings.
-    (void) packedc; (void) use_shade; (void) lit;
+    // (The GLdc packedc cascade above is #ifndef'd out on PVR — pvr_eval_combiner replaces it in
+    //  the emit loop, so there's nothing to compute or silence here.)
     {
         int aa = (rdp.combine_w0 >> 12) & 7, ab = (rdp.combine_w1 >> 12) & 7;
         int ac = (rdp.combine_w0 >>  9) & 7, ad = (rdp.combine_w1 >>  9) & 7;
@@ -1628,6 +1685,16 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         gfx_rapi->set_tex_env(texenv);
         rendering_state.tex_env = texenv;
     }
+    // PVR hardware vertex fog: on when the RSP G_FOG geometry mode is set (the same signal that
+    // makes gfx_calc_fog produce per-vertex coefficients). fog_type is in the poly header, so a
+    // change ends the batch. (The fog-COLOUR register is a single global per frame, set in
+    // gfx_dp_set_fog_color under the FIRST-WINS fog_col_change guard — NOT per draw.)
+    uint8_t fog_on = (rsp.geometry_mode & G_FOG) != 0;
+    if (fog_on != rendering_state.fog_enabled) {
+        gfx_flush();
+        gfx_pvr_set_fog(fog_on);
+        rendering_state.fog_enabled = fog_on;
+    }
     // Flush first if the fan (up to 2 tris) wouldn't fit — keeps buf_vbo[MAX_BUFFERED*3] safe.
     if (buf_vbo_num_tris + n_tris > MAX_BUFFERED) gfx_flush();
     // POT-padding UV correction for the bound texture (real/padded). Same for all 3 verts.
@@ -1644,6 +1711,25 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
     int ortho_overlay = proj_is_ortho && !depth_test && (!prev_frame_had_persp || has_done_3d);
     float z2d = 0.0f;
     if (ortho_overlay) { screen_2d_z += 0.005f; z2d = screen_2d_z; }
+
+    // Peach<->Bowser painting trilerp workaround (the one G_CC_TRILERP dual-tile effect in the
+    // game). The fake DL draws BOTH portraits over the SAME coincident geometry, cross-faded by
+    // trilerp_a; bowser is drawn first (computes trilerp_a from Mario's distance), peach second.
+    // Approximate the hardware 2-tile lerp as two single-texture alpha-blended passes: override
+    // each vertex's alpha here. The combiner is DECALRGB -> PVR DECAL, whose final alpha = col.a
+    // (the vertex/shade alpha), so the override reaches the framebuffer blend. Skip a pass that's
+    // fully faded out, and nudge peach toward the camera (larger 1/w) so it wins the z-fight.
+    uint8_t trilerp_alpha = 0;
+    int trilerp_pass = 0;          // 0 = not trilerp, 1 = peach (z-biased), 2 = bowser
+    if (in_trilerp) {
+        if (doing_peach) {
+            if (!trilerp_a) return;            // peach fully faded -> bowser shown alone
+            trilerp_alpha = trilerp_a; trilerp_pass = 1;
+        } else if (doing_bowser) {
+            if (trilerp_a == 255) return;      // bowser fully faded -> peach shown alone
+            trilerp_alpha = 255 - trilerp_a; trilerp_pass = 2;
+        }
+    }
 
     for (int ti = 0; ti < n_tris; ti++) {
         v_arr[0] = fan_tris[ti][0];
@@ -1667,7 +1753,7 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         // depth with larger==nearer, matching the GEQUAL/1-over-w convention. Perspective: 1/w.
         float dz;
         if (ortho_3d)        dz = 1.0f - (v_arr[i]->_z * invw);
-        else if (depth_test) dz = zmode_decal ? invw * PVR_DECAL_ZBIAS : invw;
+        else if (depth_test) dz = (zmode_decal || trilerp_pass == 1) ? invw * PVR_DECAL_ZBIAS : invw;
         else                 dz = 0.00001f;
         buf_vbo[buf_num_vert].vert.z = ortho_overlay ? z2d : dz;
 #else
@@ -1704,9 +1790,17 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         // modulate colour, oargb = additive offset (post-modulate). usetex == poly is textured.
         {
             uint32_t _argb, _oargb;
-            pvr_eval_combiner(rdp.combine_w0, rdp.combine_w1, &v_arr[i]->color, usetex, texenv, &_argb, &_oargb);
+            // Trilerp passes override the vertex alpha (cross-fade factor); DECAL routes col.a to
+            // the final alpha. Use a local copy so the shared (re-used) vertex isn't mutated.
+            struct RGBA sh_local = v_arr[i]->color;
+            if (trilerp_pass) sh_local.a = trilerp_alpha;
+            pvr_eval_combiner(rdp.combine_w0, rdp.combine_w1, &sh_local, usetex, texenv, &_argb, &_oargb);
+            // PVR hardware vertex fog reads the density from the offset-colour (oargb) ALPHA. The
+            // combiner only ever sets oargb RGB (offset is alpha-0), so OR in this vertex's fog
+            // coefficient — the two share oargb without conflict.
+            _oargb |= (uint32_t) v_arr[i]->fog << 24;
             buf_vbo[buf_num_vert].color.packed = _argb;
-            buf_vbo[buf_num_vert].pad0.vertindex = _oargb;   // oargb (offset / fog comes in 3c)
+            buf_vbo[buf_num_vert].pad0.vertindex = _oargb;
         }
 #else
         if (use_shade) {
@@ -1785,6 +1879,13 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
     if (do_flush)
         gfx_flush();
 
+#elif defined(GFX_BACKEND_PVR)
+    // PVR: the GLdc effect flags below (skybox/font/portrait/water/transition/radar/...) are all
+    // superseded by the general PVR depth+combiner handling, and every real state change
+    // (texenv/fog/depth/texture/shader/blend/kind) ALREADY flushes for correctness. Flushing
+    // per-triangle whenever one of those flags is set just shatters batching into 1-tri draws
+    // (skybox, HUD fonts, the peach/bowser portrait, etc.). Only flush when the buffer is full.
+    if (buf_vbo_num_tris == MAX_BUFFERED) gfx_flush();
 #else
 if (transition_verts || (buf_vbo_num_tris == MAX_BUFFERED) || doing_skybox || water_bomb || font_draw || do_radar_mark || drawing_hand || doing_peach || doing_bowser ||  aquarium_draw || cotmc_water || ddd_ripple || water_ring || cotmc_shadow) {
 //        printf("special flush\n");
@@ -2002,6 +2103,15 @@ static void __attribute__((noinline)) gfx_sp_quad_2d(void) {
                 gfx_pvr_set_blend_factors(bs, bd);
                 pvr_cur_bsrc = bs; pvr_cur_bdst = bd;
             }
+        }
+        // Derive + set the texenv from THIS quad's combiner. Unlike gfx_sp_tri1, the 2D texrect path
+        // had no texenv step, so it inherited a STALE texenv from the last geometry draw — e.g. the
+        // wood COURSE panel leaving REPLACE made the black act-name / star-number menu glyphs render
+        // as raw white texel (env colour dropped) -> invisible on the white star-select background.
+        uint32_t texenv = use_texture ? derive_pvr_texenv(rdp.combine_mode) : GFX_TEXENV_MODULATE;
+        if (texenv != rendering_state.tex_env) {
+            gfx_rapi->set_tex_env(texenv);
+            rendering_state.tex_env = texenv;
         }
     }
 #endif
@@ -2273,7 +2383,11 @@ static void   gfx_dp_set_fog_color(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     rdp.fog_color.a = a;
     if ((!rendering_state.fog_col_change)) {
         rendering_state.fog_col_change = 1;
-#ifndef GFX_BACKEND_PVR
+        // First fog colour of the frame wins (fog_col_change is reset per frame in gfx_sp_reset).
+        // The PVR fog-colour register is a single global, so this same guard keeps it set once.
+#ifdef GFX_BACKEND_PVR
+        gfx_pvr_set_fog_color(r, g, b, a);
+#else
         float fog_color[4] = { rdp.fog_color.r * recip255, rdp.fog_color.g * recip255, rdp.fog_color.b * recip255,
                                1.0f };
         glFogfv(GL_FOG_COLOR, fog_color);
@@ -2601,6 +2715,7 @@ static void __attribute__((noinline)) gfx_run_dl(Gfx* cmd) {
         // work on placement
         __builtin_prefetch(clip_rej);
 
+#ifndef GFX_BACKEND_PVR
         if (cmd == dl_transition_draw_filled_region) {
             transition_verts = 1;
             in_transition = 1;
@@ -2637,7 +2752,7 @@ static void __attribute__((noinline)) gfx_run_dl(Gfx* cmd) {
         if (cmd == dl_ia_text_end) {
             font_draw = 0;
         }
-
+#endif
         if (cmd->words.w0 == 0x424C4E44) {
             __builtin_prefetch((void *) (cmd) + 32);
             if (cmd->words.w1 == 0x87654321) {

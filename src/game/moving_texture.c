@@ -362,9 +362,9 @@ void movtex_make_quad_vertex(Vtx *verts, s32 index, s16 x, s16 y, s16 z, s16 rot
     s16 t = (s16)rc; // 32.0f * (32.0f * scale - 1.0f) * coss(rot + rotOffset);
     // default alpha was too "thick"
     if (gMovtexVtxColor == MOVTEX_VTX_COLOR_YELLOW) {
-        make_vertex(verts, index, x, y, z, s, t, 255, 255, 0, alpha >> 1);
+        make_vertex(verts, index, x, y, z, s, t, 255, 255, 0, alpha/*  >> 1 */);
     } else if (gMovtexVtxColor == MOVTEX_VTX_COLOR_RED) {
-        make_vertex(verts, index, x, y, z, s, t, 255, 0, 0, alpha >> 1);
+        make_vertex(verts, index, x, y, z, s, t, 255, 0, 0, alpha/* s */);
     } else {
         make_vertex(verts, index, x, y, z, s, t, 255, 255, 255, alpha);
     }
