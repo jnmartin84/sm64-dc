@@ -304,11 +304,21 @@ static void pvr_derive_blend(uint32_t oml, uint32_t omh, uint8_t *src, uint8_t *
 
 //static bool dropped_frame;
 
-static dc_fast_t __attribute__((aligned(32))) buf_vbo[MAX_BUFFERED * 3]; // 3 vertices in a triangle
+#ifndef GFX_BACKEND_PVR
+static dc_fast_t __attribute__((aligned(32))) buf_vbo[MAX_BUFFERED * 3]; // 3 vertices in a triangle (GLdc batch)
 
 static size_t buf_vbo_len = 0;
 static size_t buf_num_vert = 0;
 static size_t buf_vbo_num_tris = 0;
+#else
+// PVR streams ALL 3D geometry with NO buf_vbo: OP (kind 0) bakes into op_emit then DR-submits per
+// source-triangle (pvr_submit_op); PT/TR (kind 1/2) bake DIRECTLY into their deferred bucket
+// (pvr_reserve). op_emit holds ONE source triangle's near-clip fan = at most 2 tris = 6 verts
+// (sm_near_clip_fan only clips the near plane; fan_tris[2][3]).
+static dc_fast_t __attribute__((aligned(32))) op_emit[2 * 3];
+extern void pvr_submit_op(const dc_fast_t *tris, size_t n);
+extern dc_fast_t *pvr_reserve(int kind, size_t n);
+#endif
 
 static struct GfxWindowManagerAPI *gfx_wapi;
 static struct GfxRenderingAPI *gfx_rapi;
@@ -316,22 +326,28 @@ static struct GfxRenderingAPI *gfx_rapi;
 #if DEBUG_FLUSH
 static void dbg_gfx_flush(char *file, int line) {
     printf("%s:%d\n", file, line);
+#ifndef GFX_BACKEND_PVR
     if (buf_vbo_len > 0) {
         gfx_rapi->draw_triangles((void *)buf_vbo, buf_vbo_len, buf_vbo_num_tris);
         buf_vbo_len = 0;
         buf_num_vert = 0;
         buf_vbo_num_tris = 0;
     }
+#endif
+    // PVR: 3D geometry streams as it's built (OP via DR, PT/TR direct into buckets) — nothing buffered.
 }
 #define gfx_flush() dbg_gfx_flush(__FILE__, __LINE__)
 #else
 static inline void gfx_flush(void) {
+#ifndef GFX_BACKEND_PVR
     if (buf_vbo_len > 0) {
         gfx_rapi->draw_triangles((void *)buf_vbo, buf_vbo_len, buf_vbo_num_tris);
         buf_vbo_len = 0;
         buf_num_vert = 0;
         buf_vbo_num_tris = 0;
     }
+#endif
+    // PVR: 3D geometry streams as it's built (OP via DR, PT/TR direct into buckets) — nothing buffered.
 }
 #endif
 
@@ -1695,8 +1711,7 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         gfx_pvr_set_fog(fog_on);
         rendering_state.fog_enabled = fog_on;
     }
-    // Flush first if the fan (up to 2 tris) wouldn't fit — keeps buf_vbo[MAX_BUFFERED*3] safe.
-    if (buf_vbo_num_tris + n_tris > MAX_BUFFERED) gfx_flush();
+    // PVR has no buf_vbo — the deferred bucket guards its own overflow (pvr_reserve returns NULL).
     // POT-padding UV correction for the bound texture (real/padded). Same for all 3 verts.
     float pvr_us = usetex ? gfx_pvr_get_u_scale() : 1.0f;
     float pvr_vs = usetex ? gfx_pvr_get_v_scale() : 1.0f;
@@ -1731,6 +1746,13 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         }
     }
 
+    // No buf_vbo on PVR. OP (kind 0) bakes this near-clip fan into the op_emit scratch then DR-submits
+    // it after the fan; PT/TR (kind 1/2) bake DIRECTLY into their deferred bucket (reserved here).
+    // `emit` is the fan's destination; op_n is the per-fan vertex counter.
+    const int op_stream = (pvr_cur_kind == 0);
+    size_t op_n = 0;
+    dc_fast_t *emit = op_stream ? op_emit : pvr_reserve(pvr_cur_kind, (size_t) n_tris * 3);
+    if (!emit) n_tris = 0;   // bucket overflow -> drop this source triangle (pvr_reserve logged it)
     for (int ti = 0; ti < n_tris; ti++) {
         v_arr[0] = fan_tris[ti][0];
         v_arr[1] = fan_tris[ti][1];
@@ -1738,12 +1760,18 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
 #endif
 
     for (i = 0; i < 3; i++) {
+        dc_fast_t * const bv =
+#ifdef GFX_BACKEND_PVR
+            &emit[op_n];
+#else
+            &buf_vbo[buf_num_vert];
+#endif
 #ifdef GFX_BACKEND_PVR
         // Raw-PVR: perspective divide + viewport map -> screen pixels; z = 1/w (inverse depth).
         // Z-disabled geometry (skybox) far-pinned so the depth-tested scene wins.
         float invw = shz_fast_invf(v_arr[i]->_w);
-        buf_vbo[buf_num_vert].vert.x = sm_xscale * (v_arr[i]->_x * invw) + sm_xbias;
-        buf_vbo[buf_num_vert].vert.y = sm_yscale * (v_arr[i]->_y * invw) + sm_ybias;
+        bv->vert.x = sm_xscale * (v_arr[i]->_x * invw) + sm_xbias;
+        bv->vert.y = sm_yscale * (v_arr[i]->_y * invw) + sm_ybias;
         // Decal coplanar surfaces (N64 ZMODE_DEC) z-fight the surface they sit on. PVR z is 1/w
         // (GEQUAL, larger == nearer), so nudge the decal's z slightly LARGER -> it wins. This is
         // the PVR analogue of GLdc's "push the geometry toward the camera" decal hack. The bias
@@ -1755,16 +1783,16 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         if (ortho_3d)        dz = 1.0f - (v_arr[i]->_z * invw);
         else if (depth_test) dz = (zmode_decal || trilerp_pass == 1) ? invw * PVR_DECAL_ZBIAS : invw;
         else                 dz = 0.00001f;
-        buf_vbo[buf_num_vert].vert.z = ortho_overlay ? z2d : dz;
+        bv->vert.z = ortho_overlay ? z2d : dz;
 #else
         if (do_radar_mark) {
-            buf_vbo[buf_num_vert].vert.x = (v_arr[i]->_x * SCREEN_WIDTH) + SCREEN_WIDTH;
-            buf_vbo[buf_num_vert].vert.y = SCREEN_HEIGHT - (v_arr[i]->_y * SCREEN_HEIGHT);
-            buf_vbo[buf_num_vert].vert.z = 10000.0f;
+            bv->vert.x = (v_arr[i]->_x * SCREEN_WIDTH) + SCREEN_WIDTH;
+            bv->vert.y = SCREEN_HEIGHT - (v_arr[i]->_y * SCREEN_HEIGHT);
+            bv->vert.z = 10000.0f;
         } else {
-            buf_vbo[buf_num_vert].vert.x = v_arr[i]->x;
-            buf_vbo[buf_num_vert].vert.y = v_arr[i]->y;
-            buf_vbo[buf_num_vert].vert.z = v_arr[i]->z;
+            bv->vert.x = v_arr[i]->x;
+            bv->vert.y = v_arr[i]->y;
+            bv->vert.z = v_arr[i]->z;
         }
 #endif
 
@@ -1777,11 +1805,11 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
                 v += 0.5f;
             }
 #ifdef GFX_BACKEND_PVR
-            buf_vbo[buf_num_vert].texture.u = u * recip_tw * pvr_us;
-            buf_vbo[buf_num_vert].texture.v = v * recip_th * pvr_vs;
+            bv->texture.u = u * recip_tw * pvr_us;
+            bv->texture.v = v * recip_th * pvr_vs;
 #else
-            buf_vbo[buf_num_vert].texture.u = u * recip_tw; // / tex_width;
-            buf_vbo[buf_num_vert].texture.v = v * recip_th; // / tex_height;
+            bv->texture.u = u * recip_tw; // / tex_width;
+            bv->texture.v = v * recip_th; // / tex_height;
 #endif
         }
 
@@ -1799,8 +1827,8 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
             // combiner only ever sets oargb RGB (offset is alpha-0), so OR in this vertex's fog
             // coefficient — the two share oargb without conflict.
             _oargb |= (uint32_t) v_arr[i]->fog << 24;
-            buf_vbo[buf_num_vert].color.packed = _argb;
-            buf_vbo[buf_num_vert].pad0.vertindex = _oargb;
+            bv->color.packed = _argb;
+            bv->pad0.vertindex = _oargb;
         }
 #else
         if (use_shade) {
@@ -1826,17 +1854,25 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
             packedc = 0xB4000000;
         }
 
-        buf_vbo[buf_num_vert].color.packed = packedc;
+        bv->color.packed = packedc;
 #endif
 
+#ifdef GFX_BACKEND_PVR
+        op_n += 1;
+#else
 		buf_num_vert++;
-
         buf_vbo_len += sizeof(dc_fast_t);
+#endif
 	}
 
+#ifndef GFX_BACKEND_PVR
     buf_vbo_num_tris += 1;
+#endif
 #ifdef GFX_BACKEND_PVR
     }   // close the near-clip fan loop (for ti)
+    // OP baked its whole fan into the scratch — stream it to the live OP list now (PT/TR are already
+    // in their bucket). pvr_emit_op_header re-emits only on state change, so same-state runs stream headerless.
+    if (op_stream && op_n) pvr_submit_op(op_emit, op_n);
     // A perspective 3D primitive has drawn this frame -> a later Z-off ortho 2D draw is a
     // foreground overlay, not a backdrop (gfx_draw_rectangle's far-pin reads this).
     if (!proj_is_ortho) has_done_3d = 1;
@@ -1880,12 +1916,10 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         gfx_flush();
 
 #elif defined(GFX_BACKEND_PVR)
-    // PVR: the GLdc effect flags below (skybox/font/portrait/water/transition/radar/...) are all
-    // superseded by the general PVR depth+combiner handling, and every real state change
-    // (texenv/fog/depth/texture/shader/blend/kind) ALREADY flushes for correctness. Flushing
-    // per-triangle whenever one of those flags is set just shatters batching into 1-tri draws
-    // (skybox, HUD fonts, the peach/bowser portrait, etc.). Only flush when the buffer is full.
-    if (buf_vbo_num_tris == MAX_BUFFERED) gfx_flush();
+    // PVR: nothing to flush here. All 3D geometry streamed as it was built — OP via DR (pvr_submit_op),
+    // PT/TR baked directly into their deferred buckets (pvr_reserve) — and every real state change
+    // (texenv/fog/depth/texture/shader/blend/kind) already ended the batch via the bucket dirty flag.
+    // (The old GLdc effect-flag flushes — skybox/font/portrait/water/... — are moot with no buf_vbo.)
 #else
 if (transition_verts || (buf_vbo_num_tris == MAX_BUFFERED) || doing_skybox || water_bomb || font_draw || do_radar_mark || drawing_hand || doing_peach || doing_bowser ||  aquarium_draw || cotmc_water || ddd_ripple || water_ring || cotmc_shadow) {
 //        printf("special flush\n");

@@ -207,7 +207,18 @@ s32 render_textured_transition(s8 fadeTimer, s8 transTime, struct WarpTransition
         load_tex_transition_vertex(verts, fadeTimer, transData, centerTransX, centerTransY, texTransRadius, transTexType);
         gSPDisplayList(gDisplayListHead++, dl_proj_mtx_fullscreen)
         gDPSetCombineMode(gDisplayListHead++, G_CC_SHADE, G_CC_SHADE);
+#ifdef GFX_BACKEND_PVR
+        // raw-PVR: the border fill is the transition's only OPAQUE-list piece. As an opaque
+        // full-screen overlay over live 3D it loses the PVR opaque depth-resolve to nearer world
+        // geometry (z = 1/w, larger == nearer; close boss geometry beats the overlay's z2d ~1.0),
+        // so the black frame vanishes on Bowser-death levels. The fade/center passes don't hit this
+        // because they're XLU (TR list, composited last). The verts already carry alpha 255, so an
+        // XLU draw is solid opaque black -- identical look, but now TR -> always on top. See the
+        // GLdc path below for the stock OPA behaviour.
+        gDPSetRenderMode(gDisplayListHead++, G_RM_AA_XLU_SURF, G_RM_AA_XLU_SURF2);
+#else
         gDPSetRenderMode(gDisplayListHead++, G_RM_AA_OPA_SURF, G_RM_AA_OPA_SURF2);
+#endif
         gSPVertex(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(verts), 8, 0);
         gSPRadarMark(gDisplayListHead++);
         gSPDisplayList(gDisplayListHead++, dl_transition_draw_filled_region);

@@ -186,7 +186,11 @@ static void pvr_ensure_base(int textured, int kind, int list) {
     } else {
         pvr_poly_cxt_col(&cxt, list);
     }
-    cxt.gen.culling  = PVR_CULLING_NONE;     // front-end culls
+    // SMALL (not NONE): the front-end already does N64 backface culling (G_CULL_* in
+    // gfx_sp_tri1), so HW culling isn't needed for winding — but SMALL also discards
+    // degenerate / near-zero-area triangles the front-end lets through, which were
+    // producing visible degen artifacts. Winding-direction culling stays off via this.
+    cxt.gen.culling  = PVR_CULLING_SMALL;
     cxt.gen.specular = PVR_SPECULAR_ENABLE;  // combiner routes additive offsets into oargb
     pvr_poly_compile(&sBaseHdr[textured][kind], &cxt);
     sBaseHdrValid[textured][kind] = 1;
@@ -255,6 +259,31 @@ static void pvr_append(PvrBucket *b, int kind, const dc_fast_t *tris, size_t n) 
     b->batch[b->cur].count += n;
 }
 
+// Reserve n verts in the deferred bucket for `kind` (1=PT/sPunch, 2=TR/sTR) and return a write
+// pointer into b->verts so the FRONT-END bakes vertices straight into the bucket — no buf_vbo, no
+// copy. Starts a new batch (header compiled from current state) when the bucket is dirty, exactly
+// like pvr_append. Vertex flags are stamped at flush time (pvr_flush_bucket). NULL on overflow.
+dc_fast_t *pvr_reserve(int kind, size_t n) {
+    PvrBucket *b = (kind == PVR_KIND_TR) ? &sTR : &sPunch;
+    if (b->dirty || b->cur < 0) {
+        if (b->nbatch >= b->max_batch) { if (sDropB++ < 8) printf("PVR_DROP batch %d\n", kind); return NULL; }
+        b->cur = b->nbatch++;
+        pvr_compile_header(&b->batch[b->cur].hdr, kind);
+        b->batch[b->cur].start = b->nverts;
+        b->batch[b->cur].count = 0;
+        b->dirty = 0;
+    }
+    if (b->nverts + n > b->max_verts) { if (sDropV++ < 8) printf("PVR_DROP verts %d\n", kind); return NULL; }
+    dc_fast_t *out = (dc_fast_t *) &b->verts[b->nverts];
+    b->nverts += n;
+    b->batch[b->cur].count += n;
+    // Stamp strip flags now: the front-end bakes vert/uv/colour into this slice but never flags. These
+    // are TRIANGLES (n == n_tris*3), so EOL on every 3rd vertex. (2D quads set their own 4-vert flags.)
+    for (size_t i = 0; i < n; i++)
+        out[i].flags = ((i % 3) == 2) ? PVR_CMD_VERTEX_EOL : PVR_CMD_VERTEX;
+    return out;
+}
+
 // Replay a bucket's batches (header + its verts) to the open list via the DR path.
 static void pvr_flush_bucket(PvrBucket *b) {
     for (int i = 0; i < b->nbatch; i++) {
@@ -266,6 +295,8 @@ static void pvr_flush_bucket(PvrBucket *b) {
         for (uint32_t v = 0; v < bt->count; v++) {
             pvr_vertex_t *vp = (pvr_vertex_t *) pvr_dr_target(sDrState);
             *vp = b->verts[bt->start + v];
+            // Flags are already set in the bucket: 3-vert tris by pvr_reserve, 4-vert quads by
+            // gfx_pvr_draw_quad_2d. Do NOT re-stamp here — a blanket (v%3) would corrupt the 2D quads.
             pvr_dr_commit(vp);
         }
     }
@@ -560,10 +591,11 @@ static inline void pvr_emit_op_header(void) {
     sOpDirty = 0;
 }
 
-// Submit n already-screen-baked dc_fast_t verts live to the open PT list. The
-// vertex's oargb (additive offset, from the combiner evaluator) is carried through
-// in dc_fast_t.pad0 — do NOT zero it here.
-static inline void pvr_submit_op(const dc_fast_t *tris, size_t n) {
+// Stream OP geometry straight to the live OP list via DR. Called per source-triangle from the
+// front-end (no buf_vbo) AND internally. Header re-emitted only on state change (sOpDirty), so a
+// same-state run streams headerless after the first. External — no wrapper needed. (oargb carried
+// through dc_fast_t.pad0 — do NOT zero it here.)
+void pvr_submit_op(const dc_fast_t *tris, size_t n) {
     pvr_emit_op_header();
     for (size_t i = 0; i < n; i++) {
         pvr_vertex_t *v = (pvr_vertex_t *) pvr_dr_target(sDrState);
