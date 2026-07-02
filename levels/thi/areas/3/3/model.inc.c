@@ -153,7 +153,7 @@ static const Gfx thi_seg7_dl_07009D30[] = {
 
 // 0x07009D50 - 0x07009DF0
 const Gfx thi_seg7_dl_07009D50[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_MODULATERGB, G_CC_MODULATERGB),
     gsSPClearGeometryMode(G_LIGHTING),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0, G_TX_LOADTILE, 0, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD),
@@ -168,7 +168,7 @@ const Gfx thi_seg7_dl_07009D50[] = {
     gsSPDisplayList(thi_seg7_dl_07009C40),
     gsSPDisplayList(thi_seg7_dl_07009CF8),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPDisplayList(thi_seg7_dl_07009D30),
     gsSPSetGeometryMode(G_LIGHTING),

@@ -41,12 +41,12 @@ static const Gfx inside_castle_seg7_dl_07037D70[] = {
 
 // 0x07037DE8 - 0x07037E38
 const Gfx inside_castle_seg7_dl_07037DE8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPClearGeometryMode(G_LIGHTING),
     gsDPSetEnvColor(255, 255, 255, 100),
     gsDPSetCombineMode(G_CC_SHADEFADEA, G_CC_SHADEFADEA),
     gsSPDisplayList(inside_castle_seg7_dl_07037D70),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsDPSetEnvColor(255, 255, 255, 255),
     gsSPSetGeometryMode(G_LIGHTING),

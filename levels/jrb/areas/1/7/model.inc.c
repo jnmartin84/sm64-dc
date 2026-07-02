@@ -36,7 +36,7 @@ static const Gfx jrb_seg7_dl_070076E0[] = {
 
 // 0x07007718 - 0x070077F0
 const Gfx jrb_seg7_dl_07007718[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_TEX_EDGE2),
     gsDPSetDepthSource(G_ZS_PIXEL),
@@ -56,7 +56,7 @@ const Gfx jrb_seg7_dl_07007718[] = {
     gsDPSetTileSize(0, 0, 0, (64 - 1) << G_TEXTURE_IMAGE_FRAC, (32 - 1) << G_TEXTURE_IMAGE_FRAC),
     gsSPDisplayList(jrb_seg7_dl_070076E0),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_AA_ZB_TEX_EDGE, G_RM_NOOP2),
     gsSPClearGeometryMode(G_FOG),

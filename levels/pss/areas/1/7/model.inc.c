@@ -26,7 +26,7 @@ static const Gfx pss_seg7_dl_0700E3A0[] = {
 
 // 0x0700E3E8 - 0x0700E490
 const Gfx pss_seg7_dl_0700E3E8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_DECAL2),
     gsDPSetDepthSource(G_ZS_PIXEL),
@@ -41,7 +41,7 @@ const Gfx pss_seg7_dl_0700E3E8[] = {
     gsDPSetTileSize(0, 0, 0, (32 - 1) << G_TEXTURE_IMAGE_FRAC, (32 - 1) << G_TEXTURE_IMAGE_FRAC),
     gsSPDisplayList(pss_seg7_dl_0700E3A0),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_AA_ZB_OPA_DECAL, G_RM_NOOP2),
     gsSPClearGeometryMode(G_FOG),

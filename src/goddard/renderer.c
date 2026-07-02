@@ -320,97 +320,97 @@ static Gfx gd_dl_star[] = {
 };
 
 static Gfx gd_dl_red_star_0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_red_star_0),
     gsSPBranchList(gd_dl_star),
 };
 
 static Gfx gd_dl_red_star_1[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_red_star_1),
     gsSPBranchList(gd_dl_star),
 };
 
 static Gfx gd_dl_red_star_2[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_red_star_2),
     gsSPBranchList(gd_dl_star),
 };
 
 static Gfx gd_dl_red_star_3[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_red_star_3),
     gsSPBranchList(gd_dl_star),
 };
 
 static Gfx gd_dl_red_star_4[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_red_star_4),
     gsSPBranchList(gd_dl_star),
 };
 
 static Gfx gd_dl_red_star_5[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_red_star_5),
     gsSPBranchList(gd_dl_star),
 };
 
 static Gfx gd_dl_red_star_6[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_red_star_6),
     gsSPBranchList(gd_dl_star),
 };
 
 static Gfx gd_dl_red_star_7[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_red_star_7),
     gsSPBranchList(gd_dl_star),
 };
 
 static Gfx gd_dl_silver_star_0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_white_star_0),
     gsSPBranchList(gd_dl_star),
 };
 
 static Gfx gd_dl_silver_star_1[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_white_star_1),
     gsSPBranchList(gd_dl_star),
 };
 
 static Gfx gd_dl_silver_star_2[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_white_star_2),
     gsSPBranchList(gd_dl_star),
 };
 
 static Gfx gd_dl_silver_star_3[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_white_star_3),
     gsSPBranchList(gd_dl_star),
 };
 
 static Gfx gd_dl_silver_star_4[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_white_star_4),
     gsSPBranchList(gd_dl_star),
 };
 
 static Gfx gd_dl_silver_star_5[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_white_star_5),
     gsSPBranchList(gd_dl_star),
 };
 
 static Gfx gd_dl_silver_star_6[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_white_star_6),
     gsSPBranchList(gd_dl_star),
 };
 
 static Gfx gd_dl_silver_star_7[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_white_star_7),
     gsSPBranchList(gd_dl_star),
 };
@@ -517,84 +517,84 @@ static Gfx gd_dl_sparkle_white_color[] = {
 };
 
 static Gfx gd_dl_red_sparkle_0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPDisplayList(gd_dl_sparkle_red_color),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_sparkle_0),
     gsSPBranchList(gd_dl_sparkle),
 };
 
 static Gfx gd_dl_red_sparkle_1[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPDisplayList(gd_dl_sparkle_red_color),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_sparkle_1),
     gsSPBranchList(gd_dl_sparkle),
 };
 
 static Gfx gd_dl_red_sparkle_2[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPDisplayList(gd_dl_sparkle_red_color),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_sparkle_2),
     gsSPBranchList(gd_dl_sparkle),
 };
 
 static Gfx gd_dl_red_sparkle_3[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPDisplayList(gd_dl_sparkle_red_color),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_sparkle_3),
     gsSPBranchList(gd_dl_sparkle),
 };
 
 static Gfx gd_dl_red_sparkle_4[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPDisplayList(gd_dl_sparkle_red_color),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_sparkle_4),
     gsSPBranchList(gd_dl_sparkle),
 };
 
 static Gfx gd_dl_red_sparkle_5[] ={
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPDisplayList(gd_dl_sparkle_red_color),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_sparkle_5), // 4 again, correct texture would be 5
     gsSPBranchList(gd_dl_sparkle),
 };
 
 static Gfx gd_dl_silver_sparkle_0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPDisplayList(gd_dl_sparkle_white_color),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_sparkle_0),
     gsSPBranchList(gd_dl_sparkle),
 };
 
 static Gfx gd_dl_silver_sparkle_1[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPDisplayList(gd_dl_sparkle_white_color),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_sparkle_1),
     gsSPBranchList(gd_dl_sparkle),
 };
 
 static Gfx gd_dl_silver_sparkle_2[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPDisplayList(gd_dl_sparkle_white_color),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_sparkle_2),
     gsSPBranchList(gd_dl_sparkle),
 };
 
 static Gfx gd_dl_silver_sparkle_3[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPDisplayList(gd_dl_sparkle_white_color),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_sparkle_3),
     gsSPBranchList(gd_dl_sparkle),
 };
 
 static Gfx gd_dl_silver_sparkle_4[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPDisplayList(gd_dl_sparkle_white_color),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_sparkle_4),
     gsSPBranchList(gd_dl_sparkle),
 };
 
 static Gfx gd_dl_silver_sparkle_5[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPDisplayList(gd_dl_sparkle_white_color),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, gd_texture_sparkle_5), // 4 again, correct texture would be 5
     gsSPBranchList(gd_dl_sparkle),
@@ -642,7 +642,7 @@ static Gfx gd_dl_mario_face_shine[] = {
     gsDPSetCombineMode(G_CC_HILITERGBA, G_CC_HILITERGBA),
     gsDPLoadTextureBlock(gd_texture_mario_face_shine, G_IM_FMT_IA, G_IM_SIZ_8b, 32, 32, 0, 
                         G_TX_WRAP | G_TX_NOMIRROR, G_TX_WRAP | G_TX_NOMIRROR, 5, 5, G_TX_NOLOD, G_TX_NOLOD),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPEndDisplayList(),
 };
 
@@ -653,7 +653,7 @@ static Gfx gd_dl_rsp_init[] = {
 };
 
 static Gfx gd_dl_rdp_init[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetTextureLOD(G_TL_TILE),
@@ -667,14 +667,14 @@ static Gfx gd_dl_rdp_init[] = {
     gsDPSetRenderMode(G_RM_OPA_SURF, G_RM_OPA_SURF2),
     gsDPNoOp(),
     gsDPSetColorDither(G_CD_MAGICSQ),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPEndDisplayList(),
 };
 
 float sGdPerspTimer = 1.0;
 
 static Gfx gd_dl_sprite_start_tex_block[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsSPTexture(0x8000, 0x8000, 0, G_TX_RENDERTILE, G_ON),
     gsDPSetAlphaCompare(G_AC_THRESHOLD),

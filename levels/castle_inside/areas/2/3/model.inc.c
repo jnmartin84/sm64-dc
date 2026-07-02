@@ -307,7 +307,7 @@ static const Gfx inside_castle_seg7_dl_07043B10[] = {
 
 // 0x07043B48 - 0x07043C38
 const Gfx inside_castle_seg7_dl_07043B48[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_MODULATERGB, G_CC_MODULATERGB),
     gsSPClearGeometryMode(G_SHADING_SMOOTH),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0, G_TX_LOADTILE, 0, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD),
@@ -333,7 +333,7 @@ const Gfx inside_castle_seg7_dl_07043B48[] = {
     gsSPDisplayList(inside_castle_seg7_dl_07043AD8),
     gsSPDisplayList(inside_castle_seg7_dl_07043B10),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPSetGeometryMode(G_SHADING_SMOOTH),
     gsSPEndDisplayList(),

@@ -617,7 +617,7 @@ static const Gfx jrb_seg7_dl_0700EE28[] = {
 
 // 0x0700EF00 - 0x0700EF98
 const Gfx jrb_seg7_dl_0700EF00[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_MODULATERGB, G_CC_MODULATERGB),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0, G_TX_LOADTILE, 0, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON),
@@ -633,7 +633,7 @@ const Gfx jrb_seg7_dl_0700EF00[] = {
     gsSPDisplayList(jrb_seg7_dl_0700ECB8),
     gsSPDisplayList(jrb_seg7_dl_0700EE28),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPEndDisplayList(),
 };

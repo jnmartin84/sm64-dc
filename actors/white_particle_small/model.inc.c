@@ -23,7 +23,7 @@ ALIGNED8 static const u8 white_particle_small_texture[] = {
 
 // 0x04032980 - 0x040329E0
 const Gfx white_particle_small_dl_begin[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPClearGeometryMode(G_LIGHTING),
     gsDPSetCombineMode(G_CC_MODULATERGBA, G_CC_MODULATERGBA),
     gsSPTexture(0x8000, 0x8000, 0, G_TX_RENDERTILE, G_ON),
@@ -34,7 +34,7 @@ const Gfx white_particle_small_dl_begin[] = {
 // 0x040329E0 - 0x04032A18
 const Gfx white_particle_small_dl_end[] = {
     gsSP2Triangles( 0,  1,  2, 0x0,  0,  2,  3, 0x0),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPTexture(0x0001, 0x0001, 0, G_TX_RENDERTILE, G_OFF),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPSetGeometryMode(G_LIGHTING),

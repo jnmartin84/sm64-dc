@@ -68,7 +68,7 @@ static const Gfx ssl_seg7_dl_0701FC18[] = {
 
 // 0x0701FCE0 - 0x0701FD60
 const Gfx ssl_seg7_dl_0701FCE0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetEnvColor(255, 255, 255, 100),
     gsDPSetCombineMode(G_CC_MODULATERGBFADEA, G_CC_MODULATERGBFADEA),
     gsSPClearGeometryMode(G_LIGHTING),
@@ -79,7 +79,7 @@ const Gfx ssl_seg7_dl_0701FCE0[] = {
     gsDPSetTileSize(0, 0, 0, (32 - 1) << G_TEXTURE_IMAGE_FRAC, (32 - 1) << G_TEXTURE_IMAGE_FRAC),
     gsSPDisplayList(ssl_seg7_dl_0701FC18),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPSetGeometryMode(G_LIGHTING),
     gsDPSetEnvColor(255, 255, 255, 255),

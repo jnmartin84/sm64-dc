@@ -3302,7 +3302,7 @@ static const Gfx intro_seg7_dl_0700ADC0[] = {
 
 // 0x0700B3A0 - 0x0700B420
 const Gfx intro_seg7_dl_0700B3A0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_MODULATERGB, G_CC_MODULATERGB),
     gsSPClearGeometryMode(G_LIGHTING),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0, G_TX_LOADTILE, 0, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD),
@@ -3313,7 +3313,7 @@ const Gfx intro_seg7_dl_0700B3A0[] = {
     gsSPDisplayList(intro_seg7_dl_07008EA0),
     gsSPDisplayList(intro_seg7_dl_07009E38),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPDisplayList(intro_seg7_dl_0700ADC0),
     gsSPSetGeometryMode(G_LIGHTING),
@@ -3361,7 +3361,7 @@ ALIGNED8 static const u8 intro_seg7_texture_0700C4A0[] = {
 
 // 0x0700C6A0 - 0x0700C790
 const Gfx intro_seg7_dl_0700C6A0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_DECALFADE, G_CC_DECALFADE),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON),
 
@@ -3374,7 +3374,7 @@ const Gfx intro_seg7_dl_0700C6A0[] = {
     gsSP2Triangles( 0,  1,  2, 0x0,  0,  2,  3, 0x0),
 
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetGeometryMode(G_LIGHTING),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsDPSetEnvColor(255, 255, 255, 255),

@@ -8,7 +8,7 @@ static const Vtx wf_seg7_vertex_0700F680[] = {
 
 // 0x0700F6C0 - 0x0700F758
 const Gfx wf_seg7_dl_0700F6C0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPClearGeometryMode(G_LIGHTING),
     gsDPSetCombineMode(G_CC_MODULATEIA, G_CC_MODULATEIA),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON),
@@ -16,7 +16,7 @@ const Gfx wf_seg7_dl_0700F6C0[] = {
     gsSPVertex(wf_seg7_vertex_0700F680, 4, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  0,  2,  3, 0x0),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPSetGeometryMode(G_LIGHTING),
     gsSPEndDisplayList(),

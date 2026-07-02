@@ -332,16 +332,8 @@ const Gfx boo_castle_seg6_dl_06017AD0[] = {
 
 // 0x06017CE0 - 0x06017D80
 const Gfx boo_castle_seg6_dl_06017CE0[] = {
-    gsDPPipeSync(),
-    // PVR: restore the stock single-pass translucent combine. GLdc split it into a SHADEFADEA
-    // pass + a BLENDRGBFADEA pass (the //MODULATERGBFADE was another experiment) — that fake
-    // renders the eyes opaque on PVR. This is the BOO_CASTLE model (outside the castle);
-    // actors/boo (inside) had the same hack, gated identically. See [[feedback_gate_gldc_dl_hacks]].
-#ifdef GFX_BACKEND_PVR
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_BLENDRGBFADEA, G_CC_BLENDRGBFADEA),
-#else
-    gsDPSetCombineMode(G_CC_SHADEFADEA, G_CC_SHADEFADEA),
-#endif
     gsSPNumLights(NUMLIGHTS_1),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON),
     //gsDPTileSync(),
@@ -352,25 +344,11 @@ const Gfx boo_castle_seg6_dl_06017CE0[] = {
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 0, G_TX_RENDERTILE, 0, G_TX_CLAMP, 5, G_TX_NOLOD, G_TX_CLAMP, 6, G_TX_NOLOD),
     gsDPSetTileSize(0, 0, 0, (64 - 1) << G_TEXTURE_IMAGE_FRAC, (32 - 1) << G_TEXTURE_IMAGE_FRAC),
     gsSPDisplayList(boo_castle_seg6_dl_06017A78),
-
-#ifndef GFX_BACKEND_PVR
-    // GLdc-only second pass (the texture-blend half of the 2-pass transparency fake).
-    gsDPSetCombineMode(G_CC_BLENDRGBFADEA, G_CC_BLENDRGBFADEA),
-    //gsDPTileSync(),
-    gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 8, 0, G_TX_RENDERTILE, 0, G_TX_CLAMP, 5, G_TX_NOLOD, G_TX_CLAMP, 5, G_TX_NOLOD),
-    gsDPSetTileSize(0, 0, 0, (32 - 1) << G_TEXTURE_IMAGE_FRAC, (32 - 1) << G_TEXTURE_IMAGE_FRAC),
-    gsSPDisplayList(boo_castle_seg6_dl_06017A10),
-    //gsDPTileSync(),
-    gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 0, G_TX_RENDERTILE, 0, G_TX_CLAMP, 5, G_TX_NOLOD, G_TX_CLAMP, 6, G_TX_NOLOD),
-    gsDPSetTileSize(0, 0, 0, (64 - 1) << G_TEXTURE_IMAGE_FRAC, (32 - 1) << G_TEXTURE_IMAGE_FRAC),
-    gsSPDisplayList(boo_castle_seg6_dl_06017A78),
-#endif
-
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADEFADEA, G_CC_SHADEFADEA),
     gsSPDisplayList(boo_castle_seg6_dl_06017AD0),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsDPSetEnvColor(255, 255, 255, 255),
     gsSPEndDisplayList(),

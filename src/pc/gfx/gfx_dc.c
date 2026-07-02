@@ -9,7 +9,7 @@
 #include <kos/thread.h>
 #include <assert.h>
 
-#define GFX_API_NAME "Dreamcast GLdc"
+#define GFX_API_NAME "Dreamcast PVR"
 #if LOWRES
 #define SCR_WIDTH (320)
 #define SCR_HEIGHT (240)

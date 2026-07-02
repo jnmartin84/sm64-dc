@@ -3970,7 +3970,7 @@ static const Gfx ssl_seg7_dl_0701ECB0[] = {
 
 // 0x0701EE80 - 0x0701EF80
 const Gfx ssl_seg7_dl_0701EE80[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2),
     gsDPSetDepthSource(G_ZS_PIXEL),
@@ -3996,7 +3996,7 @@ const Gfx ssl_seg7_dl_0701EE80[] = {
     gsSPDisplayList(ssl_seg7_dl_0701EAD8),
     gsSPDisplayList(ssl_seg7_dl_0701ECB0),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_AA_ZB_OPA_SURF, G_RM_NOOP2),
     gsSPClearGeometryMode(G_FOG),

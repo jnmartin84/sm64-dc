@@ -21,7 +21,7 @@ static const Gfx bitfs_seg7_dl_0700ED50[] = {
 
 // 0x0700ED90 - 0x0700EE10
 const Gfx bitfs_seg7_dl_0700ED90[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetEnvColor(255, 255, 255, 100),
     gsDPSetCombineMode(G_CC_MODULATERGBFADE, G_CC_MODULATERGBFADE),
     gsSPClearGeometryMode(G_LIGHTING),
@@ -32,7 +32,7 @@ const Gfx bitfs_seg7_dl_0700ED90[] = {
     gsDPSetTileSize(0, 0, 0, (32 - 1) << G_TEXTURE_IMAGE_FRAC, (32 - 1) << G_TEXTURE_IMAGE_FRAC),
     gsSPDisplayList(bitfs_seg7_dl_0700ED50),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPSetGeometryMode(G_LIGHTING),
     gsDPSetEnvColor(255, 255, 255, 255),

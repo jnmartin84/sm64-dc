@@ -162,7 +162,7 @@ static const Gfx hmc_seg7_dl_07014950[] = {
 
 // 0x07014B08 - 0x07014B88
 const Gfx hmc_seg7_dl_07014B08[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetEnvColor(255, 255, 255, 128),
     gsDPSetCombineMode(G_CC_DECALFADEA, G_CC_DECALFADEA),
     gsSPClearGeometryMode(G_LIGHTING | G_CULL_BACK),
@@ -173,7 +173,7 @@ const Gfx hmc_seg7_dl_07014B08[] = {
     gsDPSetTileSize(0, 0, 0, (32 - 1) << G_TEXTURE_IMAGE_FRAC, (32 - 1) << G_TEXTURE_IMAGE_FRAC),
     gsSPDisplayList(hmc_seg7_dl_07014950),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsDPSetEnvColor(255, 255, 255, 255),
     gsSPSetGeometryMode(G_LIGHTING | G_CULL_BACK),

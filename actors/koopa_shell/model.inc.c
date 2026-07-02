@@ -368,7 +368,7 @@ const Gfx koopa_shell_seg8_dl_08027258[] = {
 
 // 0x080273C8 - 0x08027420
 const Gfx koopa_shell_seg8_dl_080273C8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPNumLights(NUMLIGHTS_1),
     gsSPLight(&koopa_shell_seg8_lights_08026388.l, 1),
     gsSPLight(&koopa_shell_seg8_lights_08026388.a, 2),
@@ -383,7 +383,7 @@ const Gfx koopa_shell_seg8_dl_080273C8[] = {
 
 // 0x08027420 - 0x08027470
 const Gfx koopa_shell_seg8_dl_08027420[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPLight(&koopa_shell_seg8_lights_080263A0.l, 1),
     gsSPLight(&koopa_shell_seg8_lights_080263A0.a, 2),
     gsSPDisplayList(koopa_shell_seg8_dl_08027108),
@@ -576,7 +576,7 @@ const Gfx koopa_shell_seg8_dl_08028A20[] = {
 
 // 0x08028B78 - 0x08028BE8
 const Gfx koopa_shell_seg8_dl_08028B78[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_MODULATERGB, G_CC_MODULATERGB),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0, G_TX_LOADTILE, 0, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON),
@@ -586,7 +586,7 @@ const Gfx koopa_shell_seg8_dl_08028B78[] = {
     gsSPDisplayList(koopa_shell_seg8_dl_080288E0),
     gsSPDisplayList(koopa_shell_seg8_dl_08028978),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPDisplayList(koopa_shell_seg8_dl_08028A20),
     gsSPEndDisplayList(),

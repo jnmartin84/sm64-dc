@@ -59,17 +59,14 @@ static const Gfx cotmc_seg7_dl_0700A3D0[] = {
 
 // 0x0700A4B8 - 0x0700A508
 const Gfx cotmc_seg7_dl_0700A4B8[] = {
-    gsDPPipeSync(),
-    gsDPSetEnvColor(0, 0, 0, 180),
+    //gsDPPipeSync(),
+    gsDPSetEnvColor(255, 255, 255, 180),
     gsDPSetCombineMode(G_CC_SHADEFADEA, G_CC_SHADEFADEA),
-//    gsDPSetCombineMode(G_CC_MODULATEIFADEA, G_CC_MODULATEIFADEA),
     gsSPClearGeometryMode(G_LIGHTING),
     gsSPDisplayList(cotmc_seg7_dl_0700A3D0),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPSetGeometryMode(G_LIGHTING),
     gsDPSetEnvColor(255, 255, 255, 255),
     gsSPEndDisplayList(),
 };
-
-const Gfx *g_cotmc_seg7_dl_0700A3D0 = cotmc_seg7_dl_0700A3D0;

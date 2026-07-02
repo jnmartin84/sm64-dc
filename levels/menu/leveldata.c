@@ -67,7 +67,7 @@ static const Vtx vertex_menu_save_button_front[] = {
 
 // 0x07003158 - 0x070031A0
 static const Gfx dl_tex_block_menu_save_button_base[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_MODULATERGB, G_CC_MODULATERGB),
     gsSPClearGeometryMode(G_SHADING_SMOOTH),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0, G_TX_LOADTILE, 0, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD),
@@ -98,7 +98,7 @@ static const Gfx dl_vertex_menu_save_button_front[] = {
     gsSPVertex(vertex_menu_save_button_front, 4, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  1,  3,  2, 0x0),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPSetGeometryMode(G_SHADING_SMOOTH),
     gsSPEndDisplayList(),
@@ -114,7 +114,7 @@ static const Vtx vertex_menu_save_button_back[] = {
 
 // 0x07003298 - 0x070032E0
 static const Gfx dl_tex_block_menu_save_button_back[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_MODULATERGB, G_CC_MODULATERGB),
     gsSPClearGeometryMode(G_SHADING_SMOOTH),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0, G_TX_LOADTILE, 0, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD),
@@ -132,7 +132,7 @@ static const Gfx dl_vertex_menu_save_button_back[] = {
     gsSPVertex(vertex_menu_save_button_back, 4, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  1,  3,  2, 0x0),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPSetGeometryMode(G_SHADING_SMOOTH),
     gsSPEndDisplayList(),
@@ -178,13 +178,13 @@ const Gfx dl_menu_save_button_back[] = {
 
 // 0x07003400 - 0x07003450
 const Gfx dl_menu_save_button_fade_back[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPClearGeometryMode(G_SHADING_SMOOTH),
     gsSPLight(&lights_menu_save_button.l, 1),
     gsSPLight(&lights_menu_save_button.a, 2),
     gsSPVertex(vertex_menu_save_button_back, 4, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  1,  3,  2, 0x0),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetGeometryMode(G_SHADING_SMOOTH),
     gsSPEndDisplayList(),
 };
@@ -325,7 +325,7 @@ static const Gfx dl_vertex_menu_main_button[] = {
 
 // 0x07006150 - 0x07006198
 static const Gfx dl_tex_block_menu_main_button[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_MODULATERGB, G_CC_MODULATERGB),
     gsSPClearGeometryMode(G_SHADING_SMOOTH),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0, G_TX_LOADTILE, 0, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD),
@@ -340,7 +340,7 @@ static const Gfx dl_tex_block_menu_main_button[] = {
 static const Gfx dl_menu_main_button[] = {
     gsSPDisplayList(dl_vertex_menu_main_button),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPSetGeometryMode(G_SHADING_SMOOTH),
     gsSPEndDisplayList(),
@@ -456,14 +456,14 @@ ALIGNED8 static const u8 texture_menu_grabbing_hand[] = {
 
 // 0x070073A0 - 0x070073B8
 const Gfx dl_menu_idle_hand[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, texture_menu_idle_hand),
     gsSPBranchList(dl_menu_hand),
 };
 
 // 0x070073B8 - 0x070073D0
 const Gfx dl_menu_grabbing_hand[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, texture_menu_grabbing_hand),
     gsSPBranchList(dl_menu_hand),
 };
@@ -1705,7 +1705,7 @@ const u8 *const menu_font_lut[] = {
 
 // 0x0700D108 - 0x0700D160
 const Gfx dl_menu_ia8_text_begin[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTexturePersp(G_TP_NONE),
     gsDPSetCombineMode(G_CC_FADEA, G_CC_FADEA),
     gsDPSetEnvColor(255, 255, 255, 255),
@@ -1720,7 +1720,7 @@ const Gfx dl_menu_ia8_text_begin[] = {
 
 // 0x0700D160 - 0x0700D1A0
 const Gfx dl_menu_ia8_text_end[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTexturePersp(G_TP_PERSP),
     gsDPSetRenderMode(G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
@@ -1785,7 +1785,7 @@ static const Vtx vertex_menu_course_lower[] = {
 
 // 0x0700F228 - 0x0700F2F8
 const Gfx dl_menu_rgba16_wood_course[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
     gsSPTexture(0x8000, 0x8000, 0, G_TX_RENDERTILE, G_ON),
     gsDPSetRenderMode(G_RM_AA_TEX_EDGE, G_RM_AA_TEX_EDGE2),

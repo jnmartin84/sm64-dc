@@ -30,10 +30,10 @@ static const Gfx sa_dl_07002F80[] = {
 
 // 0x07002FD0 - 0x07003000
 const Gfx sa_seg7_dl_07002FD0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPClearGeometryMode(G_LIGHTING),
     gsSPDisplayList(sa_dl_07002F80),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetGeometryMode(G_LIGHTING),
     gsSPEndDisplayList(),
 };

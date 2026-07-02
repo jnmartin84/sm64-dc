@@ -18,7 +18,7 @@ static const Gfx ccm_seg7_dl_0701FE28[] = {
 
 // 0x0701FE60 - 0x0701FEE0
 const Gfx ccm_seg7_dl_0701FE60[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetEnvColor(255, 255, 255, 150),
     gsDPSetCombineMode(G_CC_DECALFADE, G_CC_DECALFADE),
     gsSPClearGeometryMode(G_LIGHTING | G_CULL_BACK),
@@ -29,7 +29,7 @@ const Gfx ccm_seg7_dl_0701FE60[] = {
     gsDPSetTileSize(0, 0, 0, (32 - 1) << G_TEXTURE_IMAGE_FRAC, (32 - 1) << G_TEXTURE_IMAGE_FRAC),
     gsSPDisplayList(ccm_seg7_dl_0701FE28),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPSetGeometryMode(G_LIGHTING | G_CULL_BACK),
     gsDPSetEnvColor(255, 255, 255, 255),

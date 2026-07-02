@@ -161,7 +161,7 @@ static const Vtx water_ring_seg6_vertex_06013A80[] = {
 
 // 0x06013AC0 - 0x06013DD8
 const Gfx water_ring_seg6_dl_06013AC0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetGeometryMode(G_TEXTURE_GEN),
     gsDPSetCombineMode(G_CC_DECALFADE, G_CC_DECALFADE),
     gsDPLoadTextureBlock(water_ring_seg6_texture_06012380, G_IM_FMT_RGBA, G_IM_SIZ_16b, 64, 32, 0, G_TX_WRAP | G_TX_NOMIRROR, G_TX_WRAP | G_TX_NOMIRROR, 6, 5, G_TX_NOLOD, G_TX_NOLOD),
@@ -212,7 +212,7 @@ const Gfx water_ring_seg6_dl_06013AC0[] = {
     gsSP2Triangles( 5, 14, 15, 0x0,  5, 15,  6, 0x0),
     gsSPVertex(water_ring_seg6_vertex_06013A80, 4, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  0,  2,  3, 0x0),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPClearGeometryMode(G_TEXTURE_GEN),
     gsDPSetEnvColor(255, 255, 255, 255),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),

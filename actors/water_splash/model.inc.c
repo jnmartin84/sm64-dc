@@ -68,56 +68,56 @@ const Gfx water_splash_seg4_dl_040325C8[] = {
 
 // 0x04032640 - 0x04032658
 const Gfx water_splash_seg4_dl_04032640[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, water_splash_seg4_texture_0402A5C8),
     gsSPBranchList(water_splash_seg4_dl_040325C8),
 };
 
 // 0x04032658 - 0x04032670
 const Gfx water_splash_seg4_dl_04032658[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, water_splash_seg4_texture_0402B5C8),
     gsSPBranchList(water_splash_seg4_dl_040325C8),
 };
 
 // 0x04032670 - 0x04032688
 const Gfx water_splash_seg4_dl_04032670[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, water_splash_seg4_texture_0402C5C8),
     gsSPBranchList(water_splash_seg4_dl_040325C8),
 };
 
 // 0x04032688 - 0x040326A0
 const Gfx water_splash_seg4_dl_04032688[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, water_splash_seg4_texture_0402D5C8),
     gsSPBranchList(water_splash_seg4_dl_040325C8),
 };
 
 // 0x040326A0 - 0x040326B8
 const Gfx water_splash_seg4_dl_040326A0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, water_splash_seg4_texture_0402E5C8),
     gsSPBranchList(water_splash_seg4_dl_040325C8),
 };
 
 // 0x040326B8 - 0x040326D0
 const Gfx water_splash_seg4_dl_040326B8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, water_splash_seg4_texture_0402F5C8),
     gsSPBranchList(water_splash_seg4_dl_040325C8),
 };
 
 // 0x040326D0 - 0x040326E8
 const Gfx water_splash_seg4_dl_040326D0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, water_splash_seg4_texture_040305C8),
     gsSPBranchList(water_splash_seg4_dl_040325C8),
 };
 
 // 0x040326E8 - 0x04032700
 const Gfx water_splash_seg4_dl_040326E8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, water_splash_seg4_texture_040315C8),
     gsSPBranchList(water_splash_seg4_dl_040325C8),
 };

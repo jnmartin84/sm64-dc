@@ -15,7 +15,7 @@ ALIGNED8 static const u8 sand_seg3_texture_0302BAD0[] = {
 
 // 0x0302BCD0 - 0x0302BD60
 const Gfx sand_seg3_dl_0302BCD0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPClearGeometryMode(G_LIGHTING),
     gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
     gsDPLoadTextureBlock(sand_seg3_texture_0302BAD0, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0, G_TX_CLAMP, G_TX_CLAMP, 4, 4, G_TX_NOLOD, G_TX_NOLOD),

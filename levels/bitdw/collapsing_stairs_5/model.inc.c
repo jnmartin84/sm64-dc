@@ -51,7 +51,7 @@ static const Gfx bitdw_seg7_dl_0700D3B0[] = {
 
 // 0x0700D3E8 - 0x0700D460
 const Gfx bitdw_seg7_dl_0700D3E8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_MODULATERGB, G_CC_MODULATERGB),
     gsSPClearGeometryMode(G_LIGHTING),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0, G_TX_LOADTILE, 0, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD),
@@ -62,7 +62,7 @@ const Gfx bitdw_seg7_dl_0700D3E8[] = {
     gsSPDisplayList(bitdw_seg7_dl_0700D348),
     gsSPDisplayList(bitdw_seg7_dl_0700D3B0),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPSetGeometryMode(G_LIGHTING),
     gsSPEndDisplayList(),

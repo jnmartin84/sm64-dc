@@ -110,7 +110,7 @@ ALIGNED8 static const u8 effect_0B00684C[] = {
 
 // 0x0B006A50 - 0x0B006AB0
 const Gfx tiny_bubble_dl_0B006A50[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPClearGeometryMode(G_LIGHTING | G_CULL_BACK | G_SHADING_SMOOTH),
     gsSPTexture(0x8000, 0x8000, 0, G_TX_RENDERTILE, G_ON),
     gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
@@ -140,7 +140,7 @@ ALIGNED8 static const u8 effect_0B006AD8[] = {
 
 // 0x0B006CD8 - 0x0B006D38
 const Gfx tiny_bubble_dl_0B006CD8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPClearGeometryMode(G_LIGHTING | G_SHADING_SMOOTH),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, effect_0B006AD8),
     gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
@@ -156,7 +156,7 @@ const Gfx tiny_bubble_dl_0B006CD8[] = {
 
 // 0x0B006D38 - 0x0B006D68
 const Gfx tiny_bubble_dl_0B006D38[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPClearGeometryMode(G_LIGHTING | G_SHADING_SMOOTH),
     gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
     gsDPSetRenderMode(G_RM_AA_ZB_TEX_EDGE, G_RM_AA_ZB_TEX_EDGE2),

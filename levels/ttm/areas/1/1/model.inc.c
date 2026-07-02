@@ -1696,7 +1696,7 @@ static const Gfx ttm_seg7_dl_0700A098[] = {
 
 // 0x0700A120 - 0x0700A1B0
 const Gfx ttm_seg7_dl_0700A120[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_MODULATERGB, G_CC_MODULATERGB),
     gsSPClearGeometryMode(G_SHADING_SMOOTH),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0, G_TX_LOADTILE, 0, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD),
@@ -1709,7 +1709,7 @@ const Gfx ttm_seg7_dl_0700A120[] = {
     gsSPDisplayList(ttm_seg7_dl_07009CE0),
     gsSPDisplayList(ttm_seg7_dl_0700A038),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPDisplayList(ttm_seg7_dl_0700A098),
     gsSPSetGeometryMode(G_SHADING_SMOOTH),

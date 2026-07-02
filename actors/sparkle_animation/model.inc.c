@@ -53,35 +53,35 @@ const Gfx sparkles_animation_seg4_dl_04035288[] = {
 
 // 0x04035300 - 0x04035318
 const Gfx sparkles_animation_seg4_dl_04035300[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, sparkles_animation_seg4_texture_04032A88),
     gsSPBranchList(sparkles_animation_seg4_dl_04035288),
 };
 
 // 0x04035318 - 0x04035330
 const Gfx sparkles_animation_seg4_dl_04035318[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, sparkles_animation_seg4_texture_04033288),
     gsSPBranchList(sparkles_animation_seg4_dl_04035288),
 };
 
 // 0x04035330 - 0x04035348
 const Gfx sparkles_animation_seg4_dl_04035330[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, sparkles_animation_seg4_texture_04033A88),
     gsSPBranchList(sparkles_animation_seg4_dl_04035288),
 };
 
 // 0x04035348 - 0x04035360
 const Gfx sparkles_animation_seg4_dl_04035348[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, sparkles_animation_seg4_texture_04034288),
     gsSPBranchList(sparkles_animation_seg4_dl_04035288),
 };
 
 // 0x04035360 - 0x04035378
 const Gfx sparkles_animation_seg4_dl_04035360[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, sparkles_animation_seg4_texture_04034A88),
     gsSPBranchList(sparkles_animation_seg4_dl_04035288),
 };

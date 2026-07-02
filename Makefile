@@ -561,9 +561,8 @@ ifeq ($(FOR_DCLOAD),1)
 endif
 
 # GFX_BACKEND - selects the renderer backend (DC):
-#   gldc - OpenGL-on-DC via GLdc (default, gfx_gldc.c)
 #   pvr  - raw KOS PVR direct-render (gfx_pvr.c)
-GFX_BACKEND ?= gldc
+GFX_BACKEND ?= pvr
 ifeq ($(GFX_BACKEND),pvr)
   PLATFORM_CFLAGS += -DGFX_BACKEND_PVR=1
 endif
@@ -601,7 +600,7 @@ ifeq ($(ENABLE_OPENGL),1)
   endif
   ifeq ($(TARGET_DC),1)
     GFX_CFLAGS  += 
-    GFX_LDFLAGS += -lGL
+    GFX_LDFLAGS +=
   endif
 endif
 ifeq ($(ENABLE_DX11),1)
@@ -991,7 +990,6 @@ $(BUILD_DIR)/src/audio/seqplayer.o: CFLAGS += -O3
 $(BUILD_DIR)/src/audio/synthesis.o: CFLAGS += -O3
 $(BUILD_DIR)/src/engine/math_util.o: CFLAGS += -O3
 $(BUILD_DIR)/src/pc/mixer.o: CFLAGS += -O3
-$(BUILD_DIR)/src/pc/gfx/gfx_gldc.o: CFLAGS += -O3
 $(BUILD_DIR)/src/pc/gfx/gfx_retro_dc.o: CFLAGS += -O3
 $(BUILD_DIR)/src/pc/gfx/gfx_pvr.o: CFLAGS += -O3
 

@@ -483,8 +483,7 @@ static void gfx_pvr_set_sampler_parameters(bool linear_filter, uint32_t cms, uin
     pvr_mark_dirty();
 }
 
-// Free ALL cached texture VRAM. Mirrors GLdc's glDeleteTextures sweep in
-// gfx_clear_all_textures (called from nuke_everything at course/memory resets) — the
+// Free ALL cached texture VRAM. Called from nuke_everything at course/memory resets) — the
 // point where the texture cache's VRAM (including reuse bloat) is reclaimed.
 //
 // CRITICAL: also RESET the id allocator. nuke_everything calls this and then
@@ -506,6 +505,14 @@ void gfx_pvr_clear_all_textures(void) {
     sBoundTex = 0;
     sCurBound = 0;
 }
+
+extern void reset_texcache(void);
+
+void nuke_everything(void) {
+    gfx_pvr_clear_all_textures();
+    reset_texcache();
+}
+
 
 // PoT-padding UV correction (real/padded), consumed by the front-end's recip_tex_*
 // in place of GLdc's get_current_*_scale (PVR build routes to these).

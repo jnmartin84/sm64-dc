@@ -18,7 +18,7 @@ ALIGNED8 static const u8 burn_smoke_seg4_texture_04021800[] = {
 
 // 0x04022000 - 0x04022028
 const Gfx burn_smoke_seg4_dl_04022000[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_MODULATERGBA, G_CC_MODULATERGBA),
     gsSPClearGeometryMode(G_LIGHTING | G_CULL_BACK),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON),
@@ -35,7 +35,7 @@ const Gfx burn_smoke_seg4_dl_04022028[] = {
 // 0x04022048 - 0x04022070
 const Gfx burn_smoke_seg4_dl_04022048[] = {
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPSetGeometryMode(G_LIGHTING),
     gsSPEndDisplayList(),

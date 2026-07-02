@@ -449,7 +449,7 @@ static const Gfx lll_seg7_dl_07024B40[] = {
 
 // 0x07024C18 - 0x07024CD8
 const Gfx lll_seg7_dl_07024C18[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2),
     gsDPSetDepthSource(G_ZS_PIXEL),
@@ -467,7 +467,7 @@ const Gfx lll_seg7_dl_07024C18[] = {
     gsSPDisplayList(lll_seg7_dl_07024B08),
     gsSPDisplayList(lll_seg7_dl_07024B40),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_AA_ZB_OPA_SURF, G_RM_NOOP2),
     gsSPClearGeometryMode(G_FOG),

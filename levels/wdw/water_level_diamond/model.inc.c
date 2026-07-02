@@ -88,7 +88,7 @@ static const Gfx wdw_seg7_dl_070130F8[] = {
 
 // 0x070131B8 - 0x07013238
 const Gfx wdw_seg7_dl_070131B8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetEnvColor(255, 255, 255, 200),
     gsDPSetCombineMode(G_CC_MODULATERGBFADE, G_CC_MODULATERGBFADE),
     gsSPClearGeometryMode(G_SHADING_SMOOTH),
@@ -99,7 +99,7 @@ const Gfx wdw_seg7_dl_070131B8[] = {
     gsDPSetTileSize(0, 0, 0, (32 - 1) << G_TEXTURE_IMAGE_FRAC, (32 - 1) << G_TEXTURE_IMAGE_FRAC),
     gsSPDisplayList(wdw_seg7_dl_070130F8),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPSetGeometryMode(G_SHADING_SMOOTH),
     gsDPSetEnvColor(255, 255, 255, 255),

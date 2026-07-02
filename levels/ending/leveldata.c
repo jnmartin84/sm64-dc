@@ -44,7 +44,7 @@ ALIGNED8 static const u8 cake_end_texture_eu_40[] = {
 
 // 0x07029000 - 0x070296D8
 const Gfx dl_cake_end_screen[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_COPY),
     gsDPSetTexturePersp(G_TP_NONE),
     gsDPSetRenderMode(G_RM_NOOP, G_RM_NOOP2),
@@ -197,7 +197,7 @@ const Gfx dl_cake_end_screen[] = {
 
 // 0x070296D8 - 0x070296F8
 static const Gfx dl_cake_end_eu_070296D8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetTexturePersp(G_TP_PERSP),
     gsSPEndDisplayList(),
@@ -636,7 +636,7 @@ static const Vtx cake_end_vertex_070263C0[] = {
 
 // 0x07026400 - 0x07027350
 const Gfx dl_cake_end_screen[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_DECALRGB, G_CC_DECALRGB),
     gsDPSetRenderMode(G_RM_AA_OPA_SURF, G_RM_AA_OPA_SURF2),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON),
@@ -833,7 +833,7 @@ const Gfx dl_cake_end_screen[] = {
     gsSPVertex(cake_end_vertex_070263C0, 4, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  0,  2,  3, 0x0),
 
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
     gsSPSetGeometryMode(G_LIGHTING),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),

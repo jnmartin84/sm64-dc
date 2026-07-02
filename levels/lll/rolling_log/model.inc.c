@@ -109,7 +109,7 @@ static const Gfx lll_seg7_dl_0701ACE8[] = {
 
 // 0x0701AD70 - 0x0701ADE8
 const Gfx lll_seg7_dl_0701AD70[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_MODULATERGB, G_CC_MODULATERGB),
     gsSPClearGeometryMode(G_SHADING_SMOOTH),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0, G_TX_LOADTILE, 0, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD),
@@ -120,7 +120,7 @@ const Gfx lll_seg7_dl_0701AD70[] = {
     gsSPDisplayList(lll_seg7_dl_0701AC20),
     gsSPDisplayList(lll_seg7_dl_0701ACE8),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPSetGeometryMode(G_SHADING_SMOOTH),
     gsSPEndDisplayList(),

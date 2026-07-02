@@ -15,7 +15,7 @@ ALIGNED8 static const u8 leaves_seg3_texture_0301CBE0[] = {
 
 // 0x0301CDE0 - 0x0301CE70
 const Gfx leaves_seg3_dl_0301CDE0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPClearGeometryMode(G_LIGHTING | G_CULL_BACK),
     gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON),

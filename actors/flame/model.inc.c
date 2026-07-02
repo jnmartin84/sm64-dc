@@ -62,7 +62,7 @@ const Gfx flame_seg3_dl_0301B320[] = {
     gsSPVertex(flame_seg3_vertex_030172E0, 4, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  0,  2,  3, 0x0),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetGeometryMode(G_LIGHTING | G_SHADING_SMOOTH),
     gsDPSetEnvColor(255, 255, 255, 255),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
@@ -71,56 +71,56 @@ const Gfx flame_seg3_dl_0301B320[] = {
 
 // 0x0301B3B0 - 0x0301B3C8
 const Gfx flame_seg3_dl_0301B3B0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, flame_seg3_texture_03017320),
     gsSPBranchList(flame_seg3_dl_0301B320),
 };
 
 // 0x0301B3C8 - 0x0301B3E0
 const Gfx flame_seg3_dl_0301B3C8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, flame_seg3_texture_03017B20),
     gsSPBranchList(flame_seg3_dl_0301B320),
 };
 
 // 0x0301B3E0 - 0x0301B3F8
 const Gfx flame_seg3_dl_0301B3E0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, flame_seg3_texture_03018320),
     gsSPBranchList(flame_seg3_dl_0301B320),
 };
 
 // 0x0301B3F8 - 0x0301B410
 const Gfx flame_seg3_dl_0301B3F8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, flame_seg3_texture_03018B20),
     gsSPBranchList(flame_seg3_dl_0301B320),
 };
 
 // 0x0301B410 - 0x0301B428
 const Gfx flame_seg3_dl_0301B410[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, flame_seg3_texture_03019320),
     gsSPBranchList(flame_seg3_dl_0301B320),
 };
 
 // 0x0301B428 - 0x0301B440
 const Gfx flame_seg3_dl_0301B428[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, flame_seg3_texture_03019B20),
     gsSPBranchList(flame_seg3_dl_0301B320),
 };
 
 // 0x0301B440 - 0x0301B458
 const Gfx flame_seg3_dl_0301B440[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, flame_seg3_texture_0301A320),
     gsSPBranchList(flame_seg3_dl_0301B320),
 };
 
 // 0x0301B458 - 0x0301B470
 const Gfx flame_seg3_dl_0301B458[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, flame_seg3_texture_0301AB20),
     gsSPBranchList(flame_seg3_dl_0301B320),
 };
@@ -139,7 +139,7 @@ const Gfx flame_seg3_dl_0301B470[] = {
     gsSPVertex(flame_seg3_vertex_030172E0, 4, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  0,  2,  3, 0x0),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetGeometryMode(G_LIGHTING | G_SHADING_SMOOTH),
     gsDPSetEnvColor(255, 255, 255, 255),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
@@ -148,56 +148,56 @@ const Gfx flame_seg3_dl_0301B470[] = {
 
 // 0x0301B500 - 0x0301B518
 const Gfx flame_seg3_dl_0301B500[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, flame_seg3_texture_03017320),
     gsSPBranchList(flame_seg3_dl_0301B470),
 };
 
 // 0x0301B518 - 0x0301B530
 const Gfx flame_seg3_dl_0301B518[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, flame_seg3_texture_03017B20),
     gsSPBranchList(flame_seg3_dl_0301B470),
 };
 
 // 0x0301B530 - 0x0301B548
 const Gfx flame_seg3_dl_0301B530[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, flame_seg3_texture_03018320),
     gsSPBranchList(flame_seg3_dl_0301B470),
 };
 
 // 0x0301B548 - 0x0301B560
 const Gfx flame_seg3_dl_0301B548[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, flame_seg3_texture_03018B20),
     gsSPBranchList(flame_seg3_dl_0301B470),
 };
 
 // 0x0301B560 - 0x0301B578
 const Gfx flame_seg3_dl_0301B560[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, flame_seg3_texture_03019320),
     gsSPBranchList(flame_seg3_dl_0301B470),
 };
 
 // 0x0301B578 - 0x0301B590
 const Gfx flame_seg3_dl_0301B578[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, flame_seg3_texture_03019B20),
     gsSPBranchList(flame_seg3_dl_0301B470),
 };
 
 // 0x0301B590 - 0x0301B5A8
 const Gfx flame_seg3_dl_0301B590[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, flame_seg3_texture_0301A320),
     gsSPBranchList(flame_seg3_dl_0301B470),
 };
 
 // 0x0301B5A8 - 0x0301B5C0
 const Gfx flame_seg3_dl_0301B5A8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_IA, G_IM_SIZ_16b, 1, flame_seg3_texture_0301AB20),
     gsSPBranchList(flame_seg3_dl_0301B470),
 };

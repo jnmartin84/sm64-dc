@@ -42,10 +42,10 @@ static const Gfx ttm_seg7_dl_07024C00[] = {
 
 // 0x07024C78 - 0x07024CA8
 const Gfx ttm_seg7_dl_07024C78[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPClearGeometryMode(G_LIGHTING),
     gsSPDisplayList(ttm_seg7_dl_07024C00),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetGeometryMode(G_LIGHTING),
     gsSPEndDisplayList(),
 };

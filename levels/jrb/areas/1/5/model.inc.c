@@ -365,7 +365,7 @@ static const Gfx jrb_seg7_dl_07006980[] = {
 
 // 0x070069B0 - 0x07006A98
 const Gfx jrb_seg7_dl_070069B0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2),
     gsDPSetDepthSource(G_ZS_PIXEL),
@@ -385,10 +385,10 @@ const Gfx jrb_seg7_dl_070069B0[] = {
     gsSPDisplayList(jrb_seg7_dl_070065A8),
     gsSPDisplayList(jrb_seg7_dl_070067F0),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_PASS2),
     gsSPDisplayList(jrb_seg7_dl_07006980),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_AA_ZB_OPA_SURF, G_RM_NOOP2),
     gsSPClearGeometryMode(G_FOG),

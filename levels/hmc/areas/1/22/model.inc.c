@@ -272,7 +272,7 @@ static const Gfx hmc_seg7_dl_07019F70[] = {
 
 // 0x0701A080 - 0x0701A150
 const Gfx hmc_seg7_dl_0701A080[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2),
     gsDPSetDepthSource(G_ZS_PIXEL),
@@ -292,7 +292,7 @@ const Gfx hmc_seg7_dl_0701A080[] = {
     gsSPDisplayList(hmc_seg7_dl_07019DC8),
     gsSPDisplayList(hmc_seg7_dl_07019F70),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_AA_ZB_OPA_SURF, G_RM_NOOP2),
     gsSPClearGeometryMode(G_FOG),

@@ -46,28 +46,28 @@ const Gfx mr_i_iris_seg6_dl_06004170[] = {
 
 // 0x060041D8 - 0x060041F0
 const Gfx mr_i_iris_seg6_dl_060041D8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, mr_i_iris_seg6_texture_06002170),
     gsSPBranchList(mr_i_iris_seg6_dl_06004170),
 };
 
 // 0x060041F0 - 0x06004208
 const Gfx mr_i_iris_seg6_dl_060041F0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, mr_i_iris_seg6_texture_06002970),
     gsSPBranchList(mr_i_iris_seg6_dl_06004170),
 };
 
 // 0x06004208 - 0x06004220
 const Gfx mr_i_iris_seg6_dl_06004208[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, mr_i_iris_seg6_texture_06003170),
     gsSPBranchList(mr_i_iris_seg6_dl_06004170),
 };
 
 // 0x06004220 - 0x06004238
 const Gfx mr_i_iris_seg6_dl_06004220[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, mr_i_iris_seg6_texture_06003970),
     gsSPBranchList(mr_i_iris_seg6_dl_06004170),
 };

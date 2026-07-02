@@ -333,12 +333,12 @@ const Gfx hoot_seg5_dl_05001C00[] = {
 
 // 0x05001DF0 - 0x05001E38
 const Gfx hoot_seg5_dl_05001DF0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_BLENDRGBA, G_CC_BLENDRGBA),
     gsSPTexture(0x8000, 0x8000, 0, G_TX_RENDERTILE, G_ON),
     gsSPDisplayList(hoot_seg5_dl_05001B80),
     gsSPTexture(0x8000, 0x8000, 1, G_TX_RENDERTILE + 1, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPDisplayList(hoot_seg5_dl_05001C00),
     gsSPEndDisplayList(),
@@ -395,13 +395,13 @@ const Gfx hoot_seg5_dl_05002EB0[] = {
 
 // 0x05002F10 - 0x05002F60
 const Gfx hoot_seg5_dl_05002F10[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPTexture(0x8000, 0x8000, 0, G_TX_RENDERTILE, G_ON),
     gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
     gsSPClearGeometryMode(G_CULL_BACK),
     gsSPDisplayList(hoot_seg5_dl_05002EB0),
     gsSPTexture(0x8000, 0x8000, 1, G_TX_RENDERTILE + 1, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetGeometryMode(G_CULL_BACK),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPEndDisplayList(),
@@ -448,13 +448,13 @@ const Gfx hoot_seg5_dl_05002FD8[] = {
 
 // 0x05003038 - 0x05003088
 const Gfx hoot_seg5_dl_05003038[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPTexture(0x8000, 0x8000, 0, G_TX_RENDERTILE, G_ON),
     gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
     gsSPClearGeometryMode(G_CULL_BACK),
     gsSPDisplayList(hoot_seg5_dl_05002FD8),
     gsSPTexture(0x8000, 0x8000, 1, G_TX_RENDERTILE + 1, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetGeometryMode(G_CULL_BACK),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPEndDisplayList(),
@@ -501,13 +501,13 @@ const Gfx hoot_seg5_dl_05003100[] = {
 
 // 0x05003160 - 0x050031B0
 const Gfx hoot_seg5_dl_05003160[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPTexture(0x8000, 0x8000, 0, G_TX_RENDERTILE, G_ON),
     gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
     gsSPClearGeometryMode(G_CULL_BACK),
     gsSPDisplayList(hoot_seg5_dl_05003100),
     gsSPTexture(0x8000, 0x8000, 1, G_TX_RENDERTILE + 1, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetGeometryMode(G_CULL_BACK),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPEndDisplayList(),
@@ -554,13 +554,13 @@ const Gfx hoot_seg5_dl_05003228[] = {
 
 // 0x05003288 - 0x050032D8
 const Gfx hoot_seg5_dl_05003288[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPTexture(0x8000, 0x8000, 0, G_TX_RENDERTILE, G_ON),
     gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
     gsSPClearGeometryMode(G_CULL_BACK),
     gsSPDisplayList(hoot_seg5_dl_05003228),
     gsSPTexture(0x8000, 0x8000, 1, G_TX_RENDERTILE + 1, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetGeometryMode(G_CULL_BACK),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPEndDisplayList(),
@@ -607,13 +607,13 @@ const Gfx hoot_seg5_dl_05003350[] = {
 
 // 0x050033B0 - 0x05003400
 const Gfx hoot_seg5_dl_050033B0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPTexture(0x8000, 0x8000, 0, G_TX_RENDERTILE, G_ON),
     gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
     gsSPClearGeometryMode(G_CULL_BACK),
     gsSPDisplayList(hoot_seg5_dl_05003350),
     gsSPTexture(0x8000, 0x8000, 1, G_TX_RENDERTILE + 1, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetGeometryMode(G_CULL_BACK),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPEndDisplayList(),
@@ -660,13 +660,13 @@ const Gfx hoot_seg5_dl_05003478[] = {
 
 // 0x050034D8 - 0x05003528
 const Gfx hoot_seg5_dl_050034D8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPTexture(0x8000, 0x8000, 0, G_TX_RENDERTILE, G_ON),
     gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
     gsSPClearGeometryMode(G_CULL_BACK),
     gsSPDisplayList(hoot_seg5_dl_05003478),
     gsSPTexture(0x8000, 0x8000, 1, G_TX_RENDERTILE + 1, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetGeometryMode(G_CULL_BACK),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPEndDisplayList(),
@@ -713,13 +713,13 @@ const Gfx hoot_seg5_dl_050035A0[] = {
 
 // 0x05003600 - 0x05003650
 const Gfx hoot_seg5_dl_05003600[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPTexture(0x8000, 0x8000, 0, G_TX_RENDERTILE, G_ON),
     gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
     gsSPClearGeometryMode(G_CULL_BACK),
     gsSPDisplayList(hoot_seg5_dl_050035A0),
     gsSPTexture(0x8000, 0x8000, 1, G_TX_RENDERTILE + 1, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetGeometryMode(G_CULL_BACK),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPEndDisplayList(),
@@ -766,13 +766,13 @@ const Gfx hoot_seg5_dl_050036C8[] = {
 
 // 0x05003728 - 0x05003778
 const Gfx hoot_seg5_dl_05003728[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPTexture(0x8000, 0x8000, 0, G_TX_RENDERTILE, G_ON),
     gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
     gsSPClearGeometryMode(G_CULL_BACK),
     gsSPDisplayList(hoot_seg5_dl_050036C8),
     gsSPTexture(0x8000, 0x8000, 1, G_TX_RENDERTILE + 1, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetGeometryMode(G_CULL_BACK),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPEndDisplayList(),

@@ -33,7 +33,7 @@ static const Vtx hmc_seg7_vertex_07024228[] = {
 // Unused
 // 0x07024268 - 0x070242A0
 const Gfx hmc_seg7_dl_07024268[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_MODULATERGB, G_CC_MODULATERGB),
     gsSPLight(&hmc_seg7_lights_070241B8.l, 1),
     gsSPLight(&hmc_seg7_lights_070241B8.a, 2),
@@ -47,7 +47,7 @@ const Gfx hmc_seg7_dl_07024268[] = {
 const Gfx hmc_seg7_dl_070242A0[] = {
     gsSP2Triangles( 0,  1,  2, 0x0,  0,  2,  3, 0x0),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPEndDisplayList(),
 };
@@ -507,7 +507,7 @@ ALIGNED8 static const u8 hmc_seg7_texture_07024CE0[] = {
 
 // 0x070254E0 - 0x07025518
 static const Gfx hmc_seg7_painting_dl_070254E0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPLight(&hmc_seg7_lights_070241D0.l, 1),
     gsSPLight(&hmc_seg7_lights_070241D0.a, 2),
     gsSPVertex(hmc_seg7_vertex_07024228, 4, 0),

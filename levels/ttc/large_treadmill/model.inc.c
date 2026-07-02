@@ -103,7 +103,7 @@ static const Gfx ttc_seg7_dl_0700FB88[] = {
 
 // 0x0700FBB8 - 0x0700FC80
 const Gfx ttc_seg7_dl_0700FBB8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2),
     gsDPSetDepthSource(G_ZS_PIXEL),
@@ -119,10 +119,10 @@ const Gfx ttc_seg7_dl_0700FBB8[] = {
     gsSPDisplayList(ttc_seg7_dl_0700FAA0),
     gsSPDisplayList(ttc_seg7_dl_0700FAF8),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_PASS2),
     gsSPDisplayList(ttc_seg7_dl_0700FB88),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_AA_ZB_OPA_SURF, G_RM_NOOP2),
     gsSPClearGeometryMode(G_FOG),

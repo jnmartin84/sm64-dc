@@ -179,7 +179,7 @@ static const Vtx debug_level_select_vertex_07000798[] = {
 
 // 0x07000858 - 0x07000A28
 const Gfx debug_level_select_dl_07000858[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetLights1(debug_level_select_lights_07000000),
     gsSPVertex(debug_level_select_vertex_07000018, 15, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  3,  4,  5, 0x0),
@@ -367,7 +367,7 @@ static const Vtx debug_level_select_vertex_070010D0[] = {
 
 // 0x07001100 - 0x07001288
 const Gfx debug_level_select_dl_07001100[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetLights1(debug_level_select_lights_07000A28),
     gsSPVertex(debug_level_select_vertex_07000A40, 15, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  3,  4,  5, 0x0),
@@ -594,7 +594,7 @@ static const Vtx debug_level_select_vertex_07001B10[] = {
 
 // 0x07001BA0 - 0x07001D98
 const Gfx debug_level_select_dl_07001BA0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetLights1(debug_level_select_lights_07001288),
     gsSPVertex(debug_level_select_vertex_070012A0, 15, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  3,  4,  5, 0x0),
@@ -814,7 +814,7 @@ static const Vtx debug_level_select_vertex_07002530[] = {
 
 // 0x070025F0 - 0x070027C0
 const Gfx debug_level_select_dl_070025F0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetLights1(debug_level_select_lights_07001D98),
     gsSPVertex(debug_level_select_vertex_07001DB0, 15, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  3,  4,  5, 0x0),
@@ -1078,7 +1078,7 @@ static const Vtx debug_level_select_vertex_07003228[] = {
 
 // 0x07003258 - 0x070034A0
 const Gfx debug_level_select_dl_07003258[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetLights1(debug_level_select_lights_070027C0),
     gsSPVertex(debug_level_select_vertex_070027D8, 15, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  3,  4,  5, 0x0),
@@ -1321,7 +1321,7 @@ static const Vtx debug_level_select_vertex_07003D28[] = {
 
 // 0x07003DB8 - 0x07003FB0
 const Gfx debug_level_select_dl_07003DB8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetLights1(debug_level_select_lights_070034A0),
     gsSPVertex(debug_level_select_vertex_070034B8, 15, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  3,  4,  5, 0x0),
@@ -1557,7 +1557,7 @@ static const Vtx debug_level_select_vertex_07004838[] = {
 
 // 0x070048C8 - 0x07004AC0
 const Gfx debug_level_select_dl_070048C8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetLights1(debug_level_select_lights_07003FB0),
     gsSPVertex(debug_level_select_vertex_07003FC8, 15, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  3,  4,  5, 0x0),
@@ -1825,7 +1825,7 @@ static const Vtx debug_level_select_vertex_07005528[] = {
 
 // 0x07005558 - 0x070057A0
 const Gfx debug_level_select_dl_07005558[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetLights1(debug_level_select_lights_07004AC0),
     gsSPVertex(debug_level_select_vertex_07004AD8, 15, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  3,  4,  5, 0x0),
@@ -1932,7 +1932,7 @@ static const Vtx debug_level_select_vertex_07005998[] = {
 
 // 0x070059F8 - 0x07005A98
 const Gfx debug_level_select_dl_070059F8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetLights1(debug_level_select_lights_070057A0),
     gsSPVertex(debug_level_select_vertex_070057B8, 15, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  3,  4,  5, 0x0),
@@ -2139,7 +2139,7 @@ static const Vtx debug_level_select_vertex_07006320[] = {
 
 // 0x070063B0 - 0x070065A8
 const Gfx debug_level_select_dl_070063B0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetLights1(debug_level_select_lights_07005A98),
     gsSPVertex(debug_level_select_vertex_07005AB0, 15, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  3,  4,  5, 0x0),

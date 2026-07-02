@@ -1,15 +1,14 @@
 // 0x0700BE10 - 0x0700BE88
 const Gfx cotmc_dl_water_begin[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
-//    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_XLU_INTER2),
+    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_XLU_DECAL2),
     gsDPSetDepthSource(G_ZS_PIXEL),
     gsDPSetFogColor(0, 0, 0, 255),
     gsSPFogPosition(980, 1000),
     gsSPSetGeometryMode(G_FOG),
-    gsDPSetCombineMode(G_CC_MODULATEIFADEA, G_CC_MODULATEIFADEA),
     gsDPSetEnvColor(255, 255, 255, 140),
-//    gsDPSetCombineMode(G_CC_DECALFADE, G_CC_PASS2),
+    gsDPSetCombineMode(G_CC_DECALFADE, G_CC_PASS2),
     gsSPClearGeometryMode(G_LIGHTING | G_CULL_BACK),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON),
     //gsDPTileSync(),
@@ -21,7 +20,7 @@ const Gfx cotmc_dl_water_begin[] = {
 // 0x0700BE88 - 0x0700BED0
 const Gfx cotmc_dl_water_end[] = {
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsSPGeometryModeSetFirst(G_FOG, G_LIGHTING | G_CULL_BACK),
     gsDPSetEnvColor(255, 255, 255, 255),

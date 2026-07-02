@@ -25,20 +25,15 @@
 
 #include "sh4zam.h"
 
+#ifndef GFX_BACKEND_PVR
+#define GFX_BACKEND_PVR
+#endif
+
 int in_trilerp = 0;
 int doing_peach = 0;
 int doing_bowser = 0;
-int drawing_hand = 0;
-int do_radar_mark = 0;
-int in_transition = 0;
-int transition_verts = 0;
-int in_cannon = 0;
 
 #define SUPPORT_CHECK(x) assert(x)
-int aquarium_draw = 0;
-int water_bomb = 0;
-int doing_skybox = 0;
-int font_draw = 0;
 
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 240
@@ -56,8 +51,6 @@ int font_draw = 0;
 #define bool uint8_t
 #define true 1
 #define false 0
-
-int doing_text_bg_box = 0;
 
 struct ShaderProgram {
     bool enabled;
@@ -84,23 +77,22 @@ struct __attribute__((aligned(32))) LoadedVertex {
     // 0, 4 — GLdc: NDC (x/w, y/w). PVR: RAW CLIP x, y (see gfx_sp_vertex; the homogeneous
     // SW clip + screen-bake in the PVR gfx_sp_tri1 path need raw clip coords, matching MK64).
     float _x, _y;
-#ifdef GFX_BACKEND_PVR
     // raw clip z, w — homogeneous clip planes, depth (1/w), and N64 fog (z/w). PVR-only so the
     // GLdc build keeps its lean one-cache-line vertex.
     float _z, _w;
-#endif
     // 8, 12, 16
     float x, y, z;
     // 20, 24
     float u, v;
     // 28
     struct RGBA color;
-#ifdef GFX_BACKEND_PVR
+    // 29
     // per-vertex N64 fog coefficient (0..255), computed at vertex-load from clip z/w and the RSP
     // fog mul/offset (G_FOG). Emitted into the PVR vertex's offset-colour (oargb) ALPHA, which
     // PVR hardware VERTEX fog reads as the fog density. (Ported from OoT/MK64.)
     uint8_t fog;
-#endif
+    // 30
+    uint16_t pad;
 };
 
 // clip_rej for all 32 LoadedVerts fits in a single cache line
@@ -208,20 +200,17 @@ static struct RenderingState {
     // 8
     bool alpha_blend;
     // 9
-    uint8_t fog_change;
-    // 10
     uint8_t fog_col_change;
-    // 11: PVR texel<->colour combine (enum gfx_tex_env), derived from the N64 combiner
+    // 10: PVR texel<->colour combine (enum gfx_tex_env), derived from the N64 combiner
     uint8_t tex_env;
-    // 12: PVR vertex fog on (G_FOG geometry mode)
+    // 11: PVR vertex fog on (G_FOG geometry mode)
     uint8_t fog_enabled;
-    // 13 through 21
+    // 12 through 20, then to 31
     struct XYWidthHeight viewport, scissor;
 } rendering_state __attribute__((aligned(32)));
 
 struct GfxDimensions gfx_current_dimensions;
 
-#ifdef GFX_BACKEND_PVR
 // Frame-context state shared with the raw-PVR backend (gfx_pvr.c). The backend's
 // start_frame latches/resets these; the front-end's PVR draw paths (stages 3-4) populate
 // them. Defined here in stage 1 so the backend links and boots to a clear screen.
@@ -300,17 +289,7 @@ static void pvr_derive_blend(uint32_t oml, uint32_t omh, uint8_t *src, uint8_t *
          : (b == G_BL_1)     ? GFX_BLENDF_ONE
          :                     GFX_BLENDF_ZERO;
 }
-#endif
 
-//static bool dropped_frame;
-
-#ifndef GFX_BACKEND_PVR
-static dc_fast_t __attribute__((aligned(32))) buf_vbo[MAX_BUFFERED * 3]; // 3 vertices in a triangle (GLdc batch)
-
-static size_t buf_vbo_len = 0;
-static size_t buf_num_vert = 0;
-static size_t buf_vbo_num_tris = 0;
-#else
 // PVR streams ALL 3D geometry with NO buf_vbo: OP (kind 0) bakes into op_emit then DR-submits per
 // source-triangle (pvr_submit_op); PT/TR (kind 1/2) bake DIRECTLY into their deferred bucket
 // (pvr_reserve). op_emit holds ONE source triangle's near-clip fan = at most 2 tris = 6 verts
@@ -318,38 +297,9 @@ static size_t buf_vbo_num_tris = 0;
 static dc_fast_t __attribute__((aligned(32))) op_emit[2 * 3];
 extern void pvr_submit_op(const dc_fast_t *tris, size_t n);
 extern dc_fast_t *pvr_reserve(int kind, size_t n);
-#endif
 
 static struct GfxWindowManagerAPI *gfx_wapi;
 static struct GfxRenderingAPI *gfx_rapi;
-
-#if DEBUG_FLUSH
-static void dbg_gfx_flush(char *file, int line) {
-    printf("%s:%d\n", file, line);
-#ifndef GFX_BACKEND_PVR
-    if (buf_vbo_len > 0) {
-        gfx_rapi->draw_triangles((void *)buf_vbo, buf_vbo_len, buf_vbo_num_tris);
-        buf_vbo_len = 0;
-        buf_num_vert = 0;
-        buf_vbo_num_tris = 0;
-    }
-#endif
-    // PVR: 3D geometry streams as it's built (OP via DR, PT/TR direct into buckets) — nothing buffered.
-}
-#define gfx_flush() dbg_gfx_flush(__FILE__, __LINE__)
-#else
-static inline void gfx_flush(void) {
-#ifndef GFX_BACKEND_PVR
-    if (buf_vbo_len > 0) {
-        gfx_rapi->draw_triangles((void *)buf_vbo, buf_vbo_len, buf_vbo_num_tris);
-        buf_vbo_len = 0;
-        buf_num_vert = 0;
-        buf_vbo_num_tris = 0;
-    }
-#endif
-    // PVR: 3D geometry streams as it's built (OP via DR, PT/TR direct into buckets) — nothing buffered.
-}
-#endif
 
 int last_set_texture_image_width = 0;
 
@@ -426,7 +376,7 @@ static struct ColorCombiner *gfx_lookup_or_create_color_combiner(uint32_t cc_id)
             return prev_combiner = &color_combiner_pool[i];
         }
     }
-//    gfx_flush();
+
     struct ColorCombiner *comb = &color_combiner_pool[color_combiner_pool_size++];
     gfx_generate_cc(comb, cc_id);
     return prev_combiner = comb;
@@ -792,7 +742,7 @@ static void  __attribute__((noinline)) gfx_sp_matrix(uint8_t parameters, const i
         } else {
             gfx_matrix_mul((shz_matrix_4x4_t *)rsp.P_matrix, (const shz_matrix_4x4_t *)matrix, (const shz_matrix_4x4_t *)rsp.P_matrix);
         }
-#ifdef GFX_BACKEND_PVR
+
         // Ortho vs perspective: the PERSPECTIVE term (the element that makes clip.w depend on z) is
         // [2][3] (column 3), NOT [3][2] (which is just the z-translation). Ortho: [3][3]~=1 and
         // [2][3]~=0; perspective: [3][3]~=0 and [2][3]~=-1. Using [3][2] here misclassified the
@@ -800,8 +750,9 @@ static void  __attribute__((noinline)) gfx_sp_matrix(uint8_t parameters, const i
         // [2][3]=0) as perspective, so screen transitions / the cannon vignette never got the
         // foreground z2d band. Drives the 2D-overlay-vs-backdrop depth logic in gfx_sp_tri1.
         proj_is_ortho = (rsp.P_matrix[3][3] > 0.5f) && (rsp.P_matrix[2][3] > -0.5f);
-        if (!proj_is_ortho) cur_frame_persp = 1;
-#endif
+        if (!proj_is_ortho) {
+            cur_frame_persp = 1;
+        }
     } else { // G_MTX_MODELVIEW
         if ((parameters & G_MTX_PUSH) && rsp.modelview_matrix_stack_size < 11) {
             ++rsp.modelview_matrix_stack_size;
@@ -905,10 +856,6 @@ static void __attribute__((noinline)) gfx_sp_vertex_light(size_t n_vertices, siz
         w = out.w;
         MEM_BARRIER();
 
-#ifndef GFX_BACKEND_PVR
-        float recw = shz_fast_invf(w);   // NDC for the GLdc cull/screen path
-#endif
-
         int r = rsp.current_lights[rsp.current_num_lights - 1].col[0];
         int g = rsp.current_lights[rsp.current_num_lights - 1].col[1];
         int b = rsp.current_lights[rsp.current_num_lights - 1].col[2];
@@ -970,15 +917,14 @@ static void __attribute__((noinline)) gfx_sp_vertex_light(size_t n_vertices, siz
         // trivial clip rejection
         uint8_t cr = 128 | ((w < 0) ? 64 : 0x00);
         clip_rej[dest_index] = cr | trivial_reject(x, y, z, w);
-#ifdef GFX_BACKEND_PVR
+
         // raw CLIP coords (no perspective divide) — the PVR gfx_sp_tri1 path clips
         // homogeneously then bakes screen_x/y + 1/w from these (stage 3).
-        d->_x = x; d->_y = y; d->_z = z; d->_w = w;
+        d->_x = x;
+        d->_y = y;
+        d->_z = z;
+        d->_w = w;
         d->fog = gfx_calc_fog(z, w);   // per-vertex N64 fog coefficient -> oargb.alpha at emit
-#else
-        d->_x = x * recw;
-        d->_y = y * recw;
-#endif
     }
 }
 
@@ -1007,10 +953,6 @@ static void  __attribute__((noinline)) gfx_sp_vertex_no(size_t n_vertices, size_
         w = out.w;
         MEM_BARRIER();
 
-#ifndef GFX_BACKEND_PVR
-        float recw = shz_fast_invf(w);   // NDC for the GLdc cull/screen path
-#endif
-
         d->color.r = v->cn[0];
         d->color.g = v->cn[1];
         d->color.b = v->cn[2];
@@ -1021,13 +963,12 @@ static void  __attribute__((noinline)) gfx_sp_vertex_no(size_t n_vertices, size_
         // trivial clip rejection
         uint8_t cr = ((w < 0) ? 64 : 0x00);
         clip_rej[dest_index] = cr | trivial_reject(x, y, z, w);
-#ifdef GFX_BACKEND_PVR
-        d->_x = x; d->_y = y; d->_z = z; d->_w = w;   // raw clip (see gfx_sp_vertex_light)
+
+        d->_x = x;
+        d->_y = y;
+        d->_z = z;
+        d->_w = w;   // raw clip (see gfx_sp_vertex_light)
         d->fog = gfx_calc_fog(z, w);
-#else
-        d->_x = x * recw;
-        d->_y = y * recw;
-#endif
     }
 }
 
@@ -1053,16 +994,10 @@ static inline float step_ramp_pow(float x, float param, float n) {
     return powf(t, n);
 }
 
-int eyeball_guy = 0;
-int cotmc_shadow = 0;
-int water_ring = 0;
-int ddd_ripple = 0;
-int cotmc_water = 0;
 extern u8 gWarpTransRed;
 extern u8 gWarpTransGreen;
 extern u8 gWarpTransBlue;
 
-#ifdef GFX_BACKEND_PVR
 // ---- Raw-PVR colour combiner evaluator (raw N64 mux, ported from MK64) -------------
 // Evaluate cycle-0 (a-b)*c+d for colour AND alpha from the RAW G_SETCOMBINE words. TEXEL
 // substitutes to 1.0 (the PVR does the real texture modulate), so argb is the modulate
@@ -1267,7 +1202,6 @@ static int sm_near_clip_fan(struct LoadedVertex *v1, struct LoadedVertex *v2,
     }
     return 1;
 }
-#endif
 
 static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx) {
     struct LoadedVertex* v1 = &rsp.loaded_vertices[vtx3_idx];
@@ -1287,19 +1221,12 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         return;
     }
     if ((rsp.geometry_mode & G_CULL_BOTH) != 0) {
-#ifdef GFX_BACKEND_PVR
         // PVR stores RAW CLIP _x,_y; the back-face test needs NDC, so divide per vertex.
         float rw1 = shz_fast_invf(v1->_w), rw2 = shz_fast_invf(v2->_w), rw3 = shz_fast_invf(v3->_w);
         float dx1 = (v1->_x * rw1) - (v2->_x * rw2);
         float dy1 = (v1->_y * rw1) - (v2->_y * rw2);
         float dx2 = (v3->_x * rw3) - (v2->_x * rw2);
         float dy2 = (v3->_y * rw3) - (v2->_y * rw2);
-#else
-        float dx1 = v1->_x - v2->_x;
-        float dy1 = v1->_y - v2->_y;
-        float dx2 = v3->_x - v2->_x;
-        float dy2 = v3->_y - v2->_y;
-#endif
         float cross = dx1 * dy2 - dy1 * dx2;
         if ((c0 ^ c1 ^ c2) & 0x40) {
             // If one vertex lies behind the eye, negating cross will give the correct result.
@@ -1323,11 +1250,6 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
     }
 
     if (matrix_dirty) {
-        gfx_flush();
-#ifndef GFX_BACKEND_PVR
-        glMatrixMode(GL_PROJECTION);
-        glLoadMatrixf((const float*) rsp.MP_matrix);
-#endif
         matrix_dirty = 0;
     }
 
@@ -1349,15 +1271,6 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
     }
 
     bool depth_test = (rsp.geometry_mode & G_ZBUFFER) == G_ZBUFFER;
-
-#ifndef GFX_BACKEND_PVR
-    // GLdc keeps the water-bomb depth-off hack. On PVR the bomb is LAYER_TRANSPARENT (G_RM_AA_ZB_
-    // XLU_SURF, Z_CMP set), so it SHOULD depth-test and be occluded by the world — forcing depth
-    // off made it paint over hills. The Z_CMP-derived depth below handles it correctly instead.
-    if (water_bomb) depth_test = 0;
-#endif
-
-#ifdef GFX_BACKEND_PVR
     // Per-surface depth TEST follows the render mode's Z_CMP bit (the "ZB" in G_RM_AA_ZB_*), not
     // just the global G_ZBUFFER geometry mode (which is set almost everywhere). This mirrors how
     // depth WRITE already reads Z_UPD below. Non-ZB render modes — screen transitions, the cannon
@@ -1365,7 +1278,6 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
     // "don't depth-test me". They then passively fall into the ortho_overlay foreground path
     // (frontmost z2d) instead of z-rejecting behind 3D. No DL-flag sniffing needed.
     depth_test = depth_test && (rdp.other_mode_l & Z_CMP);
-#endif
 
     if (depth_test != rendering_state.depth_test) {
         gfx_rapi->set_depth_test(depth_test);
@@ -1386,14 +1298,12 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
     
     if (rdp.viewport_or_scissor_changed) {
         if (memcmp(&rdp.viewport, &rendering_state.viewport, sizeof(rdp.viewport)) != 0) {
-            gfx_rapi->set_viewport(rdp.viewport.x, rdp.viewport.y, rdp.viewport.width, rdp.viewport.height);
+//            gfx_rapi->set_viewport(rdp.viewport.x, rdp.viewport.y, rdp.viewport.width, rdp.viewport.height);
             n64_memcpy(&rendering_state.viewport, &rdp.viewport, sizeof(rdp.viewport));
-#ifdef GFX_BACKEND_PVR
             // PVR backend's set_viewport is a no-op; the front-end owns the screen map.
             vpf_x = rdp.viewport.x; vpf_y = rdp.viewport.y;
             vpf_w = rdp.viewport.width; vpf_h = rdp.viewport.height;
             gfx_recompute_screen_map();
-#endif
         }
         if (memcmp(&rdp.scissor, &rendering_state.scissor, sizeof(rdp.scissor)) != 0) {
             gfx_rapi->set_scissor(rdp.scissor.x, rdp.scissor.y, rdp.scissor.width, rdp.scissor.height);
@@ -1428,7 +1338,6 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
     struct ColorCombiner *comb = gfx_lookup_or_create_color_combiner(cc_id);
     struct ShaderProgram *prg = comb->prg;
     if (prg != rendering_state.shader_program) {
-        gfx_flush();
         gfx_rapi->unload_shader(rendering_state.shader_program);
         gfx_rapi->load_shader(prg);
         rendering_state.shader_program = prg;
@@ -1447,8 +1356,6 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
 
     if (usetex) {
         if (rdp.texture_changed) {
-            // necessary - confirmed yet again
-            gfx_flush();
             import_texture();
             rdp.texture_changed = 0;
         }
@@ -1494,137 +1401,13 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         if ((cmt & G_TX_CLAMP) && ((cmt & G_TX_MIRROR) || (tex_height1 != tex_height2_i))) {
             cmt &= (~G_TX_CLAMP);
         }
+
         linear_filter = (rdp.other_mode_h & (3U << G_MDSFT_TEXTFILT)) != G_TF_POINT;
-
-//        if (((linear_filter != rendering_state.texture->linear_filter) || (rendering_state.texture->cms != cms) || (rendering_state.texture->cmt != cmt))) {
-//            gfx_flush();
-//        }
-
         gfx_rapi->set_sampler_parameters(linear_filter, cms, cmt);
         rendering_state.texture->linear_filter = linear_filter;
         rendering_state.texture->cms = cms;
         rendering_state.texture->cmt = cmt;
     }
-
-#ifndef GFX_BACKEND_PVR
-    // GLdc per-vertex colour resolution (the "packedc cascade"): GLdc can't evaluate the N64
-    // combiner, so it approximates one colour per primitive here. The PVR path uses
-    // pvr_eval_combiner per vertex instead and never reads any of this — so skip the whole thing
-    // (it was pure wasted CPU per triangle under PVR). Keep the recip_tw/th block below (shared).
-    uint8_t lit = l_clip_rej[0] & 0x80;
-
-    uint32_t color_r, color_g, color_b, color_a;
-    uint32_t cc_rgb = rdp.combine_mode & 0xFFF;
-    uint32_t packedc;
-    color_r = color_g = color_b = color_a = 255;
-    int use_shade = 0;
-
-    if (cc_rgb == 0x0c1) {
-        lit = 0;
-        color_r = rdp.prim_color.r;
-        color_g = rdp.prim_color.g;
-        color_b = rdp.prim_color.b;
-        color_a = rdp.prim_color.a;
-    } else if (cc_rgb == 0x200) {
-        lit = 0;
-        color_r = 255;
-        color_g = 255;
-        color_b = 255;
-        color_a = 255;
-    } else if (doing_text_bg_box) {
-        color_r = rdp.env_color.r;
-        color_g = rdp.env_color.g;
-        color_b = rdp.env_color.b;
-        color_a = rdp.env_color.a;
-        lit = 0;
-    } else if (cc_rgb == 0x668) {
-        // (0 - G_CCMUX_ENV) * 1 + G_CCMUX_PRIM
-        color_r = (rdp.prim_color.r - rdp.env_color.r);
-        color_g = (rdp.prim_color.g - rdp.env_color.g);
-        color_b = (rdp.prim_color.b - rdp.env_color.b);
-        color_a = rdp.prim_color.a;
-    } else if (num_inputs > 1) {
-        int i0 = comb->shader_input_mapping[0][1] == CC_PRIM;
-        int i2 = comb->shader_input_mapping[0][0] == CC_ENV;
-
-        int i3 = comb->shader_input_mapping[0][0] == CC_PRIM;
-        int i4 = comb->shader_input_mapping[0][1] == CC_ENV;
-
-        if (i0 && i2) {
-            color_r = 255 - rdp.env_color.r;
-            color_g = 255 - rdp.env_color.g;
-            color_b = 255 - rdp.env_color.b;
-            color_a = rdp.prim_color.a;
-        } else if (i3 && i4) {
-            color_r = rdp.prim_color.r;
-            color_g = rdp.prim_color.g;
-            color_b = rdp.prim_color.b;
-            color_a = rdp.prim_color.a;
-
-            color_r *= ((rdp.env_color.r + 255));
-            color_g *= ((rdp.env_color.g + 255));
-            color_b *= ((rdp.env_color.b + 255));
-            color_a *= rdp.env_color.a;
-
-            color_r >>= 8;
-            color_g >>= 8;
-            color_b >>= 8;
-            color_a >>= 8;
-
-            uint32_t max_c;
-            max_c = MAX4(255, color_r, color_g, color_b);
-            float maxc = shz_div_posf(255.0f, (float) max_c);
-
-            float rn, gn, bn;
-            rn = (float) color_r * maxc;
-            gn = (float) color_g * maxc;
-            bn = (float) color_b * maxc;
-            color_r = (uint32_t) rn;
-            color_g = (uint32_t) gn;
-            color_b = (uint32_t) bn;
-        } else {
-            goto othercolorcode;
-        }
-    } else {
-    othercolorcode:
-        int k;
-        for (k = 0; k < 1 + (use_alpha ? 1 : 0); k++) {
-            switch (comb->shader_input_mapping[k][0]) {
-                case G_CCMUX_PRIMITIVE_ALPHA:
-                    color_r = color_g = color_b = rdp.prim_color.a;
-                    color_a = k ? rdp.prim_color.a : 255;
-                    use_shade = 0;
-                    break;
-                case G_CCMUX_ENV_ALPHA:
-                    color_r = color_g = color_b = rdp.env_color.a;
-                    color_a = k ? rdp.env_color.a : 255;
-                    use_shade = 0;
-                    break;
-                case CC_PRIM:
-                    color_r = rdp.prim_color.r;
-                    color_g = rdp.prim_color.g;
-                    color_b = rdp.prim_color.b;
-                    color_a = k ? rdp.prim_color.a : 255;
-                    use_shade = 0;
-                    break;
-                case CC_SHADE:
-                    use_shade = 1 + k;
-                    break;
-                case CC_ENV:
-                    color_r = rdp.env_color.r;
-                    color_g = rdp.env_color.g;
-                    color_b = rdp.env_color.b;
-                    color_a = k ? rdp.env_color.a : 255;
-                    use_shade = 0;
-                    break;
-                default:
-                    color_r = color_g = color_b = color_a = 255;
-                    use_shade = 0;
-                    break;
-            }
-        }
-    }
-#endif  // !GFX_BACKEND_PVR  (end of the GLdc packedc cascade)
 
     float recip_tw = 0.03125f;
     float recip_th = 0.03125f;
@@ -1636,27 +1419,6 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         recip_th = shz_fast_invf(tex_height);
     }
 
-#ifndef GFX_BACKEND_PVR
-    packedc = PACK_ARGB8888(color_r, color_g, color_b, color_a);
-
-    if (transition_verts) {
-        use_shade = 0;
-        lit = 0;
-        color_r = gWarpTransRed;
-        color_g = gWarpTransGreen;
-        color_b = gWarpTransBlue;
-        packedc = PACK_ARGB8888(color_r, color_g, color_b, color_a);
-    } else if (in_cannon) {
-        use_shade = 0;
-        lit = 0;
-        color_r = 0;
-        color_g = 0;
-        color_b = 0;
-        packedc = PACK_ARGB8888(color_r, color_g, color_b, color_a);
-    }
-#endif  // !GFX_BACKEND_PVR
-
-#ifdef GFX_BACKEND_PVR
     // ---- 3-way OP/PT/TR classification (raw alpha mux + render-mode flags) --------------
     //   FORCE_BL set            -> TR (real alpha blend, autosorted, composited last)
     //   else alpha-test CUTOUT  -> PT (coverage edge OR texel-alpha WITH alpha compare on)
@@ -1673,7 +1435,6 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         uint8_t cutout     = texture_edge || (alpha_uses_texel && alpha_compare_on);
         uint8_t kind = real_blend ? 2 : (cutout ? 1 : 0);   // TR : PT : OP
         if (kind != pvr_cur_kind) {
-            gfx_flush();
             gfx_pvr_set_blend(kind);
             pvr_cur_kind = kind;
         }
@@ -1681,7 +1442,6 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
             uint8_t bs, bd;
             pvr_derive_blend(rdp.other_mode_l, rdp.other_mode_h, &bs, &bd);
             if (bs != pvr_cur_bsrc || bd != pvr_cur_bdst) {
-                gfx_flush();
                 gfx_pvr_set_blend_factors(bs, bd);
                 pvr_cur_bsrc = bs; pvr_cur_bdst = bd;
             }
@@ -1697,7 +1457,6 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
     // the per-vertex argb below is evaluated in the matching mode.
     uint32_t texenv = usetex ? derive_pvr_texenv(rdp.combine_mode) : GFX_TEXENV_MODULATE;
     if (texenv != rendering_state.tex_env) {
-        gfx_flush();
         gfx_rapi->set_tex_env(texenv);
         rendering_state.tex_env = texenv;
     }
@@ -1707,7 +1466,6 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
     // gfx_dp_set_fog_color under the FIRST-WINS fog_col_change guard — NOT per draw.)
     uint8_t fog_on = (rsp.geometry_mode & G_FOG) != 0;
     if (fog_on != rendering_state.fog_enabled) {
-        gfx_flush();
         gfx_pvr_set_fog(fog_on);
         rendering_state.fog_enabled = fog_on;
     }
@@ -1757,16 +1515,9 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         v_arr[0] = fan_tris[ti][0];
         v_arr[1] = fan_tris[ti][1];
         v_arr[2] = fan_tris[ti][2];
-#endif
 
     for (i = 0; i < 3; i++) {
-        dc_fast_t * const bv =
-#ifdef GFX_BACKEND_PVR
-            &emit[op_n];
-#else
-            &buf_vbo[buf_num_vert];
-#endif
-#ifdef GFX_BACKEND_PVR
+        dc_fast_t * const bv = &emit[op_n];
         // Raw-PVR: perspective divide + viewport map -> screen pixels; z = 1/w (inverse depth).
         // Z-disabled geometry (skybox) far-pinned so the depth-tested scene wins.
         float invw = shz_fast_invf(v_arr[i]->_w);
@@ -1784,17 +1535,6 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
         else if (depth_test) dz = (zmode_decal || trilerp_pass == 1) ? invw * PVR_DECAL_ZBIAS : invw;
         else                 dz = 0.00001f;
         bv->vert.z = ortho_overlay ? z2d : dz;
-#else
-        if (do_radar_mark) {
-            bv->vert.x = (v_arr[i]->_x * SCREEN_WIDTH) + SCREEN_WIDTH;
-            bv->vert.y = SCREEN_HEIGHT - (v_arr[i]->_y * SCREEN_HEIGHT);
-            bv->vert.z = 10000.0f;
-        } else {
-            bv->vert.x = v_arr[i]->x;
-            bv->vert.y = v_arr[i]->y;
-            bv->vert.z = v_arr[i]->z;
-        }
-#endif
 
         if (usetex) {
             float u = (v_arr[i]->u - (rdp.texture_tile.uls << 3)) * 0.03125f;// / 32.0f;
@@ -1804,16 +1544,10 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
                 u += 0.5f;
                 v += 0.5f;
             }
-#ifdef GFX_BACKEND_PVR
             bv->texture.u = u * recip_tw * pvr_us;
             bv->texture.v = v * recip_th * pvr_vs;
-#else
-            bv->texture.u = u * recip_tw; // / tex_width;
-            bv->texture.v = v * recip_th; // / tex_height;
-#endif
         }
 
-#ifdef GFX_BACKEND_PVR
         // Raw-PVR: evaluate the N64 colour+alpha combiner directly (replaces packedc). argb =
         // modulate colour, oargb = additive offset (post-modulate). usetex == poly is textured.
         {
@@ -1830,45 +1564,9 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
             bv->color.packed = _argb;
             bv->pad0.vertindex = _oargb;
         }
-#else
-        if (use_shade) {
-            color_r = v_arr[i]->color.r;
-            color_g = v_arr[i]->color.g;
-            color_b = v_arr[i]->color.b;
-            color_a = (use_shade - 1) ? v_arr[i]->color.a : 255;
-            packedc = PACK_ARGB8888(color_r, color_g, color_b, color_a);
-        } else if (lit) {
-            uint32_t tc_r;
-            uint32_t tc_g;
-            uint32_t tc_b;
-            uint32_t light_r = v_arr[i]->color.r;
-            uint32_t light_g = v_arr[i]->color.g;
-            uint32_t light_b = v_arr[i]->color.b;
-                tc_r = ((((255 + color_r) >> 1) * light_r) >> 8) & 0xff;
-                tc_g = ((((255 + color_g) >> 1) * light_g) >> 8) & 0xff;
-                tc_b = ((((255 + color_b) >> 1) * light_b) >> 8) & 0xff;
-            packedc = PACK_ARGB8888(tc_r, tc_g, tc_b, color_a);
-        }
 
-        if (cotmc_shadow) {
-            packedc = 0xB4000000;
-        }
-
-        bv->color.packed = packedc;
-#endif
-
-#ifdef GFX_BACKEND_PVR
         op_n += 1;
-#else
-		buf_num_vert++;
-        buf_vbo_len += sizeof(dc_fast_t);
-#endif
 	}
-
-#ifndef GFX_BACKEND_PVR
-    buf_vbo_num_tris += 1;
-#endif
-#ifdef GFX_BACKEND_PVR
     }   // close the near-clip fan loop (for ti)
     // OP baked its whole fan into the scratch — stream it to the live OP list now (PT/TR are already
     // in their bucket). pvr_emit_op_header re-emits only on state change, so same-state runs stream headerless.
@@ -1876,56 +1574,6 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
     // A perspective 3D primitive has drawn this frame -> a later Z-off ortho 2D draw is a
     // foreground overlay, not a backdrop (gfx_draw_rectangle's far-pin reads this).
     if (!proj_is_ortho) has_done_3d = 1;
-#endif
-#define WHY_FLUSH 0
-#if WHY_FLUSH
-    int do_flush = 0;
-    if (transition_verts || (buf_vbo_num_tris == MAX_BUFFERED) || doing_skybox || water_bomb || font_draw || do_radar_mark || drawing_hand || doing_peach || doing_bowser || aquarium_draw || cotmc_water || ddd_ripple || water_ring || cotmc_shadow) {
-        do_flush = 1;
-    }
-    if (buf_vbo_num_tris == MAX_BUFFERED)
-        printf("max buffered\n");
-    if (transition_verts)
-        printf("transition verts\n");
-//    if (doing_skybox)
-//        printf("doing skybox\n");
-    if (water_bomb)
-        printf("water bomb\n");
-    if (font_draw)
-        printf("font draw\n");
-    if (do_radar_mark)
-        printf("do_radar_mark\n");
-    if (drawing_hand)
-        printf("drawing_hand\n");
-    if (doing_peach)
-        printf("doing_peach\n");
-    if (doing_bowser)
-        printf("doing_bowser\n");
-    if (aquarium_draw)
-        printf("aquarium_draw\n");
-    if (cotmc_water)
-        printf("cotmc_water\n");
-    if (ddd_ripple)
-        printf("ddd_ripple\n");
-    if (water_ring)
-        printf("water_ring\n");
-    if (cotmc_shadow)
-        printf("cotmc_shadow\n");
-
-    if (do_flush)
-        gfx_flush();
-
-#elif defined(GFX_BACKEND_PVR)
-    // PVR: nothing to flush here. All 3D geometry streamed as it was built — OP via DR (pvr_submit_op),
-    // PT/TR baked directly into their deferred buckets (pvr_reserve) — and every real state change
-    // (texenv/fog/depth/texture/shader/blend/kind) already ended the batch via the bucket dirty flag.
-    // (The old GLdc effect-flag flushes — skybox/font/portrait/water/... — are moot with no buf_vbo.)
-#else
-if (transition_verts || (buf_vbo_num_tris == MAX_BUFFERED) || doing_skybox || water_bomb || font_draw || do_radar_mark || drawing_hand || doing_peach || doing_bowser ||  aquarium_draw || cotmc_water || ddd_ripple || water_ring || cotmc_shadow) {
-//        printf("special flush\n");
-        gfx_flush();
-    }
-#endif
 }
 
 extern void gfx_opengl_draw_triangles_2d(void *buf_vbo, size_t buf_vbo_len, size_t buf_vbo_num_tris);
@@ -2116,10 +1764,6 @@ static void __attribute__((noinline)) gfx_sp_quad_2d(void) {
     v2d->color.packed = rectcolor;
 
 #ifdef GFX_BACKEND_PVR
-    // Flush pending 3D so this 2D quad keeps submission order, then classify it OP/PT/TR for
-    // the backend (it reads sListKind). The quad verts are already in strip order (built in
-    // gfx_draw_rectangle / gfx_dp_texture_rectangle under PVR).
-    gfx_flush();
     {
         int aa = (rdp.combine_w0 >> 12) & 7, ab = (rdp.combine_w1 >> 12) & 7;
         int ac = (rdp.combine_w0 >>  9) & 7, ad = (rdp.combine_w1 >>  9) & 7;
@@ -2207,8 +1851,6 @@ static void  __attribute__((noinline)) gfx_sp_movemem(uint8_t index, uint8_t off
 }
 
 
-extern float gl_fog_start;
-extern float gl_fog_end;
 extern float gProjectNear;
 extern float gProjectFar;
 
@@ -2245,15 +1887,6 @@ static void gfx_sp_moveword(uint8_t index, uint32_t data) {
         case G_MW_FOG:
             rsp.fog_mul = (int16_t)(data >> 16);
             rsp.fog_offset = (int16_t)data;
-            if ((!rendering_state.fog_change)) {
-                rendering_state.fog_change = 1;
-                float recip_fog_mul = shz_fast_invf(rsp.fog_mul);
-                float n64_min = 500.0f * (1.0f - (float) rsp.fog_offset * recip_fog_mul);
-                float n64_max = n64_min + 128000.0f * recip_fog_mul;
-                const float scale = 24.0f;
-                gl_fog_start = 10.0f + scale * exp_map_0_1000_f(n64_min);
-                gl_fog_end = 10.0f  + scale * exp_map_0_1000_f(n64_max);
-            }
             break;
     }
 }
@@ -2678,7 +2311,6 @@ static void gfx_sp_set_other_mode(uint32_t shift, uint32_t num_bits, uint64_t mo
     rdp.other_mode_h = (uint32_t)(om >> 32);
 }
 
-extern const Gfx *g_cotmc_seg7_dl_0700A3D0;
 extern Gfx *ddd_dl;
 
 extern Gfx inside_castle_seg7_dl_07037DE8[];
@@ -2712,90 +2344,14 @@ static Gfx __attribute__((aligned(32))) * dl_stack[GFX_DL_STACK_MAX];
 static void __attribute__((noinline)) gfx_run_dl(Gfx* cmd) {
     int dl_sp = 0;
 
-    drawing_hand = 0;
-
-    if (cmd == water_ring_seg6_dl_06013AC0) {
-        water_ring = 1;
-    } else {
-        water_ring = 0;
-    }
-
-    if (cmd == g_cotmc_seg7_dl_0700A3D0) {
-        cotmc_shadow = 1;
-    } else {
-        cotmc_shadow = 0;
-    }
-
-    if (cmd == mr_i_eyeball_seg6_dl_06002080) {
-        eyeball_guy = 1;
-    } else {
-        eyeball_guy = 0;
-    }
-
-    if (cmd == water_bubble_seg5_dl_05010D30) {
-        water_bomb = 1;
-    } else {
-        water_bomb = 0;
-    }
-
-    if (cmd == dl_draw_text_bg_box) {
-        doing_text_bg_box = 1;
-    } else {
-        doing_text_bg_box = 0;
-    }
-
     for (;;) {
         uint32_t opcode = cmd->words.w0 >> 24;
-        // work on placement
+
         __builtin_prefetch(clip_rej);
 
-#ifndef GFX_BACKEND_PVR
-        if (cmd == dl_transition_draw_filled_region) {
-            transition_verts = 1;
-            in_transition = 1;
-        }
-        if (in_transition && (cmd == dl_draw_quad_verts_0123)) {
-            transition_verts = 1;
-        }
-        if (cmd == dl_screen_transition_end) {
-            in_transition = 0;
-            transition_verts = 0;
-        }
-
-        if (cmd == cotmc_dl_water_begin) {
-            cotmc_water = 1;
-        }
-        if (cmd == cotmc_dl_water_end) {
-            cotmc_water = 0;
-        }
-
-        if ((cmd == dl_paintings_env_mapped_begin) && ddd_dl) {
-            ddd_ripple = 1;
-        }
-        if ((cmd == dl_paintings_env_mapped_end )&& ddd_dl) {
-            ddd_ripple = 0;
-        }
-
-        if (cmd == dl_menu_hand) {
-            drawing_hand = 1;
-        }
-
-        if (cmd == dl_ia_text_begin) {
-            font_draw = 1;
-        }
-        if (cmd == dl_ia_text_end) {
-            font_draw = 0;
-        }
-#endif
         if (cmd->words.w0 == 0x424C4E44) {
             __builtin_prefetch((void *) (cmd) + 32);
-            if (cmd->words.w1 == 0x87654321) {
-                do_radar_mark ^= 1;
-            } else if (cmd->words.w1 == 0x87654322) {
-                in_cannon ^= 1;
-            } else if (cmd->words.w1 == 0x12345678) {
-                doing_skybox ^= 1;
-            } else if (cmd->words.w1 == 0xAAAAAAAA) {
+            if (cmd->words.w1 == 0xAAAAAAAA) {
                 in_trilerp = 1;
                 doing_peach = 0;
                 doing_bowser = 0;
@@ -2815,10 +2371,6 @@ static void __attribute__((noinline)) gfx_run_dl(Gfx* cmd) {
         }
 
         switch (opcode) {
-            case G_RDPPIPESYNC:
-                gfx_flush();
-                break;
-
             // RSP commands:
             case G_MTX:
 #ifdef F3DEX_GBI_2
@@ -2878,40 +2430,7 @@ static void __attribute__((noinline)) gfx_run_dl(Gfx* cmd) {
 //                        max_sp = dl_sp;
 //                    }
                     cmd = (Gfx*) seg_addr(cmd->words.w1);
-
-                    drawing_hand = 0;
-
-                    if (cmd == water_ring_seg6_dl_06013AC0) {
-                        water_ring = 1;
-                    } else {
-                        water_ring = 0;
-                    }
-
-                    if (cmd == g_cotmc_seg7_dl_0700A3D0) {
-                        cotmc_shadow = 1;
-                    } else {
-                        cotmc_shadow = 0;
-                    }
-
-                    if (cmd == mr_i_eyeball_seg6_dl_06002080) {
-                        eyeball_guy = 1;
-                    } else {
-                        eyeball_guy = 0;
-                    }
-
-                    if (cmd == water_bubble_seg5_dl_05010D30) {
-                        water_bomb = 1;
-                    } else {
-                        water_bomb = 0;
-                    }
-
-                    if (cmd == dl_draw_text_bg_box) {
-                        doing_text_bg_box = 1;
-                    } else {
-                        doing_text_bg_box = 0;
-                    }  
                     --cmd; // increase after break
-
                     // Push return address
 //                    gfx_run_dl((Gfx *)seg_addr(cmd->words.w1));
                 } else {
@@ -3077,10 +2596,7 @@ static void __attribute__((noinline)) gfx_run_dl(Gfx* cmd) {
 
 static void gfx_sp_reset() {
     rsp.modelview_matrix_stack_size = 1;
-//    rsp.current_num_lights = 2;
-//    rsp.lights_changed = true;
     rendering_state.fog_col_change = 0;
-    rendering_state.fog_change = 0;
 }
 
 void gfx_get_dimensions(uint32_t *width, uint32_t *height) {
@@ -3157,22 +2673,13 @@ void gfx_run(Gfx *commands) {
     __builtin_prefetch(commands);
     gfx_sp_reset();
     
-//    if (!gfx_wapi->start_frame()) {
-//        dropped_frame = true;
-//        return;
-//    }
-//    dropped_frame = false;
-    
     gfx_rapi->start_frame();
     gfx_run_dl(commands);
-    gfx_flush();
     gfx_rapi->end_frame();
     gfx_wapi->swap_buffers_begin();
 }
 
 void gfx_end_frame(void) {
-//    if (!dropped_frame) {
-        gfx_rapi->finish_render();
-        gfx_wapi->swap_buffers_end();
-//    }
+    gfx_rapi->finish_render();
+    gfx_wapi->swap_buffers_end();
 }

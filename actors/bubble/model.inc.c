@@ -20,7 +20,7 @@ ALIGNED8 static const u8 bubble_seg4_texture_0401D560[] = {
 
 // 0x0401DD60 - 0x0401DDE0
 const Gfx bubble_seg4_dl_0401DD60[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON),
     gsDPLoadTextureBlock(bubble_seg4_texture_0401CD60, G_IM_FMT_RGBA, G_IM_SIZ_16b, 32, 32, 0, G_TX_CLAMP, G_TX_CLAMP, 5, 5, G_TX_NOLOD, G_TX_NOLOD),
@@ -33,7 +33,7 @@ const Gfx bubble_seg4_dl_0401DD60[] = {
 
 // 0x0401DDE0 - 0x0401DE60
 const Gfx bubble_seg4_dl_0401DDE0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON),
     gsDPLoadTextureBlock(bubble_seg4_texture_0401D560, G_IM_FMT_RGBA, G_IM_SIZ_16b, 32, 32, 0, G_TX_CLAMP, G_TX_CLAMP, 5, 5, G_TX_NOLOD, G_TX_NOLOD),

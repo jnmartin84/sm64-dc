@@ -157,7 +157,7 @@ static const Gfx pss_seg7_dl_0700AF60[] = {
 
 // 0x0700AFA8 - 0x0700B070
 const Gfx pss_seg7_dl_0700AFA8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2),
     gsDPSetDepthSource(G_ZS_PIXEL),
@@ -175,7 +175,7 @@ const Gfx pss_seg7_dl_0700AFA8[] = {
     gsSPDisplayList(pss_seg7_dl_0700AE00),
     gsSPDisplayList(pss_seg7_dl_0700AF60),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_AA_ZB_OPA_SURF, G_RM_NOOP2),
     gsSPClearGeometryMode(G_FOG),

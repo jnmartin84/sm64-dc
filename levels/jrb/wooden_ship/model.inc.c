@@ -319,7 +319,7 @@ static const Gfx jrb_seg7_dl_07008F70[] = {
 
 // 0x07008FD8 - 0x070090B0
 const Gfx jrb_seg7_dl_07008FD8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2),
     gsDPSetDepthSource(G_ZS_PIXEL),
@@ -340,7 +340,7 @@ const Gfx jrb_seg7_dl_07008FD8[] = {
     gsSPDisplayList(jrb_seg7_dl_07008DD0),
     gsSPDisplayList(jrb_seg7_dl_07008F70),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_AA_ZB_OPA_SURF, G_RM_NOOP2),
     gsSPClearGeometryMode(G_FOG),
@@ -350,7 +350,7 @@ const Gfx jrb_seg7_dl_07008FD8[] = {
 
 // 0x070090B0 - 0x07009190
 const Gfx jrb_seg7_dl_070090B0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_XLU_SURF2),
     gsDPSetDepthSource(G_ZS_PIXEL),
@@ -371,7 +371,7 @@ const Gfx jrb_seg7_dl_070090B0[] = {
     gsSPDisplayList(jrb_seg7_dl_07008DD0),
     gsSPDisplayList(jrb_seg7_dl_07008F70),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_AA_ZB_XLU_SURF, G_RM_NOOP2),
     gsSPClearGeometryMode(G_FOG),
@@ -605,7 +605,7 @@ static const Gfx jrb_seg7_dl_07009A10[] = {
 
 // 0x07009A58 - 0x07009B30
 const Gfx jrb_seg7_dl_07009A58[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2),
     gsDPSetDepthSource(G_ZS_PIXEL),
@@ -626,7 +626,7 @@ const Gfx jrb_seg7_dl_07009A58[] = {
     gsSPDisplayList(jrb_seg7_dl_070098C0),
     gsSPDisplayList(jrb_seg7_dl_07009A10),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_AA_ZB_OPA_SURF, G_RM_NOOP2),
     gsSPClearGeometryMode(G_FOG),
@@ -636,7 +636,7 @@ const Gfx jrb_seg7_dl_07009A58[] = {
 
 // 0x07009B30 - 0x07009C10
 const Gfx jrb_seg7_dl_07009B30[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_XLU_SURF2),
     gsDPSetDepthSource(G_ZS_PIXEL),
@@ -657,7 +657,7 @@ const Gfx jrb_seg7_dl_07009B30[] = {
     gsSPDisplayList(jrb_seg7_dl_070098C0),
     gsSPDisplayList(jrb_seg7_dl_07009A10),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_AA_ZB_XLU_SURF, G_RM_NOOP2),
     gsSPClearGeometryMode(G_FOG),
@@ -901,7 +901,7 @@ static const Gfx jrb_seg7_dl_0700A470[] = {
 
 // 0x0700A608 - 0x0700A6D8
 const Gfx jrb_seg7_dl_0700A608[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2),
     gsDPSetDepthSource(G_ZS_PIXEL),
@@ -921,7 +921,7 @@ const Gfx jrb_seg7_dl_0700A608[] = {
     gsDPSetTileSize(0, 0, 0, (64 - 1) << G_TEXTURE_IMAGE_FRAC, (32 - 1) << G_TEXTURE_IMAGE_FRAC),
     gsSPDisplayList(jrb_seg7_dl_0700A470),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_AA_ZB_OPA_SURF, G_RM_NOOP2),
     gsSPClearGeometryMode(G_FOG),
@@ -1072,7 +1072,7 @@ static const Gfx jrb_seg7_dl_0700AB60[] = {
 
 // 0x0700AC68 - 0x0700AD38
 const Gfx jrb_seg7_dl_0700AC68[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2),
     gsDPSetDepthSource(G_ZS_PIXEL),
@@ -1092,7 +1092,7 @@ const Gfx jrb_seg7_dl_0700AC68[] = {
     gsDPSetTileSize(0, 0, 0, (64 - 1) << G_TEXTURE_IMAGE_FRAC, (32 - 1) << G_TEXTURE_IMAGE_FRAC),
     gsSPDisplayList(jrb_seg7_dl_0700AB60),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_AA_ZB_OPA_SURF, G_RM_NOOP2),
     gsSPClearGeometryMode(G_FOG),

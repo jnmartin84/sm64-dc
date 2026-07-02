@@ -66,56 +66,56 @@ const Gfx yoshi_egg_seg5_dl_050097B8[] = {
 
 // 0x05009820 - 0x05009838
 const Gfx yoshi_egg_seg5_dl_05009820[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, yoshi_egg_seg5_texture_05008FB8),
     gsSPBranchList(yoshi_egg_seg5_dl_050097B8),
 };
 
 // 0x05009838 - 0x05009850
 const Gfx yoshi_egg_seg5_dl_05009838[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, yoshi_egg_seg5_texture_050087B8),
     gsSPBranchList(yoshi_egg_seg5_dl_050097B8),
 };
 
 // 0x05009850 - 0x05009868
 const Gfx yoshi_egg_seg5_dl_05009850[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, yoshi_egg_seg5_texture_05007FB8),
     gsSPBranchList(yoshi_egg_seg5_dl_050097B8),
 };
 
 // 0x05009868 - 0x05009880
 const Gfx yoshi_egg_seg5_dl_05009868[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, yoshi_egg_seg5_texture_050077B8),
     gsSPBranchList(yoshi_egg_seg5_dl_050097B8),
 };
 
 // 0x05009880 - 0x05009898
 const Gfx yoshi_egg_seg5_dl_05009880[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, yoshi_egg_seg5_texture_05006FB8),
     gsSPBranchList(yoshi_egg_seg5_dl_050097B8),
 };
 
 // 0x05009898 - 0x050098B0
 const Gfx yoshi_egg_seg5_dl_05009898[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, yoshi_egg_seg5_texture_050067B8),
     gsSPBranchList(yoshi_egg_seg5_dl_050097B8),
 };
 
 // 0x050098B0 - 0x050098C8
 const Gfx yoshi_egg_seg5_dl_050098B0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, yoshi_egg_seg5_texture_05005FB8),
     gsSPBranchList(yoshi_egg_seg5_dl_050097B8),
 };
 
 // 0x050098C8 - 0x050098E0
 const Gfx yoshi_egg_seg5_dl_050098C8[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, yoshi_egg_seg5_texture_050057B8),
     gsSPBranchList(yoshi_egg_seg5_dl_050097B8),
 };

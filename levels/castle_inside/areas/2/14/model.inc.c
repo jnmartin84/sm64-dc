@@ -598,7 +598,7 @@ static const Gfx inside_castle_seg7_dl_070571E8[] = {
 
 // 0x070572A0 - 0x07057380
 const Gfx inside_castle_seg7_dl_070572A0[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2),
     gsDPSetDepthSource(G_ZS_PIXEL),
@@ -620,7 +620,7 @@ const Gfx inside_castle_seg7_dl_070572A0[] = {
     gsSPDisplayList(inside_castle_seg7_dl_07057130),
     gsSPDisplayList(inside_castle_seg7_dl_070571E8),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_AA_ZB_OPA_SURF, G_RM_NOOP2),
     gsSPClearGeometryMode(G_FOG),

@@ -13,7 +13,7 @@ ALIGNED8 const u8 ssl_quicksand[] = {
 
 // 0x07004818 - 0x07004860
 const Gfx ssl_dl_quicksand_pit_begin[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_MODULATERGB, G_CC_MODULATERGB),
     gsSPLight(&ssl_lights_quicksand_pit.l, 1),
     gsSPLight(&ssl_lights_quicksand_pit.a, 2),
@@ -27,14 +27,14 @@ const Gfx ssl_dl_quicksand_pit_begin[] = {
 // 0x07004860 - 0x07004880
 const Gfx ssl_dl_quicksand_pit_end[] = {
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsSPEndDisplayList(),
 };
 
 // 0x07004880 - 0x070048F8
 const Gfx ssl_dl_pyramid_quicksand_pit_begin[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2),
     gsDPSetDepthSource(G_ZS_PIXEL),
@@ -54,7 +54,7 @@ const Gfx ssl_dl_pyramid_quicksand_pit_begin[] = {
 // 0x070048F8 - 0x07004930
 const Gfx ssl_dl_pyramid_quicksand_pit_end[] = {
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_AA_ZB_OPA_SURF, G_RM_NOOP2),
     gsSPClearGeometryMode(G_FOG),
@@ -111,7 +111,7 @@ static const Vtx ssl_seg7_vertex_07004A70[] = {
 
 // 0x07004AE0 - 0x07004BE0
 const Gfx ssl_dl_pyramid_quicksand_pit_static[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2),
     gsDPSetDepthSource(G_ZS_PIXEL),
@@ -128,7 +128,7 @@ const Gfx ssl_dl_pyramid_quicksand_pit_static[] = {
     gsSP2Triangles( 0,  3,  4, 0x0,  0,  4,  5, 0x0),
     gsSP2Triangles( 0,  5,  6, 0x0,  0,  6,  1, 0x0),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_AA_ZB_OPA_SURF, G_RM_NOOP2),
     gsSPClearGeometryMode(G_FOG),

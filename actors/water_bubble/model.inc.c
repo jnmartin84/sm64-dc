@@ -204,7 +204,7 @@ const Gfx water_bubble_seg5_dl_05010D30[] = {
 
 // 0x05011000 - 0x05011098
 const Gfx water_bubble_seg5_dl_05011000[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetGeometryMode(G_TEXTURE_GEN),
     gsDPSetCombineMode(G_CC_MODULATERGBFADE, G_CC_MODULATERGBFADE),
     gsDPSetEnvColor(255, 255, 255, 205),
@@ -212,7 +212,7 @@ const Gfx water_bubble_seg5_dl_05011000[] = {
     gsSPTexture(0x07C0, 0x07C0, 0, G_TX_RENDERTILE, G_ON),
     gsSPDisplayList(water_bubble_seg5_dl_05010D30),
     gsSPTexture(0x07C0, 0x07C0, 0, G_TX_RENDERTILE, G_OFF),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPClearGeometryMode(G_TEXTURE_GEN),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
     gsDPSetEnvColor(255, 255, 255, 255),

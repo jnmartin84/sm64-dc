@@ -63,7 +63,7 @@ const Gfx title_screen_bg_dl_0A000178[] = {
 
 // 0x0A000190 - 0x0A0001C0
 const Gfx title_screen_bg_dl_0A000190[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
     gsSPSetGeometryMode(G_LIGHTING),
     gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),

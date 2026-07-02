@@ -100,10 +100,10 @@ static const Gfx wdw_seg7_dl_07012658[] = {
 
 // 0x07012798 - 0x070127C8
 const Gfx wdw_seg7_dl_07012798[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPClearGeometryMode(G_LIGHTING),
     gsSPDisplayList(wdw_seg7_dl_07012658),
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPSetGeometryMode(G_LIGHTING),
     gsSPEndDisplayList(),
 };

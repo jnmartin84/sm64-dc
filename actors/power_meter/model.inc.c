@@ -78,7 +78,7 @@ static const Vtx vertex_power_meter_base[] = {
 
 // 0x03029480 - 0x03029530
 const Gfx dl_power_meter_base[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPClearGeometryMode(G_LIGHTING),
     gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
     gsDPSetRenderMode(G_RM_TEX_EDGE, G_RM_TEX_EDGE2),
@@ -110,7 +110,7 @@ static const Vtx vertex_power_meter_health_segments[] = {
 
 // 0x03029570 - 0x030295A0
 const Gfx dl_power_meter_health_segments_begin[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPVertex(vertex_power_meter_health_segments, 4, 0),
     //gsDPTileSync(),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 8, 0, G_TX_RENDERTILE, 0, G_TX_CLAMP, 5, G_TX_NOLOD, G_TX_CLAMP, 5, G_TX_NOLOD),
@@ -120,7 +120,7 @@ const Gfx dl_power_meter_health_segments_begin[] = {
 
 // 0x030295A0 - 0x030295D8
 const Gfx dl_power_meter_health_segments_end[] = {
-    gsDPPipeSync(),
+    //gsDPPipeSync(),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
     gsSPSetGeometryMode(G_LIGHTING),
     gsDPSetRenderMode(G_RM_OPA_SURF, G_RM_OPA_SURF2),
