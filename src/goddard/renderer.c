@@ -1449,13 +1449,13 @@ struct GdDisplayList *new_gd_dl(s32 id, s32 gfxs, s32 verts, s32 mtxs, s32 light
 /* 24BA48 -> 24BABC; not called */
 void gd_rsp_init(void) {
     gSPDisplayList(next_gfx(), osVirtualToPhysical(&gd_dl_rsp_init));
-    gDPPipeSync(next_gfx());
+    //gDPPipeSync(next_gfx());
 }
 
 /* 24BABC -> 24BB30; not called */
 void gd_rdp_init(void) {
     gSPDisplayList(next_gfx(), osVirtualToPhysical(&gd_dl_rdp_init));
-    gDPPipeSync(next_gfx());
+    //gDPPipeSync(next_gfx());
 }
 
 #if 0
@@ -1498,7 +1498,7 @@ void gd_draw_border_rect(f32 ulx, f32 uly, f32 lrx, f32 lry) {
                          (u32)(sActiveView->upperLeft.x + lrx), (u32)(lry + sActiveView->upperLeft.y));*/
     }
 
-    gDPPipeSync(next_gfx());
+    //gDPPipeSync(next_gfx());
     gDPSetCycleType(next_gfx(), G_CYC_1CYCLE);
     gDPSetRenderMode(next_gfx(), G_RM_AA_ZB_OPA_INTER, G_RM_NOOP2);
 #endif
@@ -1513,7 +1513,7 @@ void gd_set_fill(struct GdColour *colour) {
     g = colour->g * 255.0f;
     b = colour->b * 255.0f;
 
-    gDPPipeSync(next_gfx());
+    //gDPPipeSync(next_gfx());
     gDPSetCycleType(next_gfx(), G_CYC_FILL);
     gDPSetRenderMode(next_gfx(), G_RM_OPA_SURF, G_RM_OPA_SURF2);
     gDPSetFillColor(next_gfx(), GPACK_RGBA5551(r, g, b, 1) << 16 | GPACK_RGBA5551(r, g, b, 1));
@@ -1582,14 +1582,14 @@ s32 gd_startdisplist(s32 memarea) {
             fatal_printf("gd_startdisplist(): Unknown memory area");
             break;
     }
-    gDPPipeSync(next_gfx());
+    //gDPPipeSync(next_gfx());
 
     return sCurrentGdDl->number;
 }
 
 /* 24D1D4 -> 24D23C */
 void gd_enddlsplist(void) {
-    gDPPipeSync(next_gfx());
+    //gDPPipeSync(next_gfx());
     gSPEndDisplayList(next_gfx());
 }
 
@@ -1597,7 +1597,7 @@ void gd_enddlsplist(void) {
 s32 gd_enddlsplist_parent(void) {
     s32 curDlIdx = 0; // 24
 
-    gDPPipeSync(next_gfx());
+    //gDPPipeSync(next_gfx());
     gSPEndDisplayList(next_gfx());
     if (sCurrentGdDl->parent != NULL) {
         sCurrentGdDl->parent->curVtxIdx = (sCurrentGdDl->parent->curVtxIdx + sCurrentGdDl->curVtxIdx);
@@ -2293,7 +2293,7 @@ void start_view_dl(struct ObjView *view) {
     }
     func_801A180C();
     func_801A1A00();
-    gDPPipeSync(next_gfx());
+    //gDPPipeSync(next_gfx());
 }
 
 /* 251014 -> 251A1C; orig name: func_801A2844 */
@@ -3411,7 +3411,7 @@ void gd_put_sprite(u16 *sprite, s32 x, s32 y, s32 wx, s32 wy) {
         }
     }
 
-    gDPPipeSync(next_gfx());
+    //gDPPipeSync(next_gfx());
     gDPSetCycleType(next_gfx(), G_CYC_1CYCLE);
     gDPSetRenderMode(next_gfx(), G_RM_AA_ZB_OPA_INTER, G_RM_NOOP2);
     gSPTexture(next_gfx(), 0x8000, 0x8000, 0, G_TX_RENDERTILE, G_OFF);

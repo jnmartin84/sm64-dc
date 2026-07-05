@@ -125,7 +125,7 @@ static void render_fps(void) {
  * mode is not used in-game, where it is set in render_graph_node.c).
  */
 void my_rdp_init(void) {
-    gDPPipeSync(gDisplayListHead++);
+    //gDPPipeSync(gDisplayListHead++);
 /*     gDPPipelineMode(gDisplayListHead++, G_PM_1PRIMITIVE); */
 
     gDPSetScissor(gDisplayListHead++, G_SC_NON_INTERLACE, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -147,7 +147,7 @@ void my_rdp_init(void) {
 /* #ifdef VERSION_SH
     gDPSetAlphaDither(gDisplayListHead++, G_AD_PATTERN);
 #endif */
-    gDPPipeSync(gDisplayListHead++);
+    //gDPPipeSync(gDisplayListHead++);
 }
 
 /**
@@ -197,7 +197,7 @@ void clear_viewport(Vp *viewport, s32 color) {
 
 /** Draws the horizontal screen borders */
 void draw_screen_borders(void) {
-    gDPPipeSync(gDisplayListHead++);
+    //gDPPipeSync(gDisplayListHead++);
 
     gDPSetScissor(gDisplayListHead++, G_SC_NON_INTERLACE, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
     gDPSetRenderMode(gDisplayListHead++, G_RM_OPA_SURF, G_RM_OPA_SURF2);

@@ -150,7 +150,7 @@ static void geo_process_master_list_sub(struct GraphNodeMasterList *node) {
 #endif
 
     if (enableZBuffer != 0) {
-        gDPPipeSync(gDisplayListHead++);
+        //gDPPipeSync(gDisplayListHead++);
         gSPSetGeometryMode(gDisplayListHead++, G_ZBUFFER);
     }
 
@@ -166,7 +166,7 @@ static void geo_process_master_list_sub(struct GraphNodeMasterList *node) {
         }
     }
     if (enableZBuffer != 0) {
-        gDPPipeSync(gDisplayListHead++);
+        //gDPPipeSync(gDisplayListHead++);
         gSPClearGeometryMode(gDisplayListHead++, G_ZBUFFER);
     }
 }
@@ -530,14 +530,14 @@ static void geo_process_background(struct GraphNodeBackground *node) {
         Gfx *gfx = gfxStart;
 
         // responsible for not fucking up background colors
-        gDPPipeSync(gfx++);
+        //gDPPipeSync(gfx++);
         gDPSetCycleType(gfx++, G_CYC_FILL);
         gDPSetCombineMode(gfx++, G_CC_SHADE, G_CC_SHADE);
         gDPSetFillColor(gfx++, node->background);
         clear_color = node->background;
         gDPFillRectangle(gfx++, GFX_DIMENSIONS_RECT_FROM_LEFT_EDGE(0), BORDER_HEIGHT,
         GFX_DIMENSIONS_RECT_FROM_RIGHT_EDGE(0) - 1, SCREEN_HEIGHT - BORDER_HEIGHT - 1);
-        gDPPipeSync(gfx++);
+        //gDPPipeSync(gfx++);
         gDPSetCycleType(gfx++, G_CYC_1CYCLE);
         gSPEndDisplayList(gfx++);
 

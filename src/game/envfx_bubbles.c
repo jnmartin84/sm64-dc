@@ -524,7 +524,7 @@ Gfx *envfx_update_bubble_particles(s32 mode, UNUSED Vec3s marioPos, Vec3s camFro
     gSPDisplayList(sGfxCursor++, &tiny_bubble_dl_0B006D38);
 
     for (i = 0; i < sBubbleParticleMaxCount; i += 5) {
-        gDPPipeSync(sGfxCursor++);
+        //gDPPipeSync(sGfxCursor++);
         envfx_set_bubble_texture(mode, i);
         append_bubble_vertex_buffer(sGfxCursor++, i, vertex1, vertex2, vertex3, (Vtx *) gBubbleTempVtx);
         gSP1Triangle(sGfxCursor++, 0, 1, 2, 0);

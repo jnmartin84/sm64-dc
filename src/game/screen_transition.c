@@ -217,7 +217,7 @@ s32 render_textured_transition(s8 fadeTimer, s8 transTime, struct WarpTransition
         gSPVertex(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(verts), 8, 0);
         gSPRadarMark(gDisplayListHead++);
         gSPDisplayList(gDisplayListHead++, dl_transition_draw_filled_region);
-        gDPPipeSync(gDisplayListHead++);
+        //gDPPipeSync(gDisplayListHead++);
         gDPSetCombineMode(gDisplayListHead++, G_CC_MODULATEIDECALA, G_CC_MODULATEIDECALA);
         gDPSetRenderMode(gDisplayListHead++, G_RM_AA_XLU_SURF, G_RM_AA_XLU_SURF2);
         gDPSetTextureFilter(gDisplayListHead++, G_TF_BILERP);
