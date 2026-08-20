@@ -5,11 +5,6 @@ This is an update to the original 2020 mrneo240 Dreamcast port of Super Mario 64
 This repo does not include all assets necessary for compiling the game.
 A prior copy of the game is required to extract the assets. Specifically you will need to provide the US version.
 
-## Building for Sega Dreamcast
-# Just use the CDI builder found here: https://colab.research.google.com/drive/1JsN-2JOu1tzzHKowCJJRgtL01XgejZTE #
-
-Nobody follows directions anyway. If you want to build it the real way, I'll leave the reset of the docs, but I know they'll go unread.
-
 **Fixed textures live in the psp/textures/ folder. copy these into textures/, overwrite the extracted ones, and rebuild**
 
 1. Install the Dreamcast toolchain https://github.com/KallistiOS/KallistiOS/tree/master/utils/dc-chain.
