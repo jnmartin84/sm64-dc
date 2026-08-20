@@ -362,9 +362,50 @@ void play_transition_after_delay(s16 transType, s16 time, u8 red, u8 green, u8 b
     play_transition(transType, time, red, green, blue);
 }
 
+// Raw-PVR software scissor substitute for the credits window. The N64 confines the
+// 3D world to the shrinking credits viewport (D_8032CE74) via the RSP scissor; the
+// raw-PVR backend does not apply a sub-window scissor to 3D geometry, so the world
+// draws full-screen and spills outside the window. Instead of per-triangle clipping,
+// paint the region OUTSIDE the window black with four fill-rects, right after the
+// world and before the 2D credits text/HUD (which must stay on top). Gated on the
+// credits window being active, so it never runs in normal gameplay.
+static void draw_credits_window_mask(Vp *window) {
+    // Window rect in screen space, matching make_viewport_clip_rect.
+    s32 wx0 = ((window->vp.vtrans[0] - window->vp.vscale[0]) >> 2) + 1;
+    s32 wy0 = ((window->vp.vtrans[1] - window->vp.vscale[1]) >> 2) + 1;
+    s32 wx1 = ((window->vp.vtrans[0] + window->vp.vscale[0]) >> 2) - 1;
+    s32 wy1 = ((window->vp.vtrans[1] + window->vp.vscale[1]) >> 2) - 1;
+    if (wx0 < 0) wx0 = 0;
+    if (wy0 < 0) wy0 = 0;
+    if (wx1 > SCREEN_WIDTH - 1)  wx1 = SCREEN_WIDTH - 1;
+    if (wy1 > SCREEN_HEIGHT - 1) wy1 = SCREEN_HEIGHT - 1;
+
+    gDPSetScissor(gDisplayListHead++, G_SC_NON_INTERLACE, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    gDPSetRenderMode(gDisplayListHead++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
+    gDPSetCycleType(gDisplayListHead++, G_CYC_FILL);
+    gDPSetFillColor(gDisplayListHead++, GPACK_RGBA5551(0, 0, 0, 0) << 16 | GPACK_RGBA5551(0, 0, 0, 0));
+
+    if (wy0 > 0)                     // top strip (full width above the window)
+        gDPFillRectangle(gDisplayListHead++, 0, 0, SCREEN_WIDTH - 1, wy0 - 1);
+    if (wy1 < SCREEN_HEIGHT - 1)     // bottom strip
+        gDPFillRectangle(gDisplayListHead++, 0, wy1 + 1, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1);
+    if (wx0 > 0)                     // left strip (window's vertical span only)
+        gDPFillRectangle(gDisplayListHead++, 0, wy0, wx0 - 1, wy1);
+    if (wx1 < SCREEN_WIDTH - 1)      // right strip
+        gDPFillRectangle(gDisplayListHead++, wx1 + 1, wy0, SCREEN_WIDTH - 1, wy1);
+
+    gDPSetCycleType(gDisplayListHead++, G_CYC_1CYCLE);   // restore for the 2D text/HUD below
+}
+
 void render_game(void) {
     if (gCurrentArea != NULL && !gWarpTransition.pauseRendering) {
         geo_process_root(gCurrentArea->unk04, D_8032CE74, D_8032CE78, gFBSetColor);
+
+        // Mask the 3D overflow around the shrunk credits window (see above). D_8032CE74
+        // is non-NULL only while an override viewport (the credits box) is installed.
+        if (D_8032CE74 != NULL) {
+            draw_credits_window_mask(D_8032CE74);
+        }
 
         gSPViewport(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(&D_8032CF00));
 

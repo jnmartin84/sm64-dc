@@ -77,7 +77,7 @@ REVERB_TAIL_QUIET = 256        # ...for this many consecutive samples
 # Samples the game pitches above nf=2.0 (+1 octave), found via the AICA_OCTAVE_LOG
 # sweep; ADPCM pitch-clamps past +1 octave, so these must be PCM regardless of SNR.
 # (Cutoff 2.0: the "fine" group topped out at nf=1.888, a clean gap below.)
-FORCE_PCM_KEYS = {int(k, 16) for k in os.environ.get("AICA_FORCE_PCM_KEYS", "BEC60 86A0 18B570 187110 BC130 1AD350 1DBF50 127C80 132150 153E0 19CAB0 158E70 179810 198CB0 B9DF0 1CCE30 1C41D0").replace(",", " ").split()}
+FORCE_PCM_KEYS = {int(k, 16) for k in os.environ.get("AICA_FORCE_PCM_KEYS", "BEC60 86A0 18B570 187110 BC130 1AD350 1DBF50 127C80 132150 153E0 19CAB0 158E70 179810 198CB0 B9DF0 1CCE30 1C41D0 215A40 15C7C0 1EF1F0 1F43E0 1FB120 FE6A0 100350 1078C0 10B550 10ECD0 114B20 11E5B0 1209E0").replace(",", " ").split()}
 
 
 # --- beam-encode result cache --------------------------------------------------
@@ -332,5 +332,52 @@ def transcode_sample(s):
         "loop": bool(s.has_loop),
         "loop_start": loop_start,
         "loop_end": min(loop_end, n),
-        "downsample_shift": shift,
+        # rate_scale: playback-freq scale in /256 fixed point (0 = none). The old
+        # power-of-two decimate path expresses shift s as 256>>s; the resample path
+        # (transcode_resampled) uses an arbitrary ratio.
+        "rate_scale": (0 if shift == 0 else (256 >> shift)),
+    }
+
+
+def _resample_linear(pcm, n_out):
+    """Stdlib (no-scipy) linear-interpolation resample to exactly n_out samples,
+    rounded/clamped to int16. Fine for the small (~7%) downsample we use here,
+    especially into PCM8 whose quantization dominates any interp artifact."""
+    n_in = len(pcm)
+    if n_in == n_out:
+        return [_clamp16(int(round(v))) for v in pcm]
+    if n_in < 2:
+        return [_clamp16(int(round(pcm[0]))) if n_in else 0] * n_out
+    step = (n_in - 1) / float(n_out - 1)
+    out = [0] * n_out
+    for i in range(n_out):
+        pos = i * step
+        i0 = int(pos)
+        frac = pos - i0
+        i1 = i0 + 1 if i0 + 1 < n_in else i0
+        out[i] = _clamp16(int(round(pcm[i0] * (1.0 - frac) + pcm[i1] * frac)))
+    return out
+
+
+def transcode_resampled(s, target):
+    """FORCE_NOSTREAM: a sample just over the AICA single-voice cap, linearly
+    resampled down to `target` samples so it plays as ONE PCM voice instead of
+    the SH4 streamer (two independent streams of one sound phase-comb). rate_scale
+    = new/orig in /256 fixed point; the driver scales playback freq by it so pitch
+    is preserved. One-shots only (voice lines)."""
+    pcm = vadpcm.decode(s.data, s.codec, s.order, s.npredictors, s.book)
+    orig = len(pcm)
+    n = min(target, orig)
+    rpcm = _resample_linear(pcm, n)
+    rate_scale = int(round(256.0 * n / orig))
+    rate_scale = 1 if rate_scale < 1 else 255 if rate_scale > 255 else rate_scale
+    if n <= PCM16_MAX_SAMPLES:
+        fmt, data = FMT_PCM16, _pcm16_bytes(rpcm)
+    else:
+        fmt, data = FMT_PCM8, _pcm8_bytes(rpcm)
+    return {
+        "bank": s.bank, "addr": s.addr, "data": data, "fmt": fmt,
+        "snr": 99.0, "nsamples": n, "loop": False,
+        "loop_start": 0, "loop_end": n,
+        "rate_scale": rate_scale, "stream": 0,
     }

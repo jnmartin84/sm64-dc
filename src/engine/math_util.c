@@ -857,7 +857,7 @@ void spline_get_weights(Vec4f result, f32 t, UNUSED s32 c) {
         case CURVE_BEGIN_1:
             result[0] = tinv3;
             result[1] = shz_dot6f(t3, t2, t, 1.75f, -4.5f, 3.0f);
-            result[2] = t3 * 0.91666667f + t2 * 1.5f;
+            result[2] = t3 * -0.91666667f + t2 * 1.5f;
             result[3] = t3 * 0.16666667f; 
             break;
         case CURVE_BEGIN_2:

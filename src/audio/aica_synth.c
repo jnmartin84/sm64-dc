@@ -28,7 +28,7 @@ extern u8 gSoundDataRaw[];   /* .tbl base; sample keys are offsets from here */
 
 #define AICA_DEBUG 0
 #define AICA_PAN_LOG 0      /* trace pan/vol per sub-update to diagnose fast pan/tremolo effects */
-#define AICA_OCTAVE_LOG 1   /* log ADPCM samples pitched past ~+1 octave -> FORCE_PCM candidates */
+#define AICA_OCTAVE_LOG 0   /* log ADPCM samples pitched past ~+1 octave -> FORCE_PCM candidates */
 
 #include "aica_sample_table.h"
 
@@ -72,6 +72,7 @@ typedef struct {
     u8  waveSc;        /* synth voice: sampleCount (64/32/16/8) of the loaded band buffer; 0 = non-synth */
     u32 sentFreq;      /* last freq/vol/pan pushed to the channel; gates redundant updates */
     u8  sentVol, sentPan;
+    u8  rateScale;     /* per-sample playback-freq scale (/256, 0 = none) for resampled voices */
 } Voice;
 static Voice sVoices[MAX_VOICES];
 static u32 sWaveAram[NUM_WAVEFORMS][NUM_WAVE_BANDS];
@@ -109,7 +110,7 @@ typedef struct {
 static Stream sStreams[MAX_STREAMS];
 
 typedef struct {
-    u32 base, type, length, loop, loopstart, loopend;
+    u32 base, type, length, loop, loopstart, loopend, rate_scale;
 } Resolved;
 
 
@@ -202,13 +203,16 @@ static u32 wave_band(u32 sampleCount) {
    stutter; loadedSc carries that buffer's sampleCount so we rescale the rate by
    loadedSc/currentSc and the pitch stays continuous across the drift. loadedSc=0
    (non-synth, or matched band) means no rescale. */
-static u32 calc_freq(struct Note* note, u32 loadedSc) {
+static u32 calc_freq(struct Note* note, u32 loadedSc, u32 rateScale) {
     f32 f = note->frequency * (f32)gAiFrequency;
     s32 fi;
     if (loadedSc) {
         u32 cur = norm_sc(note->sampleCount);
         if (cur && cur != loadedSc) f = f * (f32)loadedSc / (f32)cur;
     }
+    /* rate_scale (/256 fixed, 0 = none): a resampled FORCE_NOSTREAM sample holds
+       fewer samples than the note's tuning assumes; scale freq to keep pitch. */
+    if (rateScale) f = f * (f32)rateScale * (1.0f / 256.0f);
     fi = (s32)f;
     if (fi < 1) fi = 1;
     return fix_aica_freq_gap((u32)fi);
@@ -272,6 +276,7 @@ static int resolve(struct Note* note, u32* outKey, Resolved* res, AramEntry** ou
         res->type = AICA_SM_16BIT;
         res->length = WAVE_SAMPLE_COUNT;
         res->loop = 1; res->loopstart = 0; res->loopend = WAVE_SAMPLE_COUNT;
+        res->rate_scale = 0;
         return 1;
     }
 
@@ -294,6 +299,7 @@ static int resolve(struct Note* note, u32* outKey, Resolved* res, AramEntry** ou
         res->loop = d->loop_flag;
         res->loopstart = d->loop_start;
         res->loopend = d->loop_end ? d->loop_end : res->length;
+        res->rate_scale = d->rate_scale;
         return 1;
     }
 }
@@ -439,7 +445,7 @@ void AicaSynth_Init(void) {
     s32 i, ch; u32 w;
 
     for (i = 0; i < ARAM_CACHE_ENTRIES; i++) { sCache[i].key = KEY_EMPTY; sCache[i].aram = 0; sCache[i].refs = 0; }
-    for (i = 0; i < MAX_VOICES; i++) { sVoices[i].channel = -1; sVoices[i].active = 0; sVoices[i].entry = NULL; sVoices[i].sampleKey = KEY_EMPTY; sVoices[i].waveSc = 0; sVoices[i].sentFreq = 0; sVoices[i].sentVol = 0; sVoices[i].sentPan = 0; }
+    for (i = 0; i < MAX_VOICES; i++) { sVoices[i].channel = -1; sVoices[i].active = 0; sVoices[i].entry = NULL; sVoices[i].sampleKey = KEY_EMPTY; sVoices[i].waveSc = 0; sVoices[i].sentFreq = 0; sVoices[i].sentVol = 0; sVoices[i].sentPan = 0; sVoices[i].rateScale = 0; }
     sChanFreeTop = 0;
     for (ch = NUM_AICA_CHANNELS - 1; ch >= 0; ch--) sChanFree[sChanFreeTop++] = (s8)ch;
 
@@ -529,9 +535,9 @@ void AicaSynth_RefreshActive(void) {
         if (!note->enabled || note->finished) continue; /* let AicaSynth_Update stop it */
 
         if (note->sound == NULL)
-            freq = calc_freq(note, v->waveSc ? v->waveSc : norm_sc(note->sampleCount));
+            freq = calc_freq(note, v->waveSc ? v->waveSc : norm_sc(note->sampleCount), 0);
         else
-            freq = calc_freq(note, 0);
+            freq = calc_freq(note, 0, v->rateScale);
         vol = calc_vol(note);
         pan = calc_pan(note);
 
@@ -589,7 +595,7 @@ void AicaSynth_Update(void) {
 
         if (rc == 2) {
             /* Streamed long sample: dedicated channel + SH4-fed PCM ring. */
-            freq = calc_freq(note, 0);
+            freq = calc_freq(note, 0, 0);
             if (v->active) voice_stop(i);          /* this note is never a normal voice */
             st = stream_for_note(i);
             if (st && (st->key != desc->src_offset || note->needsInit)) { stream_free(st); st = NULL; }
@@ -612,9 +618,9 @@ void AicaSynth_Update(void) {
            restarting the channel. Non-synth voices pass loadedSc=0. */
         if (note->sound == NULL)
             freq = calc_freq(note, retrigger ? norm_sc(note->sampleCount)
-                                             : (v->waveSc ? v->waveSc : norm_sc(note->sampleCount)));
+                                             : (v->waveSc ? v->waveSc : norm_sc(note->sampleCount)), 0);
         else
-            freq = calc_freq(note, 0);
+            freq = calc_freq(note, 0, res.rate_scale);
 
         if (retrigger) {
             s32 chn;
@@ -623,6 +629,7 @@ void AicaSynth_Update(void) {
             if (chn < 0) { cache_release(entry); continue; }
             v->channel = chn; v->active = 1; v->sampleKey = key; v->entry = entry;
             v->waveSc = (note->sound == NULL) ? (u8)norm_sc(note->sampleCount) : 0;
+            v->rateScale = (u8)res.rate_scale;
             chan_start(chn, &res, freq, vol, pan);
             v->sentFreq = freq; v->sentVol = (u8)vol; v->sentPan = (u8)pan;
 #if AICA_OCTAVE_LOG
