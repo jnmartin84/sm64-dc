@@ -34,6 +34,7 @@ except Exception:
 
 import vadpcm
 import yamaha_adpcm_v2 as ya2
+import ya2beam_c  # C beam encoder (byte-identical, ~100x); falls back to ya2
 
 AICA_MAX = 65534
 
@@ -103,7 +104,7 @@ def beam_encode_cached(pcm):
             return f.read(), n
     except OSError:
         pass
-    adpcm, n = ya2.encode(pcm, beam=BEAM)
+    adpcm, n = ya2beam_c.encode(pcm, beam=BEAM)
     os.makedirs(_CACHE_DIR, exist_ok=True)
     tmp = "%s.tmp%d" % (path, os.getpid())   # per-pid tmp -> atomic under multiprocessing
     with open(tmp, "wb") as f:

@@ -83,3 +83,4 @@ sm64config.txt
 !/assets/**/*custom*.bin
 !/assets/**/*custom*/**/*.bin
 romdisk.img
+tools/aica/_ya2beam.so

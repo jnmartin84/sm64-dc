@@ -26,6 +26,7 @@ from pathlib import Path
 from sm64_albank_parse import parse_all
 from transcode import transcode_sample, transcode_resampled, beam_encode_cached, FMT_PCM16, FMT_PCM8, FMT_ADPCM, BEAM
 import vadpcm
+import ya2beam_c
 
 ALIGN = 32
 AICA_MAX = 65534
@@ -72,6 +73,10 @@ def main(ctl_path, tbl_path, outdir, incdir):
     # Per-sample transcode is independent and CPU-heavy (beam search) -- fan out
     # across all cores. Pool.map preserves order, and we re-sort by key before
     # laying out the pool, so output is deterministic regardless of scheduling.
+    # Build the C encoder .so once here so forked workers inherit it (no per-worker
+    # compile race); falls back to pure-Python if no C compiler is present.
+    if not ya2beam_c.prebuild():
+        print("sm64_emit: C beam encoder unavailable; using pure-Python (slow)")
     with Pool(os.cpu_count()) as pool:
         descs = pool.map(_transcode_one, list(samples.values()))
 

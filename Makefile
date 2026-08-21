@@ -834,7 +834,7 @@ $(SOUND_BIN_DIR)/sound_data.tbl.inc.c: $(SOUND_BIN_DIR)/sound_data.tbl
 # AICA voice driver: regenerate the Yamaha-ADPCM pool + sample table from the
 # built sound_data banks (timestamp-gated; only re-runs when the banks change).
 # scipy-optional -- a clean checkout builds with stock python3.
-AICA_TOOLS := $(wildcard tools/aica/*.py)
+AICA_TOOLS := $(filter-out tools/aica/compare_encoders.py tools/aica/adpcm_quality.py,$(wildcard tools/aica/*.py)) tools/aica/ya2beam.c
 SOUND_OBJ_FILES += $(SOUND_BIN_DIR)/aica_pool.o $(SOUND_BIN_DIR)/aica_sample_table.o
 
 $(SOUND_BIN_DIR)/aica_pool.c: $(SOUND_BIN_DIR)/sound_data.tbl $(SOUND_BIN_DIR)/sound_data.ctl $(AICA_TOOLS)
