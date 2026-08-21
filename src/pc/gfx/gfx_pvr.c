@@ -426,8 +426,8 @@ static void gfx_pvr_select_texture(uint32_t texture_id) {
     pvr_mark_dirty();
 }
 
-// GL_UNSIGNED_SHORT_1_5_5_5_REV == 0x8366 (front-end's 1555 tag); anything else is 4444.
-#define PVR_TYPE_ARGB1555 0x8366
+// PVR_TXRFMT_ARGB1555 == 0x8366 (front-end's 1555 tag); anything else is 4444.
+//#define PVR_TYPE_ARGB1555 0x8366
 
 static void gfx_pvr_upload_texture(const uint8_t *buf16, int width, int height, unsigned int type) {
     struct PvrTex *t = &sTextures[sCurBound];
@@ -435,7 +435,7 @@ static void gfx_pvr_upload_texture(const uint8_t *buf16, int width, int height, 
     // invalidates/re-uploads textures heavily — twiddling there caused a major slowdown
     // (GLdc stayed non-twiddled for the same reason). Trade-off: non-twiddled/stride
     // textures only point-sample, so bilinear-wanting textures (speedometer) look crusty.
-    int fmt = ((type == PVR_TYPE_ARGB1555) ? PVR_TXRFMT_ARGB1555 : PVR_TXRFMT_ARGB4444)
+    int fmt = type //((type == PVR_TXRFMT_ARGB1555) ? PVR_TXRFMT_ARGB1555 : PVR_TXRFMT_ARGB4444)
               | PVR_TXRFMT_NONTWIDDLED;
 
     const uint16_t *src = (const uint16_t *) buf16;

@@ -17,17 +17,12 @@
 #include "macros.h"
 
 #include <stdio.h>
-#include <GL/gl.h>
-#include <GL/glu.h>
-#include <GL/glext.h>
-#include <GL/glkos.h>
+
+#include <kos.h>
+
 #include "gl_fast_vert.h"
 
 #include "sh4zam.h"
-
-#ifndef GFX_BACKEND_PVR
-#define GFX_BACKEND_PVR
-#endif
 
 int in_trilerp = 0;
 int doing_peach = 0;
@@ -74,11 +69,10 @@ struct XYWidthHeight {
 
 // exactly 32 bytes, 1 per cache line
 struct __attribute__((aligned(32))) LoadedVertex {
-    // 0, 4 — GLdc: NDC (x/w, y/w). PVR: RAW CLIP x, y (see gfx_sp_vertex; the homogeneous
+    // 0, 4 — PVR: RAW CLIP x, y (see gfx_sp_vertex; the homogeneous
     // SW clip + screen-bake in the PVR gfx_sp_tri1 path need raw clip coords, matching MK64).
     float _x, _y;
-    // raw clip z, w — homogeneous clip planes, depth (1/w), and N64 fog (z/w). PVR-only so the
-    // GLdc build keeps its lean one-cache-line vertex.
+    // raw clip z, w — homogeneous clip planes, depth (1/w), and N64 fog (z/w).
     float _z, _w;
     // 8, 12, 16
     float x, y, z;
@@ -225,7 +219,7 @@ int has_done_3d = 0;
 int proj_is_ortho = 0;   // current projection is orthographic (set in gfx_sp_matrix)
 // Decal z-fight bias: a decal vert's z (=1/w) is scaled by this (>1 == nearer) so it wins the
 // GEQUAL depth test against its coplanar base surface. Tune up if decals still z-fight, down if
-// they punch through nearby geometry. (GLdc's equivalent magic numbers also needed tuning.)
+// they punch through nearby geometry.
 #define PVR_DECAL_ZBIAS 1.003f
 
 extern float gfx_pvr_get_u_scale(void);
@@ -490,7 +484,7 @@ static void  __attribute__((noinline)) import_texture_rgba16(void) {
             rgba16_buf[i] = ((col16 & 1) << 15) | (col16 >> 1);
 		}
 
-		gfx_rapi->upload_texture((uint8_t*) rgba16_buf, width, height, GL_UNSIGNED_SHORT_1_5_5_5_REV);
+		gfx_rapi->upload_texture((uint8_t*) rgba16_buf, width, height, PVR_TXRFMT_ARGB1555);
 }
 
 static void  __attribute__((noinline)) import_texture_rgba32(void) {
@@ -505,7 +499,7 @@ static void  __attribute__((noinline)) import_texture_rgba32(void) {
         rgba16_buf[i] = (a << 12) | (r << 8) | (g << 4) | (b);
     }
 
-    gfx_rapi->upload_texture((uint8_t *) rgba16_buf, width, height, GL_UNSIGNED_SHORT_4_4_4_4_REV);
+    gfx_rapi->upload_texture((uint8_t *) rgba16_buf, width, height, PVR_TXRFMT_ARGB4444);
 }
 
 uint8_t __attribute__((aligned(32))) xform_buf[8192];
@@ -527,7 +521,7 @@ static void  __attribute__((noinline)) import_texture_ia4(void) {
         rgba16_buf[i] = col16;
     }
 
-    gfx_rapi->upload_texture((uint8_t *) rgba16_buf, width, height, GL_UNSIGNED_SHORT_1_5_5_5_REV);
+    gfx_rapi->upload_texture((uint8_t *) rgba16_buf, width, height, PVR_TXRFMT_ARGB1555);
 }
 
 static void  __attribute__((noinline)) import_texture_ia8(void) {
@@ -541,7 +535,7 @@ static void  __attribute__((noinline)) import_texture_ia8(void) {
         rgba16_buf[i] = (al << 12) | (in << 8) | (in << 4) | in;
     }
 
-    gfx_rapi->upload_texture((uint8_t *) rgba16_buf, width, height, GL_UNSIGNED_SHORT_4_4_4_4_REV);
+    gfx_rapi->upload_texture((uint8_t *) rgba16_buf, width, height, PVR_TXRFMT_ARGB4444);
 }
 
 static void  __attribute__((noinline)) import_texture_ia16(void) {
@@ -575,7 +569,7 @@ static void  __attribute__((noinline)) import_texture_ia16(void) {
 		tex16 += src_width;
 	}
 
-	gfx_rapi->upload_texture((uint8_t*) rgba16_buf, src_width, height, GL_UNSIGNED_SHORT_4_4_4_4_REV);
+	gfx_rapi->upload_texture((uint8_t*) rgba16_buf, src_width, height, PVR_TXRFMT_ARGB4444);
 }
 
 static void  __attribute__((noinline)) import_texture_i4(void) {
@@ -613,7 +607,7 @@ static void  __attribute__((noinline)) import_texture_i4(void) {
 		}
 	}
 
-	gfx_rapi->upload_texture((uint8_t*) rgba16_buf, width, height, GL_UNSIGNED_SHORT_4_4_4_4_REV);
+	gfx_rapi->upload_texture((uint8_t*) rgba16_buf, width, height, PVR_TXRFMT_ARGB4444);
 }
 
 static void  __attribute__((noinline)) import_texture_i8(void) {
@@ -644,7 +638,7 @@ static void  __attribute__((noinline)) import_texture_i8(void) {
 		rgba16_buf[i] = (in << 12) | (in << 8) | (in << 4) | in;
 	}
 
-	gfx_rapi->upload_texture((uint8_t*) rgba16_buf, width, height, GL_UNSIGNED_SHORT_4_4_4_4_REV);
+	gfx_rapi->upload_texture((uint8_t*) rgba16_buf, width, height, PVR_TXRFMT_ARGB4444);
 }
 
 static void  __attribute__((noinline)) import_texture(void) {
@@ -1040,16 +1034,27 @@ static inline float pvr_ca(int mux, const float prim[4], const float env[4], con
 
 // Derive the PVR texenv mode from the N64 1-cycle combiner (compact cc_id = rdp.combine_mode, the
 // CC_ enum). Maps the combiner's texel<->colour relationship onto REPLACE/MODULATE/DECAL/
-// MODULATEALPHA — replaces GLdc's per-shader-id texenv hacks. See [[reference_pvr_texenv_derivation]].
-// 2-cycle is left on MODULATE for now (scope: 1-cycle first).
+// MODULATEALPHA — replaces old per-shader-id texenv hacks.
+// 2-cycle is left on MODULATE for now.
 static uint32_t derive_pvr_texenv(uint32_t cc_id) {
-    int ca = (cc_id >> 0) & 7, cb = (cc_id >> 3) & 7, cc = (cc_id >> 6) & 7, cd = (cc_id >> 9) & 7;
-    int aa = (cc_id >> 12) & 7, ab = (cc_id >> 15) & 7, ac = (cc_id >> 18) & 7, ad = (cc_id >> 21) & 7;
+    int ca = (cc_id >> 0) & 7;
+    int cb = (cc_id >> 3) & 7;
+    int cc = (cc_id >> 6) & 7;
+    int cd = (cc_id >> 9) & 7;
+    int aa = (cc_id >> 12) & 7;
+    int ab = (cc_id >> 15) & 7;
+    int ac = (cc_id >> 18) & 7;
+    int ad = (cc_id >> 21) & 7;
+
     #define CC_ISTEX(v)  ((v) == CC_TEXEL0 || (v) == CC_TEXEL1)
     #define CC_ISTEXA(v) ((v) == CC_TEXEL0A)
+
     int color_has_tex = CC_ISTEX(ca) || CC_ISTEX(cb) || CC_ISTEX(cc) || CC_ISTEX(cd) ||
                         CC_ISTEXA(ca) || CC_ISTEXA(cb) || CC_ISTEXA(cc) || CC_ISTEXA(cd);
-    if (!color_has_tex) return GFX_TEXENV_MODULATE;     // texel-free colour: MODULATE + oargb routing
+
+    if (!color_has_tex) {
+        return GFX_TEXENV_MODULATE;     // texel-free colour: MODULATE + oargb routing
+    }
 
     int color_single = (cc == CC_0) || (ca == cb);      // colour = cd
     int color_mul    = (cb == CC_0) && (cd == CC_0);    // colour = ca * cc
@@ -1083,7 +1088,11 @@ static uint32_t derive_pvr_texenv(uint32_t cc_id) {
 static inline void pvr_eval_combiner(uint32_t w0, uint32_t w1, const struct RGBA* sh,
                                      int textured, uint32_t mode, uint32_t* out_argb, uint32_t* out_oargb) {
     // REPLACE ignores the vertex colour (px = texel); oargb (added afterward) must be 0.
-    if (mode == GFX_TEXENV_REPLACE) { *out_argb = 0xFFFFFFFFu; *out_oargb = 0; return; }
+    if (mode == GFX_TEXENV_REPLACE) {
+        *out_argb = 0xFFFFFFFFu;
+        *out_oargb = 0;
+        return;
+    }
 
     const float r255 = 1.0f / 255.0f;
     const float prim[4]  = { rdp.prim_color.r*r255, rdp.prim_color.g*r255, rdp.prim_color.b*r255, rdp.prim_color.a*r255 };
@@ -1423,8 +1432,6 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
     //   FORCE_BL set            -> TR (real alpha blend, autosorted, composited last)
     //   else alpha-test CUTOUT  -> PT (coverage edge OR texel-alpha WITH alpha compare on)
     //   else                    -> OP (opaque, live)
-    // (The GLdc packedc cascade above is #ifndef'd out on PVR — pvr_eval_combiner replaces it in
-    //  the emit loop, so there's nothing to compute or silence here.)
     {
         int aa = (rdp.combine_w0 >> 12) & 7, ab = (rdp.combine_w1 >> 12) & 7;
         int ac = (rdp.combine_w0 >>  9) & 7, ad = (rdp.combine_w1 >>  9) & 7;
@@ -1583,7 +1590,6 @@ int do_ext_fill = 0;
 static void __attribute__((noinline)) gfx_sp_quad_2d(void) {
     dc_fast_t* v2d = &rsp.loaded_vertices_2D[0];
 
-#ifdef GFX_BACKEND_PVR
     // A guaranteed-OPAQUE 2D quad lands on the live OP list (renders before TR). For it to
     // cover TR geometry it must WRITE DEPTH at its near 2D z, or TR paints over it (the intro
     // fade "disappearing" once it goes fully opaque). Force z-write for opaque 2D; translucent
@@ -1597,7 +1603,6 @@ static void __attribute__((noinline)) gfx_sp_quad_2d(void) {
         uint8_t aut = (aa==1||aa==2||ab==1||ab==2||ac==1||ac==2||ad==1||ad==2);
         opaque_2d = !(ua || aut);
     }
-#endif
 
     // for reasons, this is always 0? why?
     uint8_t depth_test = (rsp.geometry_mode & G_ZBUFFER) == G_ZBUFFER;
@@ -1607,9 +1612,8 @@ static void __attribute__((noinline)) gfx_sp_quad_2d(void) {
     }
 
     uint8_t z_upd = (rdp.other_mode_l & Z_UPD) == Z_UPD;
-#ifdef GFX_BACKEND_PVR
     if (opaque_2d) z_upd = 1;   // write depth at the near 2D z so TR can't paint over it
-#endif
+
     if (z_upd != rendering_state.depth_mask) {
         gfx_rapi->set_depth_mask(z_upd);
         rendering_state.depth_mask = z_upd;
@@ -1625,12 +1629,10 @@ static void __attribute__((noinline)) gfx_sp_quad_2d(void) {
         if (memcmp(&rdp.viewport, &rendering_state.viewport, sizeof(rdp.viewport)) != 0) {
             gfx_rapi->set_viewport(rdp.viewport.x, rdp.viewport.y, rdp.viewport.width, rdp.viewport.height);
             n64_memcpy(&rendering_state.viewport, &rdp.viewport, sizeof(rdp.viewport));
-#ifdef GFX_BACKEND_PVR
             // PVR backend's set_viewport is a no-op; the front-end owns the screen map.
             vpf_x = rdp.viewport.x; vpf_y = rdp.viewport.y;
             vpf_w = rdp.viewport.width; vpf_h = rdp.viewport.height;
             gfx_recompute_screen_map();
-#endif
         }
         if (memcmp(&rdp.scissor, &rendering_state.scissor, sizeof(rdp.scissor)) != 0) {
             gfx_rapi->set_scissor(rdp.scissor.x, rdp.scissor.y, rdp.scissor.width, rdp.scissor.height);
@@ -1763,7 +1765,6 @@ static void __attribute__((noinline)) gfx_sp_quad_2d(void) {
     v2d++->color.packed = rectcolor;
     v2d->color.packed = rectcolor;
 
-#ifdef GFX_BACKEND_PVR
     {
         int aa = (rdp.combine_w0 >> 12) & 7, ab = (rdp.combine_w1 >> 12) & 7;
         int ac = (rdp.combine_w0 >>  9) & 7, ad = (rdp.combine_w1 >>  9) & 7;
@@ -1792,7 +1793,7 @@ static void __attribute__((noinline)) gfx_sp_quad_2d(void) {
             rendering_state.tex_env = texenv;
         }
     }
-#endif
+
     gfx_rapi->draw_triangles_2d((void*) rsp.loaded_vertices_2D, 4, use_texture);
 }
 
@@ -1849,28 +1850,6 @@ static void  __attribute__((noinline)) gfx_sp_movemem(uint8_t index, uint8_t off
 #endif
     }
 }
-
-
-extern float gProjectNear;
-extern float gProjectFar;
-
-// the following isn't very rigorous
-// I eyeballed it and tweaked the `a` param until it seemed almost right
-// and still need to scale it more per-level in `gfx_gldc` when setting gl fog params
-static inline float exp_map_0_1000_f(float x) {
-    const float a = 138.62943611198894f;
-    if (x <= 0.0f)
-        return 0.0f;
-    if (x >= 1000.0f)
-        return x * 1.01f; // 1000.0f;
-
-    const float t = (x * 0.001f);
-    const float num = expm1f(a * (t - 1.0f));
-    const float den = expm1f(-a);
-    return 1000.0f * (1.0f - shz_divf(num, den));
-}
-//#undef UNUSED
-//#define UNUSED
 
 static void gfx_sp_moveword(uint8_t index, uint32_t data) {
     switch (index) {
@@ -2052,13 +2031,7 @@ static void   gfx_dp_set_fog_color(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
         rendering_state.fog_col_change = 1;
         // First fog colour of the frame wins (fog_col_change is reset per frame in gfx_sp_reset).
         // The PVR fog-colour register is a single global, so this same guard keeps it set once.
-#ifdef GFX_BACKEND_PVR
         gfx_pvr_set_fog_color(r, g, b, a);
-#else
-        float fog_color[4] = { rdp.fog_color.r * recip255, rdp.fog_color.g * recip255, rdp.fog_color.b * recip255,
-                               1.0f };
-        glFogfv(GL_FOG_COLOR, fog_color);
-#endif
     }
 }
 
@@ -2075,13 +2048,6 @@ static void  gfx_dp_set_fill_color(uint32_t packed_color) {
 }
 
 void gfx_opengl_2d_projection(void) {
-#ifndef GFX_BACKEND_PVR
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0.0f, 640.0f, 480.0f, 0.0f, -10000.0f, 10000.0f);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-#endif
     matrix_dirty = 1;
 }
 
@@ -2123,9 +2089,8 @@ static void  __attribute__((noinline)) gfx_draw_rectangle(int32_t ulx, int32_t u
     ulyf = (ulyf * 240.0f) + 240.0f;
     lryf = (lryf * 240.0f) + 240.0f;
     
-#ifdef GFX_BACKEND_PVR
     // Build the 4 verts in PVR triangle-STRIP order (ul, ll, ur, lr) so the backend submits
-    // them straight as a native quad. (GLdc's GL_QUADS uses loop order ul, ll, lr, ur below.)
+    // them straight as a native quad.
     dc_fast_t *ul = &rsp.loaded_vertices_2D[0];
     dc_fast_t *ll = &rsp.loaded_vertices_2D[1];
     dc_fast_t *ur = &rsp.loaded_vertices_2D[2];
@@ -2138,17 +2103,8 @@ static void  __attribute__((noinline)) gfx_draw_rectangle(int32_t ulx, int32_t u
     // scene, is a BACKDROP: the goddard/title background, OR geo_process_background's portal/
     // opening fill (white star-select entry, black behind opening doorways). Far-pin it so the
     // 3D scene draws over it and it shows through only the openings. Fades/effect fills come
-    // AFTER 3D (has_done_3d == 1), so draw-order alone discriminates them — no need for the old
-    // `!do_ext_fill` exclusion (which wrongly kept backdrop fills near; do_ext_fill is also a
-    // GLdc-era flag we don't want the depth logic leaning on).
+    // AFTER 3D (has_done_3d == 1), so draw-order alone discriminates them.
     if (prev_frame_had_persp && !has_done_3d) rz = 0.00001f;
-#else
-    dc_fast_t *ul = &rsp.loaded_vertices_2D[0];
-    dc_fast_t *ll = &rsp.loaded_vertices_2D[1];
-    dc_fast_t *lr = &rsp.loaded_vertices_2D[2];
-    dc_fast_t *ur = &rsp.loaded_vertices_2D[3];
-    float rz = 1.0f;
-#endif
 
     ul->vert.x = ulxf;
     ul->vert.y = ulyf;
@@ -2221,18 +2177,12 @@ static void  __attribute__((noinline)) gfx_dp_texture_rectangle(int32_t ulx, int
     float lrs = ((uls << 7) + dsdx * width) >> 7;
     float lrt = ((ult << 7) + dtdy * height) >> 7;
     
-#ifdef GFX_BACKEND_PVR
     // strip order (must match gfx_draw_rectangle): ul, ll, ur, lr
     dc_fast_t *ul = &rsp.loaded_vertices_2D[0];
     dc_fast_t *ll = &rsp.loaded_vertices_2D[1];
     dc_fast_t *ur = &rsp.loaded_vertices_2D[2];
     dc_fast_t *lr = &rsp.loaded_vertices_2D[3];
-#else
-    dc_fast_t *ul = &rsp.loaded_vertices_2D[0];
-    dc_fast_t *ll = &rsp.loaded_vertices_2D[1];
-    dc_fast_t *lr = &rsp.loaded_vertices_2D[2];
-    dc_fast_t *ur = &rsp.loaded_vertices_2D[3];
-#endif
+
     ul->texture.u = uls;
     ul->texture.v = ult;
     lr->texture.u = lrs;
@@ -2258,17 +2208,6 @@ static void gfx_dp_fill_rectangle(int32_t ulx, int32_t uly, int32_t lrx, int32_t
 
     do_ext_fill = 1;
 
-#ifndef GFX_BACKEND_PVR
-    // GLdc keeps the stock Fast3D guard: skip the z-buffer-clear fillrect (the one case where the
-    // game points the color image at the z buffer, so cimg==zimg). On the PVR path it must NOT
-    // run: this port's clear_z_buffer() is a no-op and G_SETCIMG/G_SETZIMG are never emitted, so
-    // BOTH addresses stay 0 -> 0==0 would skip EVERY fillrect (incl. geo_process_background's
-    // backdrop, screen borders, fades). No real z-clear fillrects exist here, so PVR draws all.
-    if (rdp.color_image_address == rdp.z_buf_address) {
-        // Don't clear Z buffer here since we already did it with glClear
-        return;
-    }
-#endif
     uint32_t mode = (rdp.other_mode_h & (3U << G_MDSFT_CYCLETYPE));
 
     uint32_t saved_geom_mode = rsp.geometry_mode;
