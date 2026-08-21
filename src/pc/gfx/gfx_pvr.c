@@ -1,25 +1,13 @@
 // gfx_pvr.c — raw-KOS-PVR backend for the SM64 DC renderer (ported from MK64).
 //
-// Drop-in alternative to the GLdc backend (gfx_gldc.c): implements the same
+// Drop-in replacement for the GLdc backend (gfx_gldc.c): implements the same
 // struct GfxRenderingAPI, but submits geometry straight to the PVR via the
 // direct-render (store-queue) path instead of going through OpenGL. The
 // gfx_retro_dc.c front-end (command interpreter, combiner, SW clip/cull/scissor)
 // is shared; only this backend differs. SM64's rapi is the SINGLE-TEXTURE variant
 // (shader_get_info returns the used-texture bool; no tile params), so this backend
 // is adapted accordingly vs MK64's two-tile version.
-//
-// Selected at build time with `make GFX_BACKEND=pvr` (-DGFX_BACKEND_PVR), which
-// also wires pc_main.c to pick gfx_pvr_api and tells gfx_dc.c to skip
-// glKosSwapBuffers (the PVR flips inside pvr_scene_finish here).
-//
-// STAGE 1 (current): full backend machinery present + build-wired so the PVR scene
-// lifecycle runs and the screen clears — proving the backend is live. gfx_pvr_draw_triangles
-// is a NO-OP until the front-end PVR paths (clip + screen-coord bake + combiner eval) land in
-// stage 3; SM64's GLdc front-end still emits object-space verts, which must not reach the TA.
 
-// Whole file is PVR-backend-only. SM64's Makefile wildcards every src/pc/gfx/*.c, so this
-// is compiled in the GLdc build too; the guard makes it an empty translation unit there
-// (no gfx_pvr_api, no front-end coupling refs) so the default build links unchanged.
 #include <PR/gbi.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,6 +25,10 @@
 #include "macros.h"
 #include "gl_fast_vert.h"   // dc_fast_t (the front-end's per-vertex emit struct)
 
+extern int cur_frame_persp;
+extern int prev_frame_had_persp;
+extern int has_done_3d;
+
 // The DR submit path relies on these: each vertex is copied dc_fast_t -> pvr_vertex_t
 // (identical 32-byte layout), and the poly header is written into a single 32-byte
 // store-queue slot. If a KOS revision changes either size, fail at build time rather
@@ -45,8 +37,8 @@ _Static_assert(sizeof(dc_fast_t) == sizeof(pvr_vertex_t), "dc_fast_t must match 
 _Static_assert(sizeof(pvr_poly_hdr_t) == 32, "pvr_poly_hdr_t must be one 32-byte SQ slot");
 
 // ---------------------------------------------------------------------------
-// Shader bookkeeping — identical bookkeeping to the GLdc backend. The front-end
-// treats ShaderProgram opaquely (only via shader_get_info), so this layout is
+// Shader bookkeeping — The front-end treats ShaderProgram opaquely
+// (only via shader_get_info), so this layout is
 // private to the backend. "Shaders" here will resolve to a small set of
 // pvr_poly_cxt configs in P3; for now we only need the CC feature flags.
 // ---------------------------------------------------------------------------
@@ -64,7 +56,7 @@ struct ShaderProgram {
     uint32_t shader_id;
     struct CCFeatures cc;
     enum MixType mix;
-    bool texture_used;   // SM64 is single-texture (matches gfx_gldc.c's ShaderProgram)
+    bool texture_used;   // SM64 is single-texture
     int num_inputs;
 };
 
@@ -312,11 +304,11 @@ static inline uint32_t pvr_next_pot(uint32_t v) {
 }
 static inline int pvr_is_pot(uint32_t v) { return (v & (v - 1)) == 0; }
 
-// Pad-copy with clamp-to-edge (mirrors GLdc's resample_tex): real image at top-left,
+// Pad-copy with clamp-to-edge): real image at top-left,
 // pad columns/rows replicate the edge so bilinear at the border samples real texels.
 static void pvr_pad16(const uint16_t *in, int iw, int ih, uint16_t *out, int ow, int oh) {
     int y;
-    (void)oh;
+
     for (y = 0; y < ih; y++) {
         uint16_t *o = out + (y * ow);
         memcpy(o, in + (y * iw), iw * 2);
@@ -358,11 +350,6 @@ static pvr_init_params_t sPvrParams = {
 // ===========================================================================
 // GfxRenderingAPI implementation
 // ===========================================================================
-
-static bool gfx_pvr_z_is_from_0_to_1(void) {
-    // Matches the GLdc backend's value. PVR uses 1/w depth regardless.
-    return false;
-}
 
 static void gfx_pvr_unload_shader(UNUSED struct ShaderProgram *old_prg) {
     cur_shader = NULL;
@@ -434,23 +421,19 @@ static void gfx_pvr_select_texture(uint32_t texture_id) {
     // dirty for themselves in gfx_pvr_upload_texture, so a same-id rebind is header-neutral.
     // (Matches mk64-dc/sf64-dc, which already had this guard; SM64 was missing it.)
     uint8_t changed = (sBoundTex != texture_id);
-    sCurBound = texture_id;   // upload target follows the most recent bind (à la GLdc)
+    sCurBound = texture_id;   // upload target follows the most recent bind
     sBoundTex = texture_id;
     if (changed)
         pvr_mark_dirty();
 }
 
-// PVR_TXRFMT_ARGB1555 == 0x8366 (front-end's 1555 tag); anything else is 4444.
-//#define PVR_TYPE_ARGB1555 0x8366
-
 static void gfx_pvr_upload_texture(const uint8_t *buf16, int width, int height, unsigned int type) {
     struct PvrTex *t = &sTextures[sCurBound];
-    // NON-twiddled on purpose: twiddling is a CPU reorder on every upload, and MK64
-    // invalidates/re-uploads textures heavily — twiddling there caused a major slowdown
-    // (GLdc stayed non-twiddled for the same reason). Trade-off: non-twiddled/stride
-    // textures only point-sample, so bilinear-wanting textures (speedometer) look crusty.
-    int fmt = type //((type == PVR_TXRFMT_ARGB1555) ? PVR_TXRFMT_ARGB1555 : PVR_TXRFMT_ARGB4444)
-              | PVR_TXRFMT_NONTWIDDLED;
+    // Twiddle every texture. SM64's cache uploads each texture ONCE per area (miss -> upload; hits
+    // reuse; whole set nuked at area/course reset), so the Morton reorder is a one-time cost, not
+    // per-frame like MK64. N64 TMEM (4KB) caps every single load far under the pad scratch, so all
+    // uploads end up POT after padding -- a non-twiddled/NPOT path is unreachable here.
+    int fmt = type;   // twiddled == no PVR_TXRFMT_NONTWIDDLED bit
 
     const uint16_t *src = (const uint16_t *) buf16;
     uint32_t fw = width, fh = height;
@@ -478,7 +461,7 @@ static void gfx_pvr_upload_texture(const uint8_t *buf16, int width, int height, 
     // glDeleteTextures point (gfx_pvr_clear_all_textures, via nuke_everything).
     if (t->addr && size > t->alloc_size) { pvr_mem_free(t->addr); t->addr = NULL; }
     if (!t->addr) { t->addr = pvr_mem_malloc(size); t->alloc_size = t->addr ? size : 0; }
-    if (t->addr) pvr_txr_load((void *) src, t->addr, size);
+    if (t->addr) pvr_txr_load_ex((void *) src, t->addr, fw, fh, PVR_TXRLOAD_16BPP);
 
     t->w = fw; t->h = fh; t->fmt = fmt;
     t->u_scale = us; t->v_scale = vs;
@@ -727,9 +710,9 @@ static void gfx_pvr_on_resize(void) { }
 // The N64 scene clear color, an RGBA5551 value (low 16 bits) stashed by the game's
 // clear_frame_buffer/clear_viewport (game_init.c) and geo_process_background. On this port those
 // paths emit NO fillrect — they only set this global — so the BACKEND must consume it as its
-// clear/background color (GLdc did this in gfx_opengl_start_frame). Without it every
-// clear_frame_buffer scene shows the backend's hardcoded color. Matches gfx_gldc.c's decode.
+// clear/background color. Without it every clear_frame_buffer scene shows the backend's hardcoded color.
 extern int clear_color;
+
 static inline void sm_rgba5551_to_rgbf(uint16_t c, float *r, float *g, float *b) {
     const float inv31 = 1.0f / 31.0f;
     *r = ((c >> 11) & 0x1F) * inv31;
@@ -738,15 +721,12 @@ static inline void sm_rgba5551_to_rgbf(uint16_t c, float *r, float *g, float *b)
 }
 
 static void gfx_pvr_start_frame(void) {
+    float cr, cg, cb;
     pvr_wait_ready();
     pvr_scene_begin();
-    // Recreate GLdc's per-frame backend clear: drive the PVR background plane from the game's
-    // clear_color (set last game-loop iteration, same one-frame cadence GLdc had).
-    {
-        float cr, cg, cb;
-        sm_rgba5551_to_rgbf((uint16_t) clear_color, &cr, &cg, &cb);
-        pvr_set_bg_color(cr, cg, cb);
-    }
+    // drive the PVR background plane from the game's clear_color (set last game-loop iteration).
+    sm_rgba5551_to_rgbf((uint16_t) clear_color, &cr, &cg, &cb);
+    pvr_set_bg_color(cr, cg, cb);
     // OP list open + live for the whole frame (guaranteed-opaque geometry only).
     // Anything with alpha (blend or alpha-test cutout) is deferred to the TR bucket.
     pvr_list_begin(PVR_LIST_OP_POLY);
@@ -767,19 +747,22 @@ static void gfx_pvr_start_frame(void) {
 
     // Reset the deferred PT + TR buckets and force the live OP header to re-emit for the
     // new scene. sDepth*/sListKind persist in lockstep with the front-end's trackers.
-    sTR.nverts    = 0; sTR.nbatch    = 0; sTR.cur    = -1; sTR.dirty    = 1;
-    sPunch.nverts = 0; sPunch.nbatch = 0; sPunch.cur = -1; sPunch.dirty = 1;
+    sTR.nverts = 0;
+    sTR.nbatch = 0;
+    sTR.cur = -1;
+    sTR.dirty = 1;
+    sPunch.nverts = 0;
+    sPunch.nbatch = 0;
+    sPunch.cur = -1;
+    sPunch.dirty = 1;
     sOpDirty = 1;
 
     // Latch "did the last frame have a 3D (perspective) scene" so gfx_sp_tri1 can tell a
     // Z-off ortho BACKGROUND (over-skybox clouds, in a race) from a Z-off ortho OVERLAY
     // (menu glyph text). Prev-frame value avoids draw-order races within the frame.
-    {
-        extern int cur_frame_persp, prev_frame_had_persp, has_done_3d;
-        prev_frame_had_persp = cur_frame_persp;
-        cur_frame_persp = 0;
-        has_done_3d = 0;   // reset: no 3D drawn yet this frame (title bg -> far until flag)
-    }
+    prev_frame_had_persp = cur_frame_persp;
+    cur_frame_persp = 0;
+    has_done_3d = 0;   // reset: no 3D drawn yet this frame (title bg -> far until flag)
 }
 
 static void gfx_pvr_end_frame(void) {
@@ -803,13 +786,11 @@ static void gfx_pvr_end_frame(void) {
 }
 
 static void gfx_pvr_finish_render(void) {
-    // Submits the scene to the GPU and flips. (Replaces glKosSwapBuffers, which
-    // gfx_dc.c skips under -DGFX_BACKEND_PVR.)
+    // Submits the scene to the GPU and flips.
     pvr_scene_finish();
 }
 
 struct GfxRenderingAPI gfx_pvr_api = {
-    gfx_pvr_z_is_from_0_to_1,
     gfx_pvr_unload_shader,
     gfx_pvr_load_shader,
     gfx_pvr_create_and_load_new_shader,

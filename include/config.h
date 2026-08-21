@@ -36,7 +36,7 @@
 #endif
 #else
 // What's the point of having a border?
-#define BORDER_HEIGHT 0
+#define BORDER_HEIGHT 8
 #endif
 
 #endif // CONFIG_H

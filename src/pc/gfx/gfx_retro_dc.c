@@ -1589,6 +1589,7 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
 
 extern void gfx_opengl_draw_triangles_2d(void *buf_vbo, size_t buf_vbo_len, size_t buf_vbo_num_tris);
 
+static inline uint32_t color_comb(uint32_t a, uint32_t b, uint32_t c, uint32_t d);  // defined below
 int do_ext_fill = 0;
 
 static void __attribute__((noinline)) gfx_sp_quad_2d(void) {
@@ -1645,7 +1646,16 @@ static void __attribute__((noinline)) gfx_sp_quad_2d(void) {
         rdp.viewport_or_scissor_changed = 0;
     }
 
-    uint32_t cc_id = rdp.combine_mode;
+    // gDPFillRectangle ignores the combiner on real RDP (a solid fill_color write). This 2D path
+    // otherwise derives the shader -- including whether it is TEXTURED -- from rdp.combine_mode,
+    // which can still hold a textured combiner from the PREVIOUS draw (e.g. PRESS START text). The
+    // fill quad then samples that stale texture (garbage stretched over the screen-border rects;
+    // solid black only when the prior combiner happened to be untextured). Force a plain SHADE
+    // combiner for fills so they are solid UNtextured quads tinted by the vertex (fill) colour,
+    // matching RDP fill semantics. Fixes every fill-rect (screen borders, credits/letterbox masks).
+    uint32_t cc_id = do_ext_fill
+        ? (color_comb(0, 0, 0, G_CCMUX_SHADE) | (color_comb(0, 0, 0, G_ACMUX_SHADE) << 12))
+        : rdp.combine_mode;
 
     uint8_t use_alpha = (rdp.other_mode_l & (G_BL_A_MEM << 18)) == 0;
     uint8_t use_fog = (rdp.other_mode_l >> 30) == G_BL_CLR_FOG;

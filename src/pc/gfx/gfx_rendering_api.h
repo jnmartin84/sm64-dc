@@ -32,7 +32,6 @@ enum gfx_tex_env {
 struct ShaderProgram;
 
 struct GfxRenderingAPI {
-    bool (*z_is_from_0_to_1)(void);
     void (*unload_shader)(struct ShaderProgram *old_prg);
     void (*load_shader)(struct ShaderProgram *new_prg);
     struct ShaderProgram *(*create_and_load_new_shader)(uint32_t shader_id);
