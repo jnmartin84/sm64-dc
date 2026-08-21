@@ -562,10 +562,7 @@ endif
 
 # GFX_BACKEND - selects the renderer backend (DC):
 #   pvr  - raw KOS PVR direct-render (gfx_pvr.c)
-GFX_BACKEND ?= pvr
-ifeq ($(GFX_BACKEND),pvr)
   PLATFORM_CFLAGS += -DGFX_BACKEND_PVR=1
-endif
 
 # need to finish working through these
 #  PLATFORM_CFLAGS += -Wdouble-promotion

@@ -20,8 +20,6 @@
 // Whole file is PVR-backend-only. SM64's Makefile wildcards every src/pc/gfx/*.c, so this
 // is compiled in the GLdc build too; the guard makes it an empty translation unit there
 // (no gfx_pvr_api, no front-end coupling refs) so the default build links unchanged.
-#ifdef GFX_BACKEND_PVR
-
 #include <PR/gbi.h>
 #include <stdlib.h>
 #include <string.h>
@@ -804,5 +802,3 @@ struct GfxRenderingAPI gfx_pvr_api = {
     gfx_pvr_end_frame,
     gfx_pvr_finish_render,
 };
-
-#endif // GFX_BACKEND_PVR
