@@ -362,7 +362,8 @@ void play_transition_after_delay(s16 transType, s16 time, u8 red, u8 green, u8 b
     play_transition(transType, time, red, green, blue);
 }
 
-// Raw-PVR software scissor substitute for the credits window. The N64 confines the
+// Raw-PVR software scissor substitute for a shrunk override viewport (credits window
+// or ending-cutscene letterbox). The N64 confines the
 // 3D world to the shrinking credits viewport (D_8032CE74) via the RSP scissor; the
 // raw-PVR backend does not apply a sub-window scissor to 3D geometry, so the world
 // draws full-screen and spills outside the window. Instead of per-triangle clipping,
@@ -401,10 +402,16 @@ void render_game(void) {
     if (gCurrentArea != NULL && !gWarpTransition.pauseRendering) {
         geo_process_root(gCurrentArea->unk04, D_8032CE74, D_8032CE78, gFBSetColor);
 
-        // Mask the 3D overflow around the shrunk credits window (see above). D_8032CE74
-        // is non-NULL only while an override viewport (the credits box) is installed.
+        // Mask the 3D overflow around a shrunk override viewport (see above). Both
+        // the credits window (b-slot, D_8032CE74) and the ending-cutscene letterbox
+        // (c-slot, D_8032CE78, sEndCutsceneVp shrinks the 3D band to [30,210]) confine
+        // 3D to a sub-window via the RSP scissor, which the raw-PVR backend ignores, so
+        // the world spills into the borders. Same mask; mirror geo_process_root's
+        // b-then-c priority. Each is non-NULL only while its cutscene installs it.
         if (D_8032CE74 != NULL) {
             draw_credits_window_mask(D_8032CE74);
+        } else if (D_8032CE78 != NULL) {
+            draw_credits_window_mask(D_8032CE78);
         }
 
         gSPViewport(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(&D_8032CF00));
@@ -450,6 +457,11 @@ void render_game(void) {
         render_text_labels();
         if (D_8032CE78 != 0) {
             clear_viewport(D_8032CE78, gWarpTransFBSetColor);
+            // clear_viewport ignores the sub-viewport on raw-PVR -- it only sets the full-screen
+            // clear_color -- so a white pause-hold (the ending flash's peak, pauseRendering=1 for
+            // ~29 frames between fade-into-white and fade-from-white) whitens the letterbox bars
+            // too. Re-black the bars over the clear, matching the active-path mask.
+            draw_credits_window_mask(D_8032CE78);
         } else {
             clear_frame_buffer(gWarpTransFBSetColor);
         }

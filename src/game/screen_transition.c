@@ -15,23 +15,6 @@
 
 #include "sh4zam.h"
 
-#define gSPRadarMark(pkt)          \
-    {                              \
-        Gfx* _g = (Gfx*) (pkt);    \
-                                   \
-        _g->words.w0 = 0x424C4E44; \
-        _g->words.w1 = 0x87654321; \
-    }
-
-#define gSPCannon(pkt)          \
-    {                              \
-        Gfx* _g = (Gfx*) (pkt);    \
-                                   \
-        _g->words.w0 = 0x424C4E44; \
-        _g->words.w1 = 0x87654322; \
-    }
-
-
 u8 sTransitionColorFadeCount[4] = { 0 };
 u16 sTransitionTextureFadeCount[2] = { 0 };
 
@@ -51,6 +34,7 @@ s32 set_and_reset_transition_fade_timer(s8 fadeTimer, u8 transTime) {
 // note from jn64:
 // if you do a bad job approximating the math, the fade-out transition has an opaque flash at the end
 // just leave it as-is, not critical path
+extern Vp *D_8032CE78;   // ending-cutscene letterbox viewport (area.c); NULL outside it
 u8 set_transition_color_fade_alpha(s8 fadeType, s8 fadeTimer, u8 transTime) {
     u8 time = 0;
 
@@ -65,20 +49,46 @@ u8 set_transition_color_fade_alpha(s8 fadeType, s8 fadeTimer, u8 transTime) {
             time = (f32) sTransitionColorFadeCount[fadeTimer] * 255.0 / (f32)(transTime - 1) + 0.5; // fade in
             break;
     }
+    // During the ending letterbox cutscene the fade quad is clamped to the visible band
+    // (vertex_transition_color) so it can't paint the black bars. That clamp is honored on
+    // the TRANSLUCENT list; at EXACTLY alpha 255 the quad is reclassified fully-opaque and
+    // takes an opaque path that ignores the banded geometry and fills full-screen -> the bars
+    // go white for one frame. Cap the peak one step below full opacity so it stays on the
+    // translucent (banded) path. 254/255 white is visually identical. Ending-only.
+    if (D_8032CE78 != NULL && time == 255) {
+        time = 254;
+    }
     return time;
 }
+
+// The ending Peach cutscene installs a shrunk viewport (D_8032CE78, sEndCutsceneVp)
+// that letterboxes the 3D to a vertical band, leaving black bars top and bottom. On
+// N64 the color fade is scissored to that band, so the bars stay black. The raw-PVR
+// backend ignores sub-window scissor AND composites this XLU fade above the opaque
+// bar mask, so a full-screen fade quad paints the bars. Instead, clamp the fade
+// quad's Y to the band so it never reaches the bars -- reproducing the N64 scissor.
+extern Vp *D_8032CE78;
 
 Vtx *vertex_transition_color(struct WarpTransitionData *transData, u8 alpha) {
     Vtx *verts = alloc_display_list(4 * sizeof(*verts));
     u8 r = transData->red;
     u8 g = transData->green;
     u8 b = transData->blue;
+    s16 top = 0;
+    s16 bot = SCREEN_HEIGHT;
+
+    if (D_8032CE78 != NULL) {
+        top = (D_8032CE78->vp.vtrans[1] - D_8032CE78->vp.vscale[1]) >> 2;
+        bot = (D_8032CE78->vp.vtrans[1] + D_8032CE78->vp.vscale[1]) >> 2;
+        if (top < 0) top = 0;
+        if (bot > SCREEN_HEIGHT) bot = SCREEN_HEIGHT;
+    }
 
     if (verts != NULL) {
-        make_vertex(verts, 0, GFX_DIMENSIONS_FROM_LEFT_EDGE(0), 0, -1, 0, 0, r, g, b, alpha);
-        make_vertex(verts, 1, GFX_DIMENSIONS_FROM_RIGHT_EDGE(0), 0, -1, 0, 0, r, g, b, alpha);
-        make_vertex(verts, 2, GFX_DIMENSIONS_FROM_RIGHT_EDGE(0), SCREEN_HEIGHT, -1, 0, 0, r, g, b, alpha);
-        make_vertex(verts, 3, GFX_DIMENSIONS_FROM_LEFT_EDGE(0), SCREEN_HEIGHT, -1, 0, 0, r, g, b, alpha);
+        make_vertex(verts, 0, GFX_DIMENSIONS_FROM_LEFT_EDGE(0), top, -1, 0, 0, r, g, b, alpha);
+        make_vertex(verts, 1, GFX_DIMENSIONS_FROM_RIGHT_EDGE(0), top, -1, 0, 0, r, g, b, alpha);
+        make_vertex(verts, 2, GFX_DIMENSIONS_FROM_RIGHT_EDGE(0), bot, -1, 0, 0, r, g, b, alpha);
+        make_vertex(verts, 3, GFX_DIMENSIONS_FROM_LEFT_EDGE(0), bot, -1, 0, 0, r, g, b, alpha);
     } else {
     }
     return verts;
@@ -88,13 +98,11 @@ s32 dl_transition_color(s8 fadeTimer, u8 transTime, struct WarpTransitionData *t
     Vtx *verts = vertex_transition_color(transData, alpha);
 
     if (verts != NULL) {
-        gSPRadarMark(gDisplayListHead++);
         gSPDisplayList(gDisplayListHead++, dl_proj_mtx_fullscreen);
         gDPSetCombineMode(gDisplayListHead++, G_CC_SHADE, G_CC_SHADE);
         gDPSetRenderMode(gDisplayListHead++, G_RM_AA_XLU_SURF, G_RM_AA_XLU_SURF2);
         gSPVertex(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(verts), 4, 0);
         gSPDisplayList(gDisplayListHead++, dl_draw_quad_verts_0123);
-        gSPRadarMark(gDisplayListHead++);
         gSPDisplayList(gDisplayListHead++, dl_screen_transition_end);
     }
     return set_and_reset_transition_fade_timer(fadeTimer, transTime);
@@ -215,7 +223,6 @@ s32 render_textured_transition(s8 fadeTimer, s8 transTime, struct WarpTransition
         // XLU draw is solid opaque black -- identical look, but now TR -> always on top.
         gDPSetRenderMode(gDisplayListHead++, G_RM_AA_XLU_SURF, G_RM_AA_XLU_SURF2);
         gSPVertex(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(verts), 8, 0);
-        gSPRadarMark(gDisplayListHead++);
         gSPDisplayList(gDisplayListHead++, dl_transition_draw_filled_region);
         //gDPPipeSync(gDisplayListHead++);
         gDPSetCombineMode(gDisplayListHead++, G_CC_MODULATEIDECALA, G_CC_MODULATEIDECALA);
@@ -235,7 +242,6 @@ s32 render_textured_transition(s8 fadeTimer, s8 transTime, struct WarpTransition
         gSPVertex(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(verts), 4, 0);
         gSPDisplayList(gDisplayListHead++, dl_draw_quad_verts_0123);
         gSPTexture(gDisplayListHead++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF);
-        gSPRadarMark(gDisplayListHead++);
         gSPDisplayList(gDisplayListHead++, dl_screen_transition_end);
         sTransitionTextureFadeCount[fadeTimer] += transData->texTimer;
     } else {
@@ -300,9 +306,7 @@ Gfx *render_cannon_circle_base(void) {
             G_TX_WRAP | G_TX_MIRROR, G_TX_WRAP | G_TX_MIRROR, 5, 6, G_TX_NOLOD, G_TX_NOLOD);
         gSPTexture(g++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
         gSPVertex(g++, VIRTUAL_TO_PHYSICAL(verts), 4, 0);
-        gSPCannon(g++);
         gSPDisplayList(g++, dl_draw_quad_verts_0123);
-        gSPCannon(g++);
         gSPTexture(g++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF);
         gSPDisplayList(g++, dl_screen_transition_end);
         gSPEndDisplayList(g);

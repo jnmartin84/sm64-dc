@@ -44,6 +44,18 @@ static s16 sEndToadAnims[2];
 static Vp sEndCutsceneVp = { { { 640, 480, 511, 0 }, { 640, 480, 511, 0 } } };
 static struct CreditsEntry *sDispCreditsEntry = NULL;
 
+// Sync the credits fade-to-cake to the ending music instead of a fixed frame count.
+// The music runs on the real-time audio clock (200s from the "listen everybody, let's
+// bake a delicious cake" line), but our visuals hit full framerate with none of the
+// N64's credits slowdown, so a frame-counted WARP_OP_CREDITS_END fires ~12s early and
+// the cake/voice step on the still-playing music. Instead, anchor real time when that
+// line triggers and fire the transition CREDITS_CAKE_DELAY_US later. Tweak the delay to
+// taste. pc_realtime_us() is 0 off-DC, so the anchor stays 0 and the original 300-frame
+// timing is used there.
+extern u64 pc_realtime_us(void);
+#define CREDITS_CAKE_DELAY_US 194000000ULL   // 194s: 200s music - ~6s fade-out/load/cake-fade tail
+static u64 sCreditsCakeAnchorUs = 0;         // real time at the "bake a cake" line; 0 = unset
+
 // related to peach gfx?
 static s8 D_8032CBE4 = 0;
 static s8 D_8032CBE8 = 0;
@@ -2395,6 +2407,7 @@ static void end_peach_cutscene_dialog_3(struct MarioState *m) {
             sEndToadAnims[1] = 2;
             D_8032CBE8 = 1;
             set_cutscene_message(160, 227, 5, 30);
+            sCreditsCakeAnchorUs = pc_realtime_us();   // anchor: sync the cake transition to the music from here
 #ifndef VERSION_JP
             play_sound(SOUND_PEACH_BAKE_A_CAKE, sEndPeachObj->header.gfx.cameraToObject);
 #endif
@@ -2615,7 +2628,14 @@ static s32 act_end_waving_cutscene(struct MarioState *m) {
     m->marioObj->header.gfx.pos[0] -= 60.0f;
     m->marioBodyState->handState = MARIO_HAND_RIGHT_OPEN;
 
-    if (m->actionTimer++ == 300) {
+    m->actionTimer++;
+    // Fire the fade-to-cake by real time from the "bake a cake" anchor (music-synced),
+    // not a fixed 300 frames. Safety cap so it can never hang; falls back to the original
+    // 300-frame timing if the anchor was never set (level-select skip / off-DC).
+    if (sCreditsCakeAnchorUs != 0
+            ? (pc_realtime_us() - sCreditsCakeAnchorUs >= CREDITS_CAKE_DELAY_US || m->actionTimer >= 12000)
+            : (m->actionTimer >= 300)) {
+        sCreditsCakeAnchorUs = 0;
         level_trigger_warp(m, WARP_OP_CREDITS_END);
     }
 

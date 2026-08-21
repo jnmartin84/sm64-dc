@@ -1,4 +1,5 @@
 #include <PR/ultratypes.h>
+#include <stdio.h> // TEST: for ending-jump trigger printf
 
 #include "sm64.h"
 #include "area.h"
@@ -1702,6 +1703,17 @@ s32 execute_mario_action(UNUSED struct Object *o) {
         gMarioState->marioObj->header.gfx.node.flags &= ~GRAPH_RENDER_INVISIBLE;
         mario_reset_bodystate(gMarioState);
         update_mario_inputs(gMarioState);
+#if 0
+        // TEST: jump straight into the ending/credits sequence (peach cutscene -> "bake a cake"
+        // anchor -> credits -> cake) to test the A/V sync. Hold a trigger + Y, then tap D-pad Down.
+        // level_trigger_warp no-ops if a warp is already pending, so re-pressing just restarts it.
+        if ((gMarioState->controller->buttonDown & Z_TRIG)
+            && (gMarioState->controller->buttonDown & R_TRIG)
+            && (gMarioState->controller->buttonPressed & D_CBUTTONS)) {
+            printf("ENDINGJUMP: level_trigger_warp(WARP_OP_CREDITS_START)\n");
+            level_trigger_warp(gMarioState, WARP_OP_CREDITS_START);
+        }
+#endif
         mario_handle_special_floors(gMarioState);
         mario_process_interactions(gMarioState);
 
