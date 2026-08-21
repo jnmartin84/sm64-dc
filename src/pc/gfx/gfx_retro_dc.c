@@ -1587,8 +1587,6 @@ static void  __attribute__((noinline)) gfx_sp_tri1(uint8_t vtx1_idx, uint8_t vtx
     if (!proj_is_ortho) has_done_3d = 1;
 }
 
-extern void gfx_opengl_draw_triangles_2d(void *buf_vbo, size_t buf_vbo_len, size_t buf_vbo_num_tris);
-
 static inline uint32_t color_comb(uint32_t a, uint32_t b, uint32_t c, uint32_t d);  // defined below
 int do_ext_fill = 0;
 
@@ -2059,14 +2057,6 @@ static void  gfx_dp_set_fill_color(uint32_t packed_color) {
     rdp.fill_color.g = g << 3;
     rdp.fill_color.b = b << 3;
     rdp.fill_color.a = a ? 255 : 0;
-}
-
-void gfx_opengl_2d_projection(void) {
-    matrix_dirty = 1;
-}
-
-void gfx_opengl_reset_projection(void) {
-    matrix_dirty = 1;
 }
 
 static void  __attribute__((noinline)) gfx_draw_rectangle(int32_t ulx, int32_t uly, int32_t lrx, int32_t lry) {
