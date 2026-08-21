@@ -132,6 +132,10 @@ static uint32_t sCurBound = 0;   // last select_texture id == upload target
 //     composited over OP+PT. Flushed SECOND, so it blends over the cutouts.
 // The front-end classifies each primitive (gfx_pvr_set_blend -> sListKind) into OP/PT/TR.
 #define TR_MAX_VERTS    8192
+// Bowser fights once overflowed this (PVR_DROP batch 2): the front-end re-dirtied the poly header
+// per textured triangle, so same-texture translucent tris (coins/flames) fragmented to ~1 tri per
+// batch -> ~580 batches. That was fixed at the root in gfx_pvr_set_sampler_parameters (dirty only
+// on real sampler-state change); the same scene now measures ~73 batches, so 512 keeps ~7x margin.
 #define TR_MAX_BATCH     512
 
 typedef struct { pvr_poly_hdr_t __attribute__((aligned(32))) hdr; uint32_t start, count; } PvrBatch;
@@ -424,9 +428,16 @@ static uint32_t gfx_pvr_new_texture(void) {
 }
 
 static void gfx_pvr_select_texture(uint32_t texture_id) {
-    sBoundTex = texture_id;
+    // Dirty the poly header only when the binding actually CHANGES. The front-end's texture cache
+    // calls this on every lookup (~195/frame), overwhelmingly re-binding the already-bound texture;
+    // an unconditional dirty forced a header re-emit + PT/TR batch split per lookup. Re-uploads
+    // dirty for themselves in gfx_pvr_upload_texture, so a same-id rebind is header-neutral.
+    // (Matches mk64-dc/sf64-dc, which already had this guard; SM64 was missing it.)
+    uint8_t changed = (sBoundTex != texture_id);
     sCurBound = texture_id;   // upload target follows the most recent bind (à la GLdc)
-    pvr_mark_dirty();
+    sBoundTex = texture_id;
+    if (changed)
+        pvr_mark_dirty();
 }
 
 // PVR_TXRFMT_ARGB1555 == 0x8366 (front-end's 1555 tag); anything else is 4444.
@@ -478,11 +489,22 @@ static void gfx_pvr_set_sampler_parameters(bool linear_filter, uint32_t cms, uin
     struct PvrTex *t = &sTextures[sBoundTex];
     // Match GLdc gfx_cm_to_opengl precedence: CLAMP wins, else MIRROR (mirror-repeat),
     // else plain repeat. PVR clamp == GL_CLAMP, PVR flip == GL_MIRRORED_REPEAT.
-    t->filter = linear_filter ? 1 : 0;
-    t->clampu = (cms & G_TX_CLAMP) ? 1 : 0;
-    t->clampv = (cmt & G_TX_CLAMP) ? 1 : 0;
-    t->flipu  = (!(cms & G_TX_CLAMP) && (cms & G_TX_MIRROR)) ? 1 : 0;
-    t->flipv  = (!(cmt & G_TX_CLAMP) && (cmt & G_TX_MIRROR)) ? 1 : 0;
+    uint8_t filter = linear_filter ? 1 : 0;
+    uint8_t clampu = (cms & G_TX_CLAMP) ? 1 : 0;
+    uint8_t clampv = (cmt & G_TX_CLAMP) ? 1 : 0;
+    uint8_t flipu  = (!(cms & G_TX_CLAMP) && (cms & G_TX_MIRROR)) ? 1 : 0;
+    uint8_t flipv  = (!(cmt & G_TX_CLAMP) && (cmt & G_TX_MIRROR)) ? 1 : 0;
+    // The front-end calls this for EVERY textured primitive (gfx_sp_tri1/quad/texrect), not just on
+    // change. Dirtying unconditionally re-emitted the poly header per triangle: a run of same-texture
+    // translucent tris (coins/flames in Bowser fights) fragmented into ONE TR batch PER TRIANGLE
+    // (~580 measured), and every opaque textured tri needlessly re-emitted its OP header. Only dirty
+    // when THIS texture's sampler state actually changes; texture-IDENTITY changes are already
+    // dirtied by gfx_pvr_select_texture, so same-state runs now coalesce into one batch/header.
+    if (t->filter == filter && t->clampu == clampu && t->clampv == clampv
+            && t->flipu == flipu && t->flipv == flipv) {
+        return;
+    }
+    t->filter = filter; t->clampu = clampu; t->clampv = clampv; t->flipu = flipu; t->flipv = flipv;
     pvr_mark_dirty();
 }
 
