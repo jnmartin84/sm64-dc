@@ -325,9 +325,14 @@ static void pvr_pad16(const uint16_t *in, int iw, int ih, uint16_t *out, int ow,
     }
 }
 
-// 640x480, matches gfx_dc.c / gfx_screen_config.
+// Framebuffer dimensions — must match gfx_dc.c SCR_WIDTH/HEIGHT. LOWRES = native 240p (320x240).
+#if LOWRES
+#define DC_FB_W 320
+#define DC_FB_H 240
+#else
 #define DC_FB_W 640
 #define DC_FB_H 480
+#endif
 
 // Mirror of OoT's known-good params for this toolchain:
 //   {OP, OP_MOD, TR, TR_MOD, PT} bin sizes, vtxbuf, dma, fsaa, autosort_disabled, overflow
@@ -668,12 +673,20 @@ static void gfx_pvr_draw_quad_2d(void *quad, UNUSED size_t buf_vbo_len, UNUSED s
 
 static void gfx_pvr_init(void) {
 #ifdef __DREAMCAST__
+#if LOWRES
+    // Native 240p (progressive). NTSC 320x240 is non-interlaced; VGA has a 320x240 mode too.
+    vid_set_mode(vid_check_cable() != CT_VGA ? DM_320x240_NTSC : DM_320x240_VGA, PM_RGB565);
+#else
     if (vid_check_cable() != CT_VGA)
         vid_set_mode(DM_640x480_NTSC_IL, PM_RGB565);
     else
         vid_set_mode(DM_640x480_VGA, PM_RGB565);
 #endif
+#endif
     pvr_init(&sPvrParams);
+#if defined(__DREAMCAST__) && LOWRES
+    PVR_SET(PVR_SCALER_CFG, 0x400);   // 240p: disable the vertical flicker/scanline filter
+#endif
 
     // PT alpha-test reference: punch-through discards texels with alpha <= this, giving
     // N64 cutout/texture-edge transparency. 0x80 matches OoT. (ARGB1555 alpha is 0/255,
@@ -685,9 +698,6 @@ static void gfx_pvr_init(void) {
     pvr_set_bg_color(0.0f, 0.0f, 0.0f);
 
     // Headers are compiled lazily per depth/texture/list state at draw time.
-
-    printf("=== SM64 DC: raw-PVR backend (gfx_pvr.c) STAGE 1 live ===\n");
-    fflush(stdout);
 }
 
 static void gfx_pvr_on_resize(void) { }

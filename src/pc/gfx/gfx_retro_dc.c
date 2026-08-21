@@ -234,6 +234,10 @@ extern float gfx_pvr_get_v_scale(void);
 static float vpf_x = 0.0f, vpf_y = 0.0f, vpf_w = 640.0f, vpf_h = 480.0f;
 static float sm_xscale = 320.0f, sm_xbias = 320.0f;
 static float sm_yscale = -240.0f, sm_ybias = 240.0f;
+// Framebuffer half-extents in pixels (gfx_current_dimensions/2, set in gfx_init). The 2D rect
+// path (gfx_draw_rectangle) maps NDC->pixels with these, so it tracks LOWRES (320x240) instead
+// of a hardwired 640x480. The 3D bake already scales via RATIO/sm_*.
+static float fb_half_w = 320.0f, fb_half_h = 240.0f;
 static void gfx_recompute_screen_map(void) {
     float vw = vpf_w <= 0.0f ? 1.0f : vpf_w;
     float vh = vpf_h <= 0.0f ? 1.0f : vpf_h;
@@ -2083,11 +2087,13 @@ static void  __attribute__((noinline)) gfx_draw_rectangle(int32_t ulx, int32_t u
     ulxf = ulxf;
     lrxf = lrxf;
 
-    ulxf = (ulxf * 320.0f) + 320.0f;
-    lrxf = (lrxf * 320.0f) + 320.0f;
+    // NDC -> framebuffer pixels. fb_half_* = gfx_current_dimensions/2, so this tracks LOWRES
+    // instead of the old hardwired 640x480 (which rendered only the top-left quarter at 240p).
+    ulxf = (ulxf * fb_half_w) + fb_half_w;
+    lrxf = (lrxf * fb_half_w) + fb_half_w;
 
-    ulyf = (ulyf * 240.0f) + 240.0f;
-    lryf = (lryf * 240.0f) + 240.0f;
+    ulyf = (ulyf * fb_half_h) + fb_half_h;
+    lryf = (lryf * fb_half_h) + fb_half_h;
     
     // Build the 4 verts in PVR triangle-STRIP order (ul, ll, ur, lr) so the backend submits
     // them straight as a native quad.
@@ -2588,6 +2594,9 @@ void gfx_init(struct GfxWindowManagerAPI *wapi, struct GfxRenderingAPI *rapi, co
         // Avoid division by zero
         gfx_current_dimensions.height = 1;
     }
+    // 2D rect path maps NDC->framebuffer pixels with these (tracks LOWRES vs 640x480).
+    fb_half_w = (float) gfx_current_dimensions.width * 0.5f;
+    fb_half_h = (float) gfx_current_dimensions.height * 0.5f;
 
     rsp.current_lookat[0].dir[0] = 0;
     rsp.current_lookat[0].dir[1] = 127;

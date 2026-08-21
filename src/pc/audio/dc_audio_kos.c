@@ -129,7 +129,6 @@ static bool audio_dc_init(void) {
     }
     /* keep the scheduler lively for the vblank-driven synthesis thread */
     thd_set_hz(300);
-    printf("Sound init complete (AICA hardware mixing, no stream)!\n");
     return true;
 }
 
