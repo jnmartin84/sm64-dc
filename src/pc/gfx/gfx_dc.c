@@ -27,7 +27,6 @@
 //static int force_30fps = 1;
 static unsigned int last_time = 0;
 
-extern void glKosSwapBuffers(void);
 extern uint64_t timer_ms_gettime64(void);
 
 unsigned int GetSystemTimeLow(void) {
@@ -106,10 +105,6 @@ unsigned int last_elapsed = 0;
 extern volatile uint64_t vblticker;
 uint64_t last_ticker = 0;
 static void gfx_dc_swap_buffers_end(void) {
-#ifndef GFX_BACKEND_PVR
-    /* Lets us yield to other threads*/
-    glKosSwapBuffers();
-#endif
     /* PVR backend (gfx_pvr.c) flips inside pvr_scene_finish (finish_render). */
     // Number of microseconds a frame should take (30 fps)
     const unsigned int cur_time = GetSystemTimeLow();
