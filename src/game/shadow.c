@@ -211,6 +211,13 @@ f32 get_water_level_below_shadow(struct Shadow *s) {
  * @param overwriteSolidity Flag for whether the existing shadow solidity should
  *                          be dimmed based on its distance to the floor
  */
+// Minimum floor y-normal for a TILTED (projected) shadow. Below this the floor is treated as
+// near-vertical and the shadow is snapped flat (see the fallback in init_shadow): the vanilla
+// projection collapses to a sliver (cosf(floorTilt) -> 0) and blows the extrapolated vertex Y
+// off-screen (divide by floorNormalY -> 0) on steep walkable faces like Shifting Sand Land's
+// climbable pillars. 0.5f == floors steeper than ~60 degrees flatten; ordinary slopes still tilt.
+#define SHADOW_FLATTEN_MIN_NORMAL_Y 0.5f
+
 s8 init_shadow(struct Shadow *s, f32 xPos, f32 yPos, f32 zPos, s16 shadowScale, u8 overwriteSolidity) {
     f32 waterLevel = 0.f;
     f32 floorSteepness;
@@ -245,6 +252,18 @@ s8 init_shadow(struct Shadow *s, f32 xPos, f32 yPos, f32 zPos, s16 shadowScale, 
         s->floorNormalY = floorGeometry->normalY;
         s->floorNormalZ = floorGeometry->normalZ;
         s->floorOriginOffset = floorGeometry->originOffset;
+    }
+
+    // Near-vertical walkable floors (e.g. SSL's climbable pillars) drive floorNormalY -> 0, which
+    // makes the tilted shadow collapse to a sliver and shoots the extrapolated vertex Y off-screen.
+    // Beyond the steepness cutoff, snap the shadow flat: a plain circle on the surface below,
+    // instead of projecting onto the near-vertical plane. Flat plane at floorHeight -> the plane
+    // equation constant is -floorHeight (extrapolate_vertex_y_position then returns floorHeight).
+    if (s->floorNormalY < SHADOW_FLATTEN_MIN_NORMAL_Y) {
+        s->floorNormalX = 0.0f;
+        s->floorNormalY = 1.0f;
+        s->floorNormalZ = 0.0f;
+        s->floorOriginOffset = -s->floorHeight;
     }
 
     if (overwriteSolidity) {
