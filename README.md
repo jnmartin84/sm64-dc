@@ -1,4 +1,6 @@
-# Super Mario 64 for the Sega Dreamcast (updated 2026/08/20)
+# Super Mario 64 for the Sega Dreamcast (updated 2026/08/24)
+
+Now with hardware-mixed audio, 24-bit color framebuffer, raw PowerVR Fast 3D backend with significant N64-accuracy enhancements and all around improved performance.
 
 This is an update to the original 2020 mrneo240 Dreamcast port of Super Mario 64. It addresses the audio-visual issues that were present and adds VMU saving.
 
