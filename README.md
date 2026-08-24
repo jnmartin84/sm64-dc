@@ -8,7 +8,7 @@ A prior copy of the game is required to extract the assets. Specifically you wil
 ## Building for Sega Dreamcast
 # Just use the CDI builder found here: https://colab.research.google.com/drive/1TZtuI3QbSiIr6uFsgaGUr-7At5fwLdN5
 
-Nobody follows directions anyway. If you want to build it the real way, I'll leave the reset of the docs, but I know they'll go unread.
+Nobody follows directions anyway. If you want to build it the real way, I'll leave the rest of the docs, but I know they'll go unread.
 
 **Fixed textures live in the psp/textures/ folder. copy these into textures/, overwrite the extracted ones, and rebuild**
 
