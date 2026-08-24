@@ -680,18 +680,22 @@ static void gfx_pvr_init(void) {
 #ifdef __DREAMCAST__
 #if LOWRES
     // Native 240p (progressive). NTSC 320x240 is non-interlaced; VGA has a 320x240 mode too.
-    vid_set_mode(vid_check_cable() != CT_VGA ? DM_320x240_NTSC : DM_320x240_VGA, PM_RGB565);
+    vid_set_mode(vid_check_cable() != CT_VGA ? DM_320x240_NTSC : DM_320x240_VGA, PM_RGB888);//_565);
 #else
     if (vid_check_cable() != CT_VGA)
-        vid_set_mode(DM_640x480_NTSC_IL, PM_RGB565);
+        vid_set_mode(DM_640x480_NTSC_IL, PM_RGB888);//, PM_RGB565);
     else
-        vid_set_mode(DM_640x480_VGA, PM_RGB565);
+        vid_set_mode(DM_640x480_VGA, PM_RGB888);//, PM_RGB565);
 #endif
 #endif
     pvr_init(&sPvrParams);
 #if defined(__DREAMCAST__) && LOWRES
     PVR_SET(PVR_SCALER_CFG, 0x400);   // 240p: disable the vertical flicker/scanline filter
 #endif
+#define PM_DITHER_BIT 8
+    uint32_t cfg = PVR_GET(PVR_FB_CFG_2);
+    cfg &= ~PM_DITHER_BIT;
+    PVR_SET(PVR_FB_CFG_2, cfg);
 
     // PT alpha-test reference: punch-through discards texels with alpha <= this, giving
     // N64 cutout/texture-edge transparency. 0x80 matches OoT. (ARGB1555 alpha is 0/255,
