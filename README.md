@@ -2,6 +2,15 @@
 
 This is an update to the original 2020 mrneo240 Dreamcast port of Super Mario 64. It addresses the audio-visual issues that were present and adds VMU saving.
 
+![0](/media/screen0.png)
+![1](/media/screen1.png)
+![2](/media/screen2.png)
+![3](/media/screen3.png)
+![4](/media/screen4.png)
+![5](/media/screen5.png)
+![6](/media/screen6.png)
+![7](/media/screen7.png)
+
 This repo does not include all assets necessary for compiling the game.
 A prior copy of the game is required to extract the assets. Specifically you will need to provide the US version.
 
