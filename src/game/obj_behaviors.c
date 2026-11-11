@@ -32,7 +32,7 @@
 #include "spawn_object.h"
 #include "spawn_sound.h"
 
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
 /**
  * @file obj_behaviors.c

@@ -57,9 +57,32 @@ struct ControllerAPI {
 static void controller_dc_init(void) {
 }
 
+#include "pc/dc_video_options.h"
+extern void gfx_pvr_fsaa_toggle(void);
+
+// The debug menu's FSAA row can give X or B to FSAA (DC_FSAA_MODE_TOGGLE_X/_B): the other of the
+// two plays the N64's B alone.
+static uint32_t fsaa_button(void) {
+    return gDcFsaaMode == DC_FSAA_MODE_TOGGLE_X ? CONT_X : gDcFsaaMode == DC_FSAA_MODE_TOGGLE_B ? CONT_B : 0;
+}
+
+// At every input read of the game: a press of the button switches
+// FSAA, but not with both triggers held, where X is part of the debug menu's combination.
+void controller_dc_fsaa_poll(void) {
+    static uint32_t held;
+    maple_device_t *cont = maple_enum_type(0, MAPLE_FUNC_CONTROLLER);
+    if (!cont)
+        return;
+    cont_state_t *state = (cont_state_t *) maple_dev_status(cont);
+    uint32_t pressed = state->buttons & ~held;
+    held = state->buttons;
+    if ((pressed & fsaa_button()) && !((uint8_t) state->ltrig >= 128 && (uint8_t) state->rtrig >= 128))
+        gfx_pvr_fsaa_toggle();
+}
+
 // n64 controls https://strategywiki.org/wiki/Super_Mario_64/Controls
 // DC -> N64 control mapping
-//  B, X     -> B
+//  B, X     -> B (one of them toggles FSAA instead, if the debug menu says so)
 //  A        -> A
 //  Y        -> R Trigger
 //  L Trig   -> Z Trigger
@@ -94,7 +117,9 @@ static void controller_dc_read(OSContPad *pad) {
     }
     if (state->buttons & CONT_START)
         pad->button |= START_BUTTON;
-    if ((state->buttons & CONT_B) || (state->buttons & CONT_X))
+    uint32_t b_buttons = CONT_B | CONT_X;
+    b_buttons &= ~fsaa_button();
+    if (state->buttons & b_buttons)
         pad->button |= B_BUTTON;
     if (state->buttons & CONT_A)
         pad->button |= A_BUTTON;

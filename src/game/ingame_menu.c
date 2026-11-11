@@ -2110,6 +2110,19 @@ void change_dialog_camera_angle(void) {
     }
 }
 
+#if defined(TARGET_DC)
+#include "screen_transition.h"
+
+// dl_draw_text_bg_box without its triangles: the shade's state when the frame's fade draws it
+// (screen_transition.c dc_fade_shade).
+static const Gfx dl_text_bg_box_state[] = {
+    gsSPClearGeometryMode(G_LIGHTING),
+    gsDPSetCombineMode(G_CC_FADE, G_CC_FADE),
+    gsDPSetRenderMode(G_RM_XLU_SURF, G_RM_XLU_SURF2),
+    gsSPEndDisplayList(),
+};
+#endif
+
 void shade_screen(void) {
     create_dl_translation_matrix(MENU_MTX_PUSH, GFX_DIMENSIONS_FROM_LEFT_EDGE(0), SCREEN_HEIGHT, -2.0f); // 0
 
@@ -2123,7 +2136,12 @@ void shade_screen(void) {
 #endif
 
     gDPSetEnvColor(gDisplayListHead++, 0, 0, 0, 110);
+#if defined(TARGET_DC)
+    // G_CC_FADE on white vertices: the environment colour, and its alpha.
+    dc_fade_shade(0, 0, 0, 110, dl_draw_text_bg_box, dl_text_bg_box_state);
+#else
     gSPDisplayList(gDisplayListHead++, dl_draw_text_bg_box);
+#endif
     gSPPopMatrix(gDisplayListHead++, G_MTX_MODELVIEW);
 }
 

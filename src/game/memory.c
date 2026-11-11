@@ -1,6 +1,7 @@
 #include <PR/ultratypes.h>
 #ifndef TARGET_N64
 #include <string.h>
+#include <stdio.h>
 #endif
 
 #include "sm64.h"
@@ -533,6 +534,13 @@ void *alloc_display_list(u32 size) {
         gGfxPoolEnd -= size;
         ptr = gGfxPoolEnd;
     } else {
+        // Callers write through the result unchecked, and on this port address 0 is mapped RAM, so
+        // an exhausted pool silently corrupts memory instead of faulting. Say so once.
+        static int sReported = 0;
+        if (!sReported) {
+            sReported = 1;
+            printf("GFX POOL EXHAUSTED (GFX_POOL_SIZE %d)\n", GFX_POOL_SIZE);
+        }
     }
     return ptr;
 }

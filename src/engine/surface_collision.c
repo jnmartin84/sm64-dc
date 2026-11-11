@@ -9,7 +9,7 @@
 #include "surface_collision.h"
 #include "surface_load.h"
 
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
 /**************************************************
  *                      WALLS                     *
@@ -190,8 +190,11 @@ s32 find_wall_collisions(struct WallCollisionData *colData) {
     struct SurfaceNode *node;
     s16 cellX, cellZ;
     s32 numCollisions = 0;
-    s16 x = colData->x;
-    s16 z = colData->z;
+    // Positions far out of the level (parallel universes) wrap to s16 as on the N64: through an
+    // int, keeping the low 16 bits. A float converted straight to s16 is undefined in C when it is
+    // out of range, and clang on arm64 (the pc-endjinn host build) then keeps all 32 bits.
+    s16 x = (s16) (s32) colData->x;
+    s16 z = (s16) (s32) colData->z;
 
     colData->numWalls = 0;
 
@@ -284,7 +287,7 @@ static struct Surface *find_ceil_from_list(struct SurfaceNode *surfaceNode, s32 
             }
 
             // Find the ceil height at the specific point.
-            height = shz_divf( -(x * nx + nz * z + oo),  ny);// / ny;
+            height = -(x * nx + nz * z + oo) / ny;
 
             // Checks for ceiling interaction with a 78 unit buffer.
             //! (Exposed Ceilings) Because any point above a ceiling counts
@@ -319,9 +322,9 @@ f32 find_ceil(f32 posX, f32 posY, f32 posZ, struct Surface **pceil) {
     //! (Parallel Universes) Because position is casted to an s16, reaching higher
     // float locations  can return ceilings despite them not existing there.
     //(Dynamic ceilings will unload due to the range.)
-    x = (s16) posX;
-    y = (s16) posY;
-    z = (s16) posZ;
+    x = (s16) (s32) posX;
+    y = (s16) (s32) posY;
+    z = (s16) (s32) posZ;
     *pceil = NULL;
 
     if (x <= -LEVEL_BOUNDARY_MAX || x >= LEVEL_BOUNDARY_MAX) {
@@ -492,9 +495,9 @@ f32 unused_find_dynamic_floor(f32 xPos, f32 yPos, f32 zPos, struct Surface **pfl
     f32 floorHeight = -11000.0f;
 
     // Would normally cause PUs, but dynamic floors unload at that range.
-    s16 x = (s16) xPos;
-    s16 y = (s16) yPos;
-    s16 z = (s16) zPos;
+    s16 x = (s16) (s32) xPos;
+    s16 y = (s16) (s32) yPos;
+    s16 z = (s16) (s32) zPos;
 
     // Each level is split into cells to limit load, find the appropriate cell.
     s16 cellX = ((x + LEVEL_BOUNDARY_MAX) >> 10/* / CELL_SIZE */) & 0x0F;
@@ -523,9 +526,9 @@ f32 find_floor(f32 xPos, f32 yPos, f32 zPos, struct Surface **pfloor) {
     //! (Parallel Universes) Because position is casted to an s16, reaching higher
     // float locations  can return floors despite them not existing there.
     //(Dynamic floors will unload due to the range.)
-    s16 x = (s16) xPos;
-    s16 y = (s16) yPos;
-    s16 z = (s16) zPos;
+    s16 x = (s16) (s32) xPos;
+    s16 y = (s16) (s32) yPos;
+    s16 z = (s16) (s32) zPos;
 
     *pfloor = NULL;
 

@@ -98,7 +98,7 @@ void mr_i_act_3(void) {
         o->oMoveAngleYaw += sp34 * coss(0x4000 * sp2C);
         o->oMoveAnglePitch = (1.0f - coss(0x4000 * sp2C)) * -0x4000;
         cur_obj_shake_y((s32)((1.0f - sp30) * 4)); // trucating the f32?
-        sp20 = coss(0x4000 * sp30) * 0.4f + 0.6f;
+        sp20 = coss(0x4000 * sp30) * 0.4 + 0.6;
         cur_obj_scale(sp20 * sp1C);
     } else if (o->oTimer < 104) {
         // do nothing
@@ -106,7 +106,7 @@ void mr_i_act_3(void) {
         if (o->oTimer == 104) {
             cur_obj_become_intangible();
             spawn_mist_particles();
-            o->oMrISize = sp1C * 0.6f;
+            o->oMrISize = sp1C * 0.6;
             if (o->oBehParams2ndByte) {
                 o->oPosY += 100.0f;
                 spawn_default_star(1370, 2000.0f, -320.0f);
@@ -114,7 +114,7 @@ void mr_i_act_3(void) {
             } else
                 cur_obj_spawn_loot_blue_coin();
         }
-        o->oMrISize -= 0.2f * sp1C;
+        o->oMrISize -= 0.2 * sp1C;
         if (o->oMrISize < 0)
             o->oMrISize = 0;
         cur_obj_scale(o->oMrISize);

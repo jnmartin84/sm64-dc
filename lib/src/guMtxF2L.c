@@ -75,7 +75,7 @@ void guMtxIdent(Mtx *m) {
 
 
 #include <stdint.h>
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
 void guMtxF2L(float mf[4][4], Mtx* m) {
     shz_memcpy4_16(m, mf);
@@ -83,7 +83,7 @@ void guMtxF2L(float mf[4][4], Mtx* m) {
 
 void guMtxIdentF(float mf[4][4]) {
     shz_xmtrx_init_identity();
-    shz_xmtrx_store_4x4_unaligned((float *)mf);
+    shz_xmtrx_store_unaligned_4x4((float *)mf);
 }
 
 void guMtxIdent(Mtx* m) {

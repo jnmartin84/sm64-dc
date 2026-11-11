@@ -446,7 +446,7 @@ u32 mario_check_object_grab(struct MarioState *m) {
 
     return result;
 }
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 u32 bully_knock_back_mario(struct MarioState *mario) {
     struct BullyCollisionData marioData;
     struct BullyCollisionData bullyData;
@@ -483,12 +483,12 @@ u32 bully_knock_back_mario(struct MarioState *mario) {
     bullyDYaw = newBullyYaw - bully->oMoveAngleYaw;
 
     mario->faceAngle[1] = newMarioYaw;
-    mario->forwardVel = shz_sqrtf_fsrra(marioData.velX * marioData.velX + marioData.velZ * marioData.velZ);
+    mario->forwardVel = shz_sqrtf(marioData.velX * marioData.velX + marioData.velZ * marioData.velZ);
     mario->pos[0] = marioData.posX;
     mario->pos[2] = marioData.posZ;
 
     bully->oMoveAngleYaw = newBullyYaw;
-    bully->oForwardVel = shz_sqrtf_fsrra(bullyData.velX * bullyData.velX + bullyData.velZ * bullyData.velZ);
+    bully->oForwardVel = shz_sqrtf(bullyData.velX * bullyData.velX + bullyData.velZ * bullyData.velZ);
     bully->oPosX = bullyData.posX;
     bully->oPosZ = bullyData.posZ;
 
@@ -582,13 +582,13 @@ u32 determine_knockback_action(struct MarioState *m, UNUSED s32 arg) {
 
     return bonkAction;
 }
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 void push_mario_out_of_object(struct MarioState *m, struct Object *o, f32 padding) {
     f32 minDistance = o->hitboxRadius + m->marioObj->hitboxRadius + padding;
 
     f32 offsetX = m->pos[0] - o->oPosX;
     f32 offsetZ = m->pos[2] - o->oPosZ;
-    f32 distance = shz_sqrtf_fsrra(offsetX * offsetX + offsetZ * offsetZ);
+    f32 distance = shz_sqrtf(offsetX * offsetX + offsetZ * offsetZ);
 
     if (distance < minDistance) {
         struct Surface *floor;

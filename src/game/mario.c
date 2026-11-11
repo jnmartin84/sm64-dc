@@ -35,7 +35,7 @@
 #include "sound_init.h"
 #include "thread6.h"
 
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
 u32 unused80339F10;
 s8 filler80339F1C[20];
@@ -766,7 +766,7 @@ void set_steep_jump_action(struct MarioState *m) {
         scaled_sincoss(faceAngleTemp, &y, &x, m->forwardVel);
         x *= 0.75f;
 
-        m->forwardVel = shz_sqrtf_fsrra(y * y + x * x);
+        m->forwardVel = shz_sqrtf(y * y + x * x);
         m->faceAngle[1] = atan2s(x, y) + angleTemp;
     }
 
@@ -1230,9 +1230,9 @@ void squish_mario_model(struct MarioState *m) {
             m->squishTimer -= 1;
 
             m->marioObj->header.gfx.scale[1] =
-                1.0f - ((sSquishScaleOverTime[15 - m->squishTimer] * 0.6f) * 0.01f); // / 100.0f);
+                1.0f - ((sSquishScaleOverTime[15 - m->squishTimer] * 0.6f) / 100.0f);
             m->marioObj->header.gfx.scale[0] =
-                ((sSquishScaleOverTime[15 - m->squishTimer] * 0.4f) * 0.01f /* / 100.0f */) + 1.0f;
+                ((sSquishScaleOverTime[15 - m->squishTimer] * 0.4f) / 100.0f) + 1.0f;
 
             m->marioObj->header.gfx.scale[2] = m->marioObj->header.gfx.scale[0];
         } else {

@@ -9,7 +9,9 @@
 #include "types.h"
 #include "memory.h"
 
-#define GFX_POOL_SIZE 6800
+// The frame-interpolation scene walk (rendering_graph_node.c) allocates every matrix twice, real
+// and interpolated, in every build; 6800 overflowed in heavy scenes.
+#define GFX_POOL_SIZE 12000
 
 struct GfxPool {
     Gfx buffer[GFX_POOL_SIZE];

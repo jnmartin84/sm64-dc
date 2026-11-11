@@ -124,7 +124,7 @@ struct Instrument **instOut = _instOut;\
     #define SEMITONE            cmdSemitone
     #define USED_SEMITONE       usedSemitone
 #endif
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 void seq_channel_layer_process_script(struct SequenceChannelLayer *layer) {
     struct SequencePlayer *seqPlayer; // sp5C, t4
     struct SequenceChannel *seqChannel; // sp58, t5

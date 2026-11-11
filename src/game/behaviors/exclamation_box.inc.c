@@ -92,7 +92,7 @@ void exclamation_box_act_3(void) {
         o->oVelY = 0.0f;
         o->oGravity = 0.0f;
     }
-    o->oExclamationBoxUnkF8 = (sins(o->oExclamationBoxUnkFC) + 1.0f) * 0.3f + 0.0f;
+    o->oExclamationBoxUnkF8 = (sins(o->oExclamationBoxUnkFC) + 1.0) * 0.3 + 0.0;
     o->oExclamationBoxUnkF4 = (-sins(o->oExclamationBoxUnkFC) + 1.0f) * 0.5f + 1.0f;
     o->oGraphYOffset = (-sins(o->oExclamationBoxUnkFC) + 1.0f) * 26.0f;
     o->oExclamationBoxUnkFC += 0x1000;

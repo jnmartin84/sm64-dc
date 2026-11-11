@@ -297,10 +297,70 @@ void func_80192CCC(struct ObjNet *net) {
     }
 }
 
+// 60 fps (pc_main.c draws each logic step twice): the head moves in its vertices, not in matrices,
+// so the first draw shows them halfway from the last step, as the interpolated matrices do the rest
+// of the scene. gd_vblank's conversions write the halfway vertices and keep the step's own;
+// gd_interp_exact puts those back for the second draw.
+struct GdInterpVtx {
+    Vtx *vn;
+    s16 ob[3];   // the step's position and normal
+    s8 n[3];
+};
+#define GD_INTERP_MAX 4096
+static struct GdInterpVtx sGdInterp[GD_INTERP_MAX];
+static s32 sGdInterpCount;
+static s32 sGdInterpMoved;   // some vertex moved this step: the second draw differs
+
+static inline void gd_interp_set(Vtx *vn, s16 x, s16 y, s16 z, s8 nx, s8 ny, s8 nz) {
+    Vtx_tn *v = &vn->n;
+    if (sGdInterpCount < GD_INTERP_MAX) {
+        struct GdInterpVtx *e = &sGdInterp[sGdInterpCount++];
+        e->vn = vn;
+        e->ob[0] = x;
+        e->ob[1] = y;
+        e->ob[2] = z;
+        e->n[0] = nx;
+        e->n[1] = ny;
+        e->n[2] = nz;
+        sGdInterpMoved |= (v->ob[0] ^ x) | (v->ob[1] ^ y) | (v->ob[2] ^ z) | (v->n[0] ^ nx) | (v->n[1] ^ ny) |
+                          (v->n[2] ^ nz);
+        x = (s16) ((v->ob[0] + x) >> 1);
+        y = (s16) ((v->ob[1] + y) >> 1);
+        z = (s16) ((v->ob[2] + z) >> 1);
+        nx = (s8) ((v->n[0] + nx) >> 1);
+        ny = (s8) ((v->n[1] + ny) >> 1);
+        nz = (s8) ((v->n[2] + nz) >> 1);
+    }
+    v->ob[0] = x;
+    v->ob[1] = y;
+    v->ob[2] = z;
+    v->n[0] = nx;
+    v->n[1] = ny;
+    v->n[2] = nz;
+}
+
+// Before the second draw: the step's own vertices back. Whether that changes the image.
+s32 gd_interp_exact(void) {
+    s32 i, moved = sGdInterpMoved != 0;
+    for (i = 0; i < sGdInterpCount; i++) {
+        struct GdInterpVtx *e = &sGdInterp[i];
+        Vtx_tn *v = &e->vn->n;
+        v->ob[0] = e->ob[0];
+        v->ob[1] = e->ob[1];
+        v->ob[2] = e->ob[2];
+        v->n[0] = e->n[0];
+        v->n[1] = e->n[1];
+        v->n[2] = e->n[2];
+    }
+    sGdInterpCount = 0;
+    sGdInterpMoved = 0;
+    return moved;
+}
+
 /* 241768 -> 241AB4; orig name: func_80192F98 */
 void convert_gd_verts_to_Vn(struct ObjGroup *grp) {
     UNUSED u8 pad[0x40 - 0x2c];
-    Vtx *vn;       // 28
+    UNUSED Vtx *vn; // 28 (not on Dreamcast)
     u8 nx, ny, nz; // 24, 25, 26
     UNUSED u32 pad20;
     register struct VtxLink *vtxlink; // a1
@@ -321,26 +381,14 @@ void convert_gd_verts_to_Vn(struct ObjGroup *grp) {
         y = (s16) vtx->pos.y;
         z = (s16) vtx->pos.z;
 
-        nx = (u8)(vtx->normal.x * 255.0f);
-        ny = (u8)(vtx->normal.y * 255.0f);
-        nz = (u8)(vtx->normal.z * 255.0f);
+        // Through s32, as the N64 converts (a negative normal wraps); a float to u8 directly is
+        // undefined for it, and on the SH4 goes through double precision.
+        nx = (u8)(s32)(vtx->normal.x * 255.0f);
+        ny = (u8)(s32)(vtx->normal.y * 255.0f);
+        nz = (u8)(s32)(vtx->normal.z * 255.0f);
 
         for (vtxlink = vtx->gbiVerts; vtxlink != NULL; vtxlink = vtxlink->prev) {
-#ifndef GBI_FLOATS
-            vnPos = vtxlink->data->n.ob;
-            vn = vtxlink->data;
-            *vnPos++ = x;
-            *vnPos++ = y;
-            *vnPos++ = z;
-#else
-            vn = vtxlink->data;
-            vn->n.ob[0] = x;
-            vn->n.ob[1] = y;
-            vn->n.ob[2] = z;
-#endif
-            vn->n.n[0] = nx;
-            vn->n.n[1] = ny;
-            vn->n.n[2] = nz;
+            gd_interp_set(vtxlink->data, x, y, z, (s8) nx, (s8) ny, (s8) nz);
         }
     }
 }
@@ -367,6 +415,11 @@ void convert_gd_verts_to_Vtx(struct ObjGroup *grp) {
         z = (s16) vtx->pos.z;
 
         for (vtxlink = vtx->gbiVerts; vtxlink != NULL; vtxlink = vtxlink->prev) {
+            {   // the position only: the colour stays
+                Vtx_tn *t = &vtxlink->data->n;
+                gd_interp_set(vtxlink->data, x, y, z, t->n[0], t->n[1], t->n[2]);
+            }
+            continue;
 #ifndef GBI_FLOATS
             vtxcoords = vtxlink->data->v.ob;
             vtxcoords[0] = x;

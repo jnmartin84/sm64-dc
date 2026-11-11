@@ -161,7 +161,7 @@ s32 act_holding_pole(struct MarioState *m) {
         }
 
         m->faceAngle[1] += marioObj->oMarioPoleYawVel;
-        marioObj->oMarioPolePos -= (marioObj->oMarioPoleYawVel>>8);// / 0x100;
+        marioObj->oMarioPolePos -= marioObj->oMarioPoleYawVel / 0x100;
 
         if (m->usedObj->behavior == segmented_to_virtual(bhvTree)) {
             //! The Shifting Sand Land palm tree check is done climbing up in
@@ -174,7 +174,7 @@ s32 act_holding_pole(struct MarioState *m) {
 #ifdef VERSION_SH
         reset_rumble_timers();
 #endif
-        func_80320A4C(1, marioObj->oMarioPoleYawVel>>7);// / 0x100 * 2);
+        func_80320A4C(1, marioObj->oMarioPoleYawVel / 0x100 * 2);
     } else {
         marioObj->oMarioPoleYawVel = 0;
         m->faceAngle[1] -= m->controller->stickX * 16.0f;

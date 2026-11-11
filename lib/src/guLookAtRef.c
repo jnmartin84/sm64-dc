@@ -21,7 +21,7 @@
 /* Minor modifications */
 #include <ultra64.h>
 #define FTOFRAC8(x) ((int) MIN(((x) * (128.0)), 127.0) & 0xff)
-#include <sh4zam.h>
+#include "sh4zam_port.h"
 void guLookAtReflectF(float mf[4][4], LookAt *l, float xEye, float yEye, float zEye, float xAt,
                       float yAt, float zAt, float xUp, float yUp, float zUp) {
     float /* len, */ xLook, yLook, zLook, xRight, yRight, zRight;

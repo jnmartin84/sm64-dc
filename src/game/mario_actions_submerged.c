@@ -20,13 +20,15 @@
 #define MIN_SWIM_STRENGTH 160
 #define MIN_SWIM_SPEED 16.0f
 
-static s16 sWasAtSurface = FALSE;
-static s16 sSwimStrength = MIN_SWIM_STRENGTH;
+// Not static: they last from one level into the next, so a TAS slice carries them over
+// (src/game/tas_slice.c).
+s16 sWasAtSurface = FALSE;
+s16 sSwimStrength = MIN_SWIM_STRENGTH;
 static s16 sWaterCurrentSpeeds[] = { 28, 12, 8, 4 };
 
-static s16 D_80339FD0;
-static s16 D_80339FD2;
-static f32 D_80339FD4;
+s16 D_80339FD0;
+s16 D_80339FD2;
+f32 D_80339FD4;
 
 static void set_swimming_at_surface_particles(struct MarioState *m, u32 particleFlag) {
     s16 atSurface = m->pos[1] >= m->waterLevel - 130;
@@ -439,7 +441,7 @@ static void common_swimming_step(struct MarioState *m, s16 swimStrength) {
 
     update_swimming_yaw(m);
     update_swimming_pitch(m);
-    update_swimming_speed(m, swimStrength * 0.1f); // / 10.0f);
+    update_swimming_speed(m, swimStrength / 10.0f);
 
     switch (perform_water_step(m)) {
         case WATER_STEP_HIT_FLOOR:

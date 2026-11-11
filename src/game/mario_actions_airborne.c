@@ -15,7 +15,7 @@
 #include "save_file.h"
 #include "thread6.h"
 
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
 void play_flip_sounds(struct MarioState *m, s16 frame1, s16 frame2, s16 frame3) {
     s32 animFrame = m->marioObj->header.gfx.unk38.animFrame;
@@ -160,12 +160,11 @@ s32 check_horizontal_wind(struct MarioState *m) {
         m->slideVelX += as; // 1.2f * sins(pushAngle);
         m->slideVelZ += ac; // 1.2f * coss(pushAngle);
 
-        speed = shz_sqrtf_fsrra(m->slideVelX * m->slideVelX + m->slideVelZ * m->slideVelZ);
+        speed = shz_sqrtf(m->slideVelX * m->slideVelX + m->slideVelZ * m->slideVelZ);
 
         if (speed > 48.0f) {
-            f32 speeddiv = shz_divf(48.0f, speed);
-            m->slideVelX = m->slideVelX * speeddiv; // 48.0f / speed;
-            m->slideVelZ = m->slideVelZ * speeddiv; // 48.0f / speed;
+            m->slideVelX = m->slideVelX * 48.0f / speed;
+            m->slideVelZ = m->slideVelZ * 48.0f / speed;
             speed = 32.0f; //! This was meant to be 48?
         } else if (speed > 32.0f) {
             speed = 32.0f;
@@ -200,8 +199,9 @@ void update_air_with_turn(struct MarioState *m) {
             intendedMag = m->intendedMag * 0.03125f; // / 32.0f;
             scaled_sincoss(intendedDYaw, &ys, &yc, intendedMag);
 
-            m->forwardVel += 1.5f * yc;//coss(intendedDYaw) * intendedMag;
-            m->faceAngle[1] += 512.0f * ys;//sins(intendedDYaw) * intendedMag;
+            // (1.5f * cos) * intendedMag, as the N64 multiplies: not 1.5f * (cos * intendedMag).
+            m->forwardVel += 1.5f * coss(intendedDYaw) * intendedMag;
+            m->faceAngle[1] += 512.0f * sins(intendedDYaw) * intendedMag;
         }
 
         //! Uncapped air speed. Net positive when moving forward.
@@ -321,7 +321,7 @@ void update_flying_yaw(struct MarioState *m) {
 }
 
 void update_flying_pitch(struct MarioState *m) {
-    s16 targetPitchVel = -(s16)(m->controller->stickY * (m->forwardVel * 0.2f)); // / 5.0f));
+    s16 targetPitchVel = -(s16)(m->controller->stickY * (m->forwardVel / 5.0f));
 
     if (targetPitchVel > 0) {
         if (m->angleVel[0] < 0) {
@@ -352,7 +352,7 @@ void update_flying(struct MarioState *m) {
     update_flying_pitch(m);
     update_flying_yaw(m);
 
-    m->forwardVel -= 2.0f * ((f32) m->faceAngle[0] * 0.00006104f /* / 0x4000 */) + 0.1f;
+    m->forwardVel -= 2.0f * ((f32) m->faceAngle[0] / 0x4000) + 0.1f;
     m->forwardVel -= 0.5f * (1.0f - coss(m->angleVel[1]));
 
     if (m->forwardVel < 0.0f) {
@@ -1731,7 +1731,7 @@ s32 act_shot_from_cannon(struct MarioState *m) {
         set_mario_action(m, ACT_FLYING, 0);
     }
 
-    if ((m->forwardVel -= 0.05f) < 10.0f) {
+    if ((m->forwardVel -= 0.05) < 10.0f) {
         mario_set_forward_vel(m, 10.0f);
     }
 

@@ -26,6 +26,7 @@ static char gLevelSelect_StageNamesText[64][16] = {
 #undef DEFINE_LEVEL
 
 static u16 gDemoCountdown = 0;
+
 #ifndef VERSION_JP
 static s16 D_U_801A7C34 = 1;
 static s16 gameOverNotPlayed = 1;

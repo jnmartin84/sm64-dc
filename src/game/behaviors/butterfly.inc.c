@@ -1,6 +1,6 @@
 // butterfly.c.inc
 
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
 void bhv_butterfly_init(void) {
     cur_obj_init_animation(1);
@@ -80,7 +80,7 @@ void butterfly_act_return_home(void) {
     f32 homeDistY = o->oHomeY - o->oPosY;
     f32 homeDistZ = o->oHomeZ - o->oPosZ;
     s16 hAngleToHome = atan2s(homeDistZ, homeDistX);
-    s16 vAngleToHome = atan2s(shz_sqrtf_fsrra(homeDistX * homeDistX + homeDistZ * homeDistZ), -homeDistY);
+    s16 vAngleToHome = atan2s(shz_sqrtf(homeDistX * homeDistX + homeDistZ * homeDistZ), -homeDistY);
 
     o->oMoveAngleYaw = approach_s16_symmetric(o->oMoveAngleYaw, hAngleToHome, 0x800);
     o->oMoveAnglePitch = approach_s16_symmetric(o->oMoveAnglePitch, vAngleToHome, 0x50);

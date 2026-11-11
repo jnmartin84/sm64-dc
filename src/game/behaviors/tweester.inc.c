@@ -23,7 +23,7 @@ struct ObjectHitbox sTweesterHitbox = {
  */
 void tweester_scale_and_move(f32 preScale) {
     s16 dYaw  = 0x2C00;
-    f32 scale = preScale * 0.4f;
+    f32 scale = preScale * 0.4;
 
     o->header.gfx.scale[0] 
         = (( coss(o->oTweesterScaleTimer) + 1.0f) * 0.15f /* 0.5 * 0.3 */ + 1.0f) * scale;
@@ -58,7 +58,7 @@ void tweester_act_idle(void) {
         o->oTimer = 0;
     } else {
         cur_obj_play_sound_1(SOUND_ENV_WIND1);
-        tweester_scale_and_move(o->oTimer * 0.01666667f/* / 60.0f */);
+        tweester_scale_and_move(o->oTimer / 60.0f);
         if (o->oTimer > 59)
             o->oAction = TWEESTER_ACT_CHASE;
     }
@@ -111,7 +111,7 @@ void tweester_act_hide(void) {
     f32 shrinkTimer = 60.0f - o->oTimer;
 
     if (shrinkTimer >= 0.0f)
-        tweester_scale_and_move(shrinkTimer * 0.01666667f/* / 60.0f */);
+        tweester_scale_and_move(shrinkTimer / 60.0f);
     else {
         cur_obj_become_intangible();
         if (cur_obj_lateral_dist_from_mario_to_home() > 2500.0f)

@@ -21,6 +21,8 @@ int main(int argc, char **argv) {
         fnpre = "/pc";
     }
 
+    fclose(fntest);   /* left open, the exec'd game hangs in KOS init under Flycast */
+
     char binfn[256];
     sprintf(binfn, "%s/sm64.bin", fnpre);
 

@@ -1,3 +1,7 @@
+#if defined(TARGET_DC)
+#include "pc/gfx/gfx_dc_tags.h"
+#endif
+
 // 0x0701E5D8 - 0x0701E5F0
 static const Lights1 bbh_seg7_lights_0701E5D8 = gdSPDefLights1(
     0x7f, 0x7f, 0x7f,
@@ -57,6 +61,9 @@ static const Gfx bbh_seg7_dl_0701E810[] = {
     gsDPLoadBlock(G_TX_LOADTILE, 0, 0, 32 * 32 - 1, CALC_DXT(32, G_IM_SIZ_16b_BYTES)),
     gsSPLight(&bbh_seg7_lights_0701E5D8.l, 1),
     gsSPLight(&bbh_seg7_lights_0701E5D8.a, 2),
+#if defined(TARGET_DC)
+    gsDPNoOpTag(DC_GFX_RAIL_TR_BEGIN),
+#endif
     gsSPVertex(bbh_seg7_vertex_0701E5F0, 15, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  3,  4,  5, 0x0),
     gsSP2Triangles( 3,  6,  4, 0x0,  7,  8,  9, 0x0),
@@ -69,6 +76,9 @@ static const Gfx bbh_seg7_dl_0701E810[] = {
     gsSP1Triangle( 0,  2, 14, 0x0),
     gsSPVertex(bbh_seg7_vertex_0701E7D0, 4, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  0,  2,  3, 0x0),
+#if defined(TARGET_DC)
+    gsDPNoOpTag(DC_GFX_RAIL_TR_END),
+#endif
     gsSPEndDisplayList(),
 };
 

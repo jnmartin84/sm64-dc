@@ -9,7 +9,7 @@
 #include "interaction.h"
 #include "mario_step.h"
 
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
 static s16 sMovingSandSpeeds[] = { 12, 8, 4, 0 };
 

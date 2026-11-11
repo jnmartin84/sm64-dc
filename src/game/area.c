@@ -227,6 +227,10 @@ void load_area(s32 index) {
     if (gCurrentArea == NULL && gAreaData[index].unk04 != NULL) {
         gCurrentArea = &gAreaData[index];
         gCurrAreaIndex = gCurrentArea->index;
+#if defined(TARGET_DC)
+        extern void gfx_pvr_area_loaded(void);
+        gfx_pvr_area_loaded();   // the scene's FSAA (gfx_pvr.c DC_FSAA_OFF_SCENES)
+#endif
 
         if (gCurrentArea->terrainData != NULL) {
             load_area_terrain(index, gCurrentArea->terrainData, gCurrentArea->surfaceRooms,

@@ -160,7 +160,15 @@ uint8_t icondata[512];
 
 char *ico_fn = "/rd/mario.ico";
 
+// The debug menu's TAS replay and level select (tas_slice.c) play with the movie's save, so while
+// one is on the EEPROM lives here, and the player's save stays on the VMU untouched. Off gives
+// the VMU back.
+static u8 sTasEeprom[512];
+s32 gTasSaveInMemory;
+#define TAS_EEPROM gTasSaveInMemory
+
 s32 osEepromProbe(UNUSED OSMesgQueue *mq) {
+    if (TAS_EEPROM) return 1;
     maple_device_t *vmudev = maple_enum_type(0, MAPLE_FUNC_MEMCARD);
     if (!vmudev) {
         vid_border_color(255, 0, 0);
@@ -223,6 +231,10 @@ s32 osEepromProbe(UNUSED OSMesgQueue *mq) {
 }
 
 s32 osEepromLongRead(UNUSED OSMesgQueue *mq, unsigned char address, unsigned char *buffer, s32 length) {
+    if (TAS_EEPROM) {
+        memcpy(buffer, sTasEeprom + address * 8, (size_t) length);
+        return 0;
+    }
     if (eeprom_file == -1) {
         maple_device_t *vmudev = maple_enum_type(0, MAPLE_FUNC_MEMCARD);
         if (!vmudev) {
@@ -274,6 +286,10 @@ s32 osEepromRead(OSMesgQueue* mq, u8 address, u8* buffer) {
 }
 
 s32 osEepromLongWrite(UNUSED OSMesgQueue *mq, unsigned char address, unsigned char *buffer, s32 length) {
+    if (TAS_EEPROM) {
+        memcpy(sTasEeprom + address * 8, buffer, (size_t) length);
+        return 0;
+    }
     if (eeprom_file == -1) {
         maple_device_t *vmudev = maple_enum_type(0, MAPLE_FUNC_MEMCARD);
         if (!vmudev) {

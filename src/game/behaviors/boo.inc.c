@@ -124,7 +124,7 @@ static void boo_approach_target_opacity_and_update_scale(void) {
         }
     }
 #define point4_over_255 0.00156863f
-    scale = (o->oOpacity * point4_over_255 + 0.6f) * o->oBooBaseScale;
+    scale = (o->oOpacity / 255.0f * 0.4 + 0.6) * o->oBooBaseScale;
     obj_scale(o, scale); // why no cur_obj_scale? was cur_obj_scale written later?
 }
 
@@ -132,8 +132,8 @@ static void boo_oscillate(s32 ignoreOpacity) {
     o->oFaceAnglePitch = sins(o->oBooOscillationTimer) * 0x400;
 
     if (o->oOpacity == 0xFF || ignoreOpacity == TRUE) {
-        o->header.gfx.scale[0] = sins(o->oBooOscillationTimer) * 0.08f + o->oBooBaseScale;
-        o->header.gfx.scale[1] = -sins(o->oBooOscillationTimer) * 0.08f + o->oBooBaseScale;
+        o->header.gfx.scale[0] = sins(o->oBooOscillationTimer) * 0.08 + o->oBooBaseScale;
+        o->header.gfx.scale[1] = -sins(o->oBooOscillationTimer) * 0.08 + o->oBooBaseScale;
         o->header.gfx.scale[2] = o->header.gfx.scale[0];
         o->oGravity = sins(o->oBooOscillationTimer) * o->oBooBaseScale;
         o->oBooOscillationTimer += 0x400;

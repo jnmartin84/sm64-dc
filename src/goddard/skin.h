@@ -13,6 +13,7 @@ void reset_net(struct ObjNet *net);
 struct ObjNet *make_net(UNUSED s32 a0, struct ObjShape *shapedata, struct ObjGroup *a2,
                         struct ObjGroup *a3, struct ObjGroup *a4);
 void convert_net_verts(struct ObjNet *net);
+s32 gd_interp_exact(void);
 void move_nets(struct ObjGroup *group);
 void func_80193848(struct ObjGroup *group);
 void reset_net_count(void);

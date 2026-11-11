@@ -4,6 +4,7 @@
 #include "seq_ids.h"
 #include "dialog_ids.h"
 #include "audio/external.h"
+#include "tas_slice.h"
 #include "level_update.h"
 #include "game_init.h"
 #include "level_update.h"
@@ -28,6 +29,7 @@
 #include "level_table.h"
 #include "course_table.h"
 #include "thread6.h"
+#include "pc/audio/sm64_aicaflow.h"
 
 #define PLAY_MODE_NORMAL 0
 #define PLAY_MODE_PAUSED 2
@@ -609,6 +611,7 @@ s16 music_changed_through_warp(s16 arg) {
  * Set the current warp type and destination level/area/node.
  */
 void initiate_warp(s16 destLevel, s16 destArea, s16 destWarpNode, s32 arg3) {
+    tas_slice_warp(&destLevel, &destArea, &destWarpNode, &arg3);
     if (destWarpNode >= WARP_NODE_CREDITS_MIN) {
         sWarpDest.type = WARP_TYPE_CHANGE_LEVEL;
     } else if (destLevel != gCurrLevelNum) {
@@ -1106,9 +1109,63 @@ s32 play_mode_change_level(void) {
     return 0;
 }
 
+static u32 sTasLevelTimer;   // gGlobalTimer at the last update_level: a level is being played
+
+// The debug menu's TAS replay (tas_slice.c): leave the level for dest's, through a short fade to
+// black, wherever play is. 0 outside a level (the replay waits for the next level change then).
+// An open menu or dialog is closed as the game closes it: the pause menu, or the course complete
+// screen a replay that ended with a star leaves waiting for the pad, would otherwise go on in
+// the slice's level, where the movie never had it.
+// A level is being played: close what is open over it (pause, course complete menu, dialog).
+static s32 tas_menu_leave_level(void) {
+    extern s16 gDialogID, gMenuMode;
+    extern s8 gDialogBoxState, gCourseCompleteCoinsEqual;
+    extern s32 gCourseDoneMenuTimer, gCourseCompleteCoins;
+    if (gCurrentArea == NULL || gGlobalTimer - sTasLevelTimer > 1) {
+        return 0;
+    }
+    if (gMenuMode != -1) {
+        gMenuMode = -1;
+        gDialogBoxState = 0;   // DIALOG_STATE_OPENING, an enum of ingame_menu.c
+        gCourseDoneMenuTimer = 0;
+        gCourseCompleteCoins = 0;
+        gCourseCompleteCoinsEqual = 0;
+        gHudFlash = 0;
+    }
+    if (gDialogID != -1) {
+        reset_dialog_render_state();
+    }
+    if (sCurrPlayMode == PLAY_MODE_PAUSED) {
+        gCameraMovementFlags &= ~CAM_MOVE_PAUSE_SCREEN;
+        raise_background_noise(1);
+    }
+    return 1;
+}
+
+s32 tas_menu_level_change(const struct WarpDest *dest) {
+    if (!tas_menu_leave_level()) {
+        return 0;
+    }
+    sWarpDest = *dest;
+    sWarpDest.type = WARP_TYPE_CHANGE_LEVEL;
+    play_transition(WARP_TRANSITION_FADE_INTO_COLOR, 0x10, 0x00, 0x00, 0x00);
+    level_set_transition(0x10, NULL);
+    set_play_mode(PLAY_MODE_CHANGE_LEVEL);
+    return 1;
+}
+
+// The debug menu's TAS Off, once the VMU's save is back (tas_slice.c): in a level, back to the
+// title as Save & Quit does, so the game goes on from the player's own save.
+void tas_menu_reset_game(void) {
+    if (tas_menu_leave_level()) {
+        fade_into_special_warp(-2, 0);
+    }
+}
+
 s32 update_level(void) {
     s32 changeLevel = 0;
 
+    sTasLevelTimer = gGlobalTimer;
     switch (sCurrPlayMode) {
         case PLAY_MODE_NORMAL:
             changeLevel = play_mode_normal();
@@ -1138,6 +1195,8 @@ extern void nuke_everything(void);
 s32 init_level(void) {
     s32 val4 = 0;
 
+    tas_slice_init_level();
+
 nuke_everything();
 
     set_play_mode(PLAY_MODE_NORMAL);
@@ -1153,6 +1212,8 @@ nuke_everything();
     }
 
     sTimerRunning = 0;
+
+    sm64_afx_scene_prepare(gCurrLevelNum);
 
     if (sWarpDest.type != WARP_TYPE_NOT_WARPING) {
         if (sWarpDest.nodeId >= WARP_NODE_CREDITS_MIN) {
@@ -1242,6 +1303,7 @@ s32 lvl_init_from_save_file(UNUSED s16 arg0, s32 levelNum) {
             break;
     }
 #endif
+    levelNum = tas_slice_first_level(levelNum);
     sWarpDest.type = WARP_TYPE_NOT_WARPING;
     sDelayedWarpOp = WARP_OP_NONE;
     gShouldNotPlayCastleMusic = !save_file_exists(gCurrSaveFileNum - 1);

@@ -10,13 +10,10 @@
 #include <assert.h>
 
 #define GFX_API_NAME "Dreamcast PVR"
-#if LOWRES
-#define SCR_WIDTH (320)
-#define SCR_HEIGHT (240)
-#else
-#define SCR_WIDTH (640)
-#define SCR_HEIGHT (480)
-#endif
+#include "pc/dc_video_options.h"
+// The framebuffer at start: 320x240 in the 240p mode (gfx_pvr.c can switch it later).
+#define SCR_WIDTH (gDcVideo240p ? 320 : 640)
+#define SCR_HEIGHT (gDcVideo240p ? 240 : 480)
 
 #undef bool
 #define bool uint8_t
@@ -101,9 +98,17 @@ static bool gfx_dc_start_frame(void) {
 static void gfx_dc_swap_buffers_begin(void) {
 }
 
+// Vblanks per presented picture: 1, two pictures per 30 Hz logic step (60 fps).
+#define DC_VBL_WAIT 1
+
 unsigned int last_elapsed = 0;
 extern volatile uint64_t vblticker;
 uint64_t last_ticker = 0;
+// Presents that came after the vblank they were paced for (pc_main.c DC_FRAME_MODE_60_DROP).
+unsigned int gfx_dc_vbl_late = 0;
+static inline void count_vbl_miss(void) {
+    if (vblticker > last_ticker + DC_VBL_WAIT) gfx_dc_vbl_late++;
+}
 static void gfx_dc_swap_buffers_end(void) {
     /* PVR backend (gfx_pvr.c) flips inside pvr_scene_finish (finish_render). */
     // Number of microseconds a frame should take (30 fps)
@@ -123,14 +128,32 @@ static void gfx_dc_swap_buffers_end(void) {
         last_time += (FRAME_TIME_MS - elapsed);
     }
 #endif
-    while (vblticker < (last_ticker + 2))
+    count_vbl_miss();
+    while (vblticker < (last_ticker + DC_VBL_WAIT))
+#ifdef KOS_GENWAIT_3ARG
+        genwait_wait((void*)&vblticker, NULL, 0);
+#else
         genwait_wait((void*)&vblticker, NULL, 0, NULL);
+#endif
     last_ticker = vblticker;
 
 //    while ((vblticker - last_ticker) < 2) {
 //        thd_pass();
 //    }
 //    last_ticker = vblticker;
+}
+
+// Shows the current frame for one more frame time without drawing: the PVR keeps scanning out the
+// last finished scene, so only the pacing is needed (pc_main.c's identical-second-draw skip).
+void gfx_dc_hold_frame(void) {
+    count_vbl_miss();
+    while (vblticker < (last_ticker + DC_VBL_WAIT))
+#ifdef KOS_GENWAIT_3ARG
+        genwait_wait((void*)&vblticker, NULL, 0);
+#else
+        genwait_wait((void*)&vblticker, NULL, 0, NULL);
+#endif
+    last_ticker = vblticker;
 }
 
 /* Idk what this is for? */

@@ -118,6 +118,10 @@ struct GraphNodeObject_sub
     /*0x0A 0x42*/ u16 animTimer;
     /*0x0C 0x44*/ s32 animFrameAccelAssist;
     /*0x10 0x48*/ s32 animAccel;
+    s16 prevAnimFrame;
+    s16 prevAnimID;
+    u32 prevAnimFrameTimestamp;
+    struct Animation *prevAnimPtr;
 };
 
 struct GraphNodeObject
@@ -128,11 +132,23 @@ struct GraphNodeObject
     /*0x19*/ s8 unk19;
     /*0x1A*/ Vec3s angle;
     /*0x20*/ Vec3f pos;
+    Vec3s prevAngle;
+    Vec3f prevPos;
+    u32 prevTimestamp;
+    Vec3f prevShadowPos;
+    u32 prevShadowPosTimestamp;
     /*0x2C*/ Vec3f scale;
+    Vec3f prevScale;
+    u32 prevScaleTimestamp;
     /*0x38*/ struct GraphNodeObject_sub unk38;
     /*0x4C*/ struct SpawnInfo *unk4C;
     /*0x50*/ Mat4 *throwMatrix; // matrix ptr
+    // sh4zam's matrix copy/multiply use paired (fmov.d) moves, which need 8-byte alignment.
+    Mat4 prevThrowMatrix __attribute__((aligned(8)));
+    u32 prevThrowMatrixTimestamp;
+    Mat4 *throwMatrixInterpolated;
     /*0x54*/ Vec3f cameraToObject;
+    u32 skipInterpolationTimestamp;
 };
 
 struct ObjectNode

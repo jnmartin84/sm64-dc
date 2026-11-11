@@ -20,7 +20,7 @@
 #include "sfx.h"
 #include "shape_helper.h"
 #include "skin.h"
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
 #define MAX_GD_DLS 1000
 #define OS_MESG_SI_COMPLETE 0x33333333
@@ -785,7 +785,7 @@ f64 gd_sqrt_d(f64 x) {
      if (x < 1.0e-7f) {
         return 0.0f;
     }
-    return shz_sqrtf_fsrra(x);
+    return shz_sqrtf(x);
 }
 
 /* 249BA4 -> 249BCC */
@@ -963,6 +963,12 @@ void *Unknown8019BCD4(u32 size) {
 }
 
 /* 24A4DC -> 24A598 */
+// A shape's display list is built once (create_shape_gddl): the native renderer may compile it.
+void gd_native_stable_dl(s32 dlNum, s32 gfxCount) {
+    extern void gfx_native_stable(const void *start, size_t bytes);
+    gfx_native_stable(sGdDLArray[dlNum]->gfx, (size_t) gfxCount * sizeof(Gfx));
+}
+
 void func_8019BD0C(s32 dlNum, s32 gfxIdx) {
     Gfx *dl; // 1c
 

@@ -610,7 +610,7 @@ void painting_update_ripple_state(struct Painting *painting) {
         }
     }
 }
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 /**
  * @return the ripple function at posX, posY
  * note that posX and posY correspond to a point on the face of the painting, not actual axes
@@ -622,7 +622,7 @@ s16 calculate_ripple_at_point(struct Painting *painting, f32 posX, f32 posY) {
     /// Controls the ripple's frequency
     f32 rippleRate = painting->currRippleRate;
     /// Controls how fast the ripple spreads
-    f32 dispersionFactor = shz_fast_invf(painting->dispersionFactor);
+    f32 dispersionFactor = shz_invf(painting->dispersionFactor);
     /// How far the ripple has spread
     f32 rippleTimer = painting->rippleTimer;
     /// x and y ripple origin
@@ -634,7 +634,7 @@ s16 calculate_ripple_at_point(struct Painting *painting, f32 posX, f32 posY) {
 
     posX *= painting->size * RECIP_PAINTING_SIZE;
     posY *= painting->size * RECIP_PAINTING_SIZE;
-    distanceToOrigin = shz_sqrtf_fsrra((posX - rippleX) * (posX - rippleX) + (posY - rippleY) * (posY - rippleY));
+    distanceToOrigin = shz_sqrtf((posX - rippleX) * (posX - rippleX) + (posY - rippleY) * (posY - rippleY));
     // A larger dispersionFactor makes the ripple spread slower
     rippleDistance = distanceToOrigin * dispersionFactor;
     if (rippleTimer < rippleDistance) {
@@ -792,7 +792,7 @@ void painting_average_vertex_normals(s16 *neighborTris, s16 numVtx) {
 
         // The first number of each entry is the number of adjacent tris
         neighbors = neighborTris[entry];
-        f32 nbrecip = shz_fast_invf((f32)neighbors);
+        f32 nbrecip = shz_invf((f32)neighbors);
         for (j = 0; j < neighbors; j++) {
             tri = neighborTris[entry + j + 1];
             nx += gPaintingTriNorms[tri][0];

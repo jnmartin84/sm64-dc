@@ -1,0 +1,124 @@
+{
+ "_doc": "Daniel's choices (2026-11-06) for tools/aica/sm64_scene_banks.py --choices. move: out of scene_core into these levels' packs. add: on no list today (the dialog voices in src/audio/external.c), into these levels. disk: in no pack; loaded from the asset's own files when it plays (songs still get room kept for them). Daniel 2026-11-07: with the AICA RAM freed, everything goes in a pack where it plays except the credits' song. adpcm: samples stored as PCM8 today (first 12 hex digits of the SHA-1 of their bytes), re-encoded to Yamaha ADPCM in the packs.",
+ "move": {
+  "sfx_20380000": [
+   "castle_grounds"
+  ],
+  "sfx_20390000": [
+   "castle_grounds"
+  ],
+  "sfx_203A0000": [
+   "castle_grounds"
+  ],
+  "sfx_203B0000": [
+   "castle_grounds"
+  ],
+  "sfx_203C0000": [
+   "castle_grounds"
+  ],
+  "sfx_203D0000": [
+   "castle_grounds"
+  ],
+  "sfx_203E0000": [
+   "castle_grounds"
+  ],
+  "sfx_203F0000": [
+   "castle_grounds"
+  ],
+  "sfx_20360000": [
+   "bowser_1",
+   "bowser_2",
+   "bowser_3"
+  ],
+  "sfx_50070000": [
+   "bowser_1",
+   "bowser_2",
+   "bowser_3"
+  ],
+  "sfx_50160000": [
+   "wf",
+   "bob"
+  ],
+  "sfx_70220000": [
+   "castle_inside",
+   "castle_grounds",
+   "castle_courtyard"
+  ],
+  "sfx_50510000": [
+   "castle_grounds",
+   "castle_courtyard"
+  ],
+  "sfx_20280000": [
+   "castle_grounds"
+  ],
+  "sfx_701F0000": [
+   "ending"
+  ],
+  "sfx_70090000": [
+   "menu"
+  ]
+ },
+ "add": {
+  "sfx_50380000": [
+   "bitdw",
+   "bitfs",
+   "bits",
+   "bowser_1",
+   "bowser_2",
+   "bowser_3"
+  ],
+  "sfx_503D0000": [
+   "bob",
+   "thi"
+  ],
+  "sfx_50410000": [
+   "bob"
+  ],
+  "sfx_506F0000": [
+   "thi"
+  ],
+  "sfx_90690000": [
+   "wf",
+   "ssl"
+  ],
+  "sfx_300B0000": [
+   "ttm"
+  ],
+  "seq20": [
+   "castle_grounds"
+  ]
+ },
+ "disk": [
+  "seq1A"
+ ],
+ "adpcm": [
+  "8a618a7d77e9",
+  "14ea0ea97b2d",
+  "2428a45b9422",
+  "aa84397d4e40",
+  "1d86e1870300",
+  "8a75aeb41740",
+  "60bea84d1e96",
+  "fcad1160194f",
+  "b67a835daa88",
+  "80e5de69e478",
+  "9a74c9998de8",
+  "a36ffa1f4f45",
+  "8aa3c02e6340",
+  "2a85e10cf962",
+  "cd30873b6745",
+  "496e317f690f",
+  "90583eda6179",
+  "018e47852725",
+  "7e09b0ed8b01",
+  "76718e56c940",
+  "c9825b1ed871",
+  "aea0293fdaed",
+  "483eaff9c790",
+  "9d729816cd0e",
+  "9fb841d8b1bc",
+  "93b1d22b115c",
+  "fd70dd5726ad",
+  "a58e50bced1b"
+ ]
+}

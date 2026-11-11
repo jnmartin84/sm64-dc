@@ -1,3 +1,7 @@
+#if defined(TARGET_DC)
+#include "pc/gfx/gfx_dc_tags.h"
+#endif
+
 // 0x07007F90 - 0x07007FA8
 static const Lights1 vcutm_seg7_lights_07007F90 = gdSPDefLights1(
     0x3f, 0x3f, 0x3f,
@@ -27,10 +31,16 @@ static const Gfx vcutm_seg7_dl_07008068[] = {
     gsDPLoadBlock(G_TX_LOADTILE, 0, 0, 32 * 32 - 1, CALC_DXT(32, G_IM_SIZ_16b_BYTES)),
     gsSPLight(&vcutm_seg7_lights_07007F90.l, 1),
     gsSPLight(&vcutm_seg7_lights_07007F90.a, 2),
+#if defined(TARGET_DC)
+    gsDPNoOpTag(DC_GFX_RAIL_TR_BEGIN),
+#endif
     gsSPVertex(vcutm_seg7_vertex_07007FA8, 12, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  0,  3,  1, 0x0),
     gsSP2Triangles( 4,  5,  6, 0x0,  4,  7,  5, 0x0),
     gsSP2Triangles( 8,  9, 10, 0x0,  8, 11,  9, 0x0),
+#if defined(TARGET_DC)
+    gsDPNoOpTag(DC_GFX_RAIL_TR_END),
+#endif
     gsSPEndDisplayList(),
 };
 

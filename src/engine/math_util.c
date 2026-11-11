@@ -1,4 +1,5 @@
 #include <ultra64.h>
+#include <string.h>
 
 #include "sm64.h"
 #include "engine/graph_node.h"
@@ -7,7 +8,7 @@
 
 #include "trig_tables.inc.c"
 
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
 // Variables for a spline curve animation (used for the flight path in the grand star cutscene)
 Vec4s *gSplineKeyframe;
@@ -124,10 +125,11 @@ void vec3f_normalize(Vec3f dest) {
 //    dest[0] *= invsqrt;
 //    dest[1] *= invsqrt;
 //    dest[2] *= invsqrt;
-    shz_vec3_t out = shz_vec3_normalize(shz_vec3_deref(dest));
-    dest[0] = out.x;
-    dest[1] = out.y;
-    dest[2] = out.z;
+    // The N64's arithmetic (sh4zam's normalize scales by an approximate reciprocal square root).
+    f32 invsqrt = 1.0f / sqrtf(dest[0] * dest[0] + dest[1] * dest[1] + dest[2] * dest[2]);
+    dest[0] *= invsqrt;
+    dest[1] *= invsqrt;
+    dest[2] *= invsqrt;
 }
 
 /// Copy matrix 'src' to 'dest'
@@ -141,7 +143,10 @@ void mtxf_copy(Mat4 dest, Mat4 src) {
         *d++ = *s++;
     }
 #endif
-    shz_matrix_4x4_copy((shz_matrix_4x4_t *)dest, (shz_matrix_4x4_t *)src);
+    // Not shz_mat4x4_copy: its paired fmov.d moves need 8-byte alignment, and matrices such as
+    // an object's transform (a throwMatrix target) are only 4-byte aligned. Same reason mtxf_mul
+    // uses the unaligned XMTRX loads. shz_memcpy4 needs only the 4-byte alignment every Mat4 has.
+    shz_memcpy4(dest, src, sizeof(Mat4));
 }
 
 /**
@@ -159,7 +164,7 @@ void mtxf_identity(Mat4 mtx) {
     for (dest = (f32 *) mtx, i = 0; i < 4; dest += 5, i++) *dest = 1;
 #endif
     shz_xmtrx_init_identity();
-    shz_xmtrx_store_4x4_unaligned((float *)mtx);
+    shz_xmtrx_store_unaligned_4x4((float *)mtx);
 
 }
 
@@ -174,22 +179,14 @@ void mtxf_translate(Mat4 dest, Vec3f b) {
     //dest[3][2] = b[2];
 }
 
-f32 sins(u16 arg0) {
-#if 0
+// The game's own tables, as on the N64, so that game logic (Mario's movement, the camera, objects)
+// computes exactly what the original does; FSCA's values (sinf with -mfsca) differ slightly.
+f32 (sins)(u16 arg0) {
     return gSineTable[arg0 >> 4];
-#else
-    float farg0 = (float)arg0 * TRIG_ARG_SCALE;
-    return sinf(farg0);
-#endif
 }
 
-f32 coss(u16 arg0) {
-#if 0
+f32 (coss)(u16 arg0) {
     return gCosineTable[arg0 >> 4];
-#else
-    float farg0 = (float)arg0 * TRIG_ARG_SCALE;
-    return cosf(farg0);
-#endif
 }
 
 /**
@@ -479,7 +476,7 @@ void mtxf_align_terrain_triangle(Mat4 mtx, Vec3f pos, s16 yaw, f32 radius) {
         point2[1] = pos[1];
     }
 
-    avgY = (point0[1] + point1[1] + point2[1]) * 0.3333f; // / 3;
+    avgY = (point0[1] + point1[1] + point2[1]) / 3;
 
     vec3f_set(forward, ys, 0, yc); // sins(yaw), 0, coss(yaw));
     find_vector_perpendicular_to_plane(yColumn, point0, point1, point2);
@@ -521,15 +518,26 @@ void mtxf_align_terrain_triangle(Mat4 mtx, Vec3f pos, s16 yaw, f32 radius) {
 #define MEM_BARRIER() asm volatile("" : : : "memory");
 
 void mtxf_mul(Mat4 dest, Mat4 a, Mat4 b) {
-#if 1
-    shz_xmtrx_load_4x4_unaligned((const float*)b);
-    shz_xmtrx_apply_4x4_unaligned((const float *)a);
-    shz_xmtrx_store_4x4_unaligned((float *)dest);
-#else
-    // in theory these are all 32-byte aligned
-    // in practice, the following call crashes
-    shz_xmtrx_load_4x4_apply_store((shz_matrix_4x4_t *)dest, (const shz_matrix_4x4_t *)b, (const shz_matrix_4x4_t *)a);
-#endif
+    // The N64's sums in the N64's order (FTRV keeps its own precision). Through a temporary, as
+    // dest may be a or b.
+    Mat4 temp;
+    s32 i, j;
+    for (i = 0; i < 4; i++) {
+        f32 entry0 = a[i][0];
+        f32 entry1 = a[i][1];
+        f32 entry2 = a[i][2];
+        for (j = 0; j < 3; j++) {
+            temp[i][j] = entry0 * b[0][j] + entry1 * b[1][j] + entry2 * b[2][j];
+            if (i == 3) {
+                temp[i][j] += b[3][j];
+            }
+        }
+    }
+    for (i = 0; i < 4; i++) {
+        for (j = 0; j < 3; j++) {
+            dest[i][j] = temp[i][j];
+        }
+    }
 
     dest[0][3] = 0.0f;
     dest[1][3] = 0.0f;
@@ -557,16 +565,13 @@ void mtxf_scale_vec3f(Mat4 dest, Mat4 mtx, Vec3f s) {
  * true for transformation matrices if the translation has a w component of 1.
  */
 void mtxf_mul_vec3s(Mat4 mtx, Vec3s b) {
-    shz_xmtrx_load_4x4_unaligned((const float *)mtx);
+    f32 x = b[0];
+    f32 y = b[1];
+    f32 z = b[2];
 
-    register f32 x = b[0];
-    register f32 y = b[1];
-    register f32 z = b[2];
-
-    shz_vec3_t out = shz_xmtrx_trans_vec3((shz_vec3_t){.x = x, .y = y, .z = z});
-    b[0] = out.x;
-    b[1] = out.y;
-    b[2] = out.z;
+    b[0] = x * mtx[0][0] + y * mtx[1][0] + z * mtx[2][0] + mtx[3][0];
+    b[1] = x * mtx[0][1] + y * mtx[1][1] + z * mtx[2][1] + mtx[3][1];
+    b[2] = x * mtx[0][2] + y * mtx[1][2] + z * mtx[2][2] + mtx[3][2];
 
 //    b[0] = x * mtx[0][0] + y * mtx[1][0] + z * mtx[2][0] + mtx[3][0];
 //    b[1] = x * mtx[0][1] + y * mtx[1][1] + z * mtx[2][1] + mtx[3][1];
@@ -656,8 +661,8 @@ void vec3f_get_dist_and_angle(Vec3f from, Vec3f to, f32 *dist, s16 *pitch, s16 *
     /* register */ f32 y = to[1] - from[1];
     /* register */ f32 z = to[2] - from[2];
 
-    *dist = shz_sqrtf_fsrra(shz_mag_sqr3f(x, y, z)); // (x * x + y * y + z * z);
-    *pitch = atan2s(shz_sqrtf_fsrra(x * x + z * z), y);
+    *dist = shz_sqrtf(shz_mag_sqr3f(x, y, z)); // (x * x + y * y + z * z);
+    *pitch = atan2s(shz_sqrtf(x * x + z * z), y);
     *yaw = atan2s(z, x);
 }
 
@@ -919,7 +924,7 @@ s32 anim_spline_poll(Vec3f result) {
         result[2] += weights[i] * gSplineKeyframe[i][3];
     }
 
-    if ((gSplineKeyframeFraction += gSplineKeyframe[0][0]*0.001f  /* / 1000.0f */) >= 1) {
+    if ((gSplineKeyframeFraction += gSplineKeyframe[0][0] / 1000.0f) >= 1) {
         gSplineKeyframe++;
         gSplineKeyframeFraction--;
         switch (gSplineState) {

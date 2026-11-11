@@ -1187,7 +1187,7 @@ u64 *process_envelope(u64 *cmd, struct Note *note, s32 nSamples, u16 inBuf, s32 
     note->curVolRight = vol.targetRight;
     return process_envelope_inner(cmd, note, nSamples, inBuf, headsetPanSettings, &vol);
 }
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 u64 *process_envelope_inner(u64 *cmd, struct Note *note, s32 nSamples, u16 inBuf,
                             s32 headsetPanSettings, struct VolumeChange *vol) {
     UNUSED u8 pad[3];
