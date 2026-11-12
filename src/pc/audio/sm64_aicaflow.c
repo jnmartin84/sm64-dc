@@ -64,7 +64,9 @@ typedef struct {
 /* Version 2 and 3 packs (tools/aica/sm64_scene_banks.py) bring one sample bank each that their
  * flows bind to: scene_core's for the run, the level's until its last flow is freed. In version
  * 3 a level flow can play from both, the level's bank in slot 0 and scene_core's in slot 1. */
-enum { PACK_BANK_OWN, PACK_BANK_CORE, PACK_BANK_BOTH };
+/* PACK_BANK_FILES: an asset the level plays that its pack has no room for (tools/aica/sm64_scene_banks.py),
+ * read into main RAM from its own files when the level loads. */
+enum { PACK_BANK_OWN, PACK_BANK_CORE, PACK_BANK_BOTH, PACK_BANK_FILES };
 static afx_bank_t sCoreBank, sLevelBank;
 static u8 sCoreBankUp, sLevelBankUp, sLevelBankDying;
 
@@ -114,6 +116,16 @@ static u32 sMissingSfx[256];
 static u32 sMissingSfxCount;
 static int sReady;
 
+/* The running level's pack, whole, in main RAM (pack_load); NULL if it did not fit there. */
+static u8 *sLevelPack;
+static u32 sLevelPackBytes;
+
+static void level_pack_drop(void) {
+    free(sLevelPack);
+    sLevelPack = NULL;
+    sLevelPackBytes = 0;
+}
+
 static int read_file(const char *path, void **out, u32 *bytes) {
     FILE *f = fopen(path, "rb");
     if (f == NULL) return -1;
@@ -148,14 +160,16 @@ static int flow_upload(Asset *a, afx_bank_t *bank, afx_bank_t *also, const void 
 }
 
 /* Assets a scene will load from their own files, read into main RAM ahead of time at a load point,
- * so that when they play they go to AICA RAM from memory instead of from the disc. Today only the
- * credits (see sm64_afx_scene_prepare): their song, in no pack, and the sounds they play once the
- * core pack has gone for it. A copy goes once it has been uploaded. */
-#define PREFETCH_MAX 8
+ * so that when they play they go to AICA RAM from memory instead of from the disc: those a level's
+ * pack has no room for (kept until the scene ends, as AICA RAM may make them leave and come back),
+ * and the credits' (see sm64_afx_scene_prepare: their song, in no pack, and the sounds they play
+ * once the core pack has gone for it; each copy goes once it has been uploaded). */
+#define PREFETCH_MAX 16
 static struct {
     char stem[24];
     void *afb, *afx;
     u32 afb_bytes, afx_bytes;
+    u8 keep;
 } sPrefetch[PREFETCH_MAX];
 
 static void prefetch_drop(int i) {
@@ -170,7 +184,7 @@ static int prefetch_find(const char *stem) {
     return -1;
 }
 
-static void prefetch(const char *stem) {
+static void prefetch(const char *stem, u8 keep) {
     char path[128];
     int i = 0;
     if (prefetch_find(stem) >= 0) return;
@@ -180,8 +194,12 @@ static void prefetch(const char *stem) {
     int ok = read_file(path, &sPrefetch[i].afb, &sPrefetch[i].afb_bytes) == 0;
     snprintf(path, sizeof(path), "%s/%s.afx", DC_AICAFLOW_ROOT, stem);
     ok = ok && read_file(path, &sPrefetch[i].afx, &sPrefetch[i].afx_bytes) == 0;
-    if (ok) snprintf(sPrefetch[i].stem, sizeof(sPrefetch[i].stem), "%s", stem);
-    else prefetch_drop(i);   /* no room in main RAM: it loads from its files when it plays */
+    if (ok) {
+        snprintf(sPrefetch[i].stem, sizeof(sPrefetch[i].stem), "%s", stem);
+        sPrefetch[i].keep = keep;
+    } else {
+        prefetch_drop(i);   /* no room in main RAM: it loads from its files when it plays */
+    }
 }
 
 static int asset_load_files(Asset *a, const char *stem, u32 id, u32 *bytes) {
@@ -195,7 +213,7 @@ static int asset_load_files(Asset *a, const char *stem, u32 id, u32 *bytes) {
         if (!result && (result = flow_upload(a, &a->bank, NULL, sPrefetch[p].afx, sPrefetch[p].afx_bytes)) != 0)
             afx_bank_release(&a->bank);
         if (!result) {
-            prefetch_drop(p);
+            if (!sPrefetch[p].keep) prefetch_drop(p);
             a->id = id;
             return 0;
         }
@@ -377,6 +395,10 @@ static int pack_load_v2(const char *path, const char *stem, u8 core, u32 *loaded
         for (u32 i = 0; i < head[2]; i++) {
             const PackEntry2 *e = &entries[i];
             u32 id;
+            if (e->bank == PACK_BANK_FILES) {
+                prefetch(e->stem, 1);
+                continue;
+            }
             if (e->bank != PACK_BANK_OWN && !sCoreBankUp) continue;
             Asset *slot = pack_slot(e->stem, &id);
             if (!slot) continue;
@@ -401,14 +423,30 @@ static int pack_load_v2(const char *path, const char *stem, u8 core, u32 *loaded
 
 static int pack_load(const char *stem, u8 core) {
     char path[128];
+    /* The previous level's bank goes once the flows bound to it have: a sound still stopping at the
+     * scene change holds its flow until the firmware takes the stop. Wait for that here (the screen
+     * is black), or the level's pack would find the bank still up and load nothing. */
+    for (int wait = 0; !core && sLevelBankUp && wait < 500; wait++) {
+        free_retired();
+        if (sLevelBankUp) thd_sleep(1);
+    }
+    if (!core && sLevelBankUp) printf("AICAFLOW: %s: the previous level's bank is still referenced\n", stem);
     void *data = NULL;
     u32 bytes = 0, loaded = 0, id;
     snprintf(path, sizeof(path), "%s/%s.smp", DC_AICAFLOW_ROOT, stem);
     int found = 1;
-    if (pack_load_v2(path, stem, core, &loaded, &bytes)) {
+    /* A level's pack stays in main RAM until the scene ends (sLevelPack): a song AICA RAM lets go
+     * comes back from there (pack_reload), not from the disc. scene_core is read piece by piece;
+     * so is a level's pack when main RAM has no room for all of it. */
+    if (!core) level_pack_drop();
+    if (!core && read_file(path, &data, &bytes) == 0) {
+        sLevelPack = data;
+        sLevelPackBytes = bytes;
+    } else if (pack_load_v2(path, stem, core, &loaded, &bytes)) {
         goto done;
     }
-    int ok = read_file(path, &data, &bytes) == 0 && bytes >= 20 && ((const u32 *) data)[0] == PACK_MAGIC;
+    int ok = (data != NULL || read_file(path, &data, &bytes) == 0) && bytes >= 20 &&
+             ((const u32 *) data)[0] == PACK_MAGIC;
     const u32 *head = data;
     if (ok && head[1] == 1 && 12 + head[2] * sizeof(PackEntry) <= bytes) {
         const u8 *base = data;
@@ -433,6 +471,10 @@ static int pack_load(const char *stem, u8 core) {
             const PackEntry2 *e = (const PackEntry2 *) (base + 20);
             for (u32 n = head[2]; n--; e++) {
                 if (e->afx_off + e->afx_size > bytes) break;
+                if (e->bank == PACK_BANK_FILES) {
+                    prefetch(e->stem, 1);
+                    continue;
+                }
                 if (e->bank != PACK_BANK_OWN && !sCoreBankUp) continue;
                 Asset *slot = pack_slot(e->stem, &id);
                 if (slot && !pack_entry_load2(slot, base, e, own, id, core)) loaded++;
@@ -442,7 +484,8 @@ static int pack_load(const char *stem, u8 core) {
         ok = 0;
     }
     found = ok;
-    free(data);
+    if (data != sLevelPack) free(data);
+    else if (!ok) level_pack_drop();
 done:;
     int ok_all = found;   /* the pack exists (whether or not everything in it fit) */
     afx_mem_stats_t mem;
@@ -526,6 +569,19 @@ static void song_make_room(afx_instance_t stopping) {
 /* A song song_make_room let go: its entry alone, read from the level's pack into the cache. */
 static int pack_reload(const char *stem) {
     char path[128];
+    if (sLevelPack) {
+        const u32 *head = (const u32 *) sLevelPack;
+        const PackEntry2 *e = (const PackEntry2 *) (sLevelPack + 20);
+        for (u32 i = 0; i < head[2]; i++, e++) {
+            if (e->bank == PACK_BANK_FILES || strncmp(e->stem, stem, sizeof(e->stem)) != 0) continue;
+            if (e->afx_off + e->afx_size > sLevelPackBytes) return -1;
+            u32 id;
+            Asset *slot = pack_slot(e->stem, &id);
+            int up = (e->bank == PACK_BANK_OWN || sCoreBankUp) && (e->bank == PACK_BANK_CORE || sLevelBankUp);
+            return slot && up ? pack_entry_load2(slot, sLevelPack, e, &sLevelBank, id, 0) : -1;
+        }
+        return -1;
+    }
     snprintf(path, sizeof(path), "%s/scene_%02d.smp", DC_AICAFLOW_ROOT, (int) sSceneLevel);
     FILE *f = fopen(path, "rb");
     if (f == NULL) return -1;
@@ -639,6 +695,9 @@ static void scene_end(void) {
     free_retired();
     if (sLevelBankUp) sLevelBankDying = 1;
     level_bank_release();
+    level_pack_drop();
+    for (int i = 0; i < PREFETCH_MAX; i++)
+        if (sPrefetch[i].keep) prefetch_drop(i);
     /* A song or sound that failed for want of AICA RAM gets another chance. */
     memset(sMissingSeq, 0, sizeof(sMissingSeq));
     memset(sEvictedSeq, 0, sizeof(sEvictedSeq));
@@ -655,6 +714,10 @@ static s16 sMenuOver = -1;
 static s16 scene_level(void) {
     if (gCurrLevelNum != sMenuOver) sMenuOver = -1;
     return sMenuOver >= 0 ? 1 : gCurrLevelNum;
+}
+
+void sm64_afx_menu_enter(void) {
+    if (gCurrLevelNum != 1) sMenuOver = gCurrLevelNum;
 }
 
 void sm64_afx_scene_prepare(s16 level) {
@@ -684,7 +747,7 @@ void sm64_afx_scene_prepare(s16 level) {
     if (from == LEVEL_BOWSER_3_NUM && level == LEVEL_CASTLE_GROUNDS_NUM) {
         static const char *const credits[] = { "seq1A", "sfx_40010000", "sfx_80500000", "sfx_90520000",
                                                "sfx_30690000", "sfx_701F0000" };
-        for (u32 i = 0; i < sizeof(credits) / sizeof(credits[0]); i++) prefetch(credits[i]);
+        for (u32 i = 0; i < sizeof(credits) / sizeof(credits[0]); i++) prefetch(credits[i], 0);
     }
 }
 

@@ -1,5 +1,5 @@
 {
- "_doc": "Daniel's choices (2026-11-06) for tools/aica/sm64_scene_banks.py --choices. move: out of scene_core into these levels' packs. add: on no list today (the dialog voices in src/audio/external.c), into these levels. disk: in no pack; loaded from the asset's own files when it plays (songs still get room kept for them). Daniel 2026-11-07: with the AICA RAM freed, everything goes in a pack where it plays except the credits' song. adpcm: samples stored as PCM8 today (first 12 hex digits of the SHA-1 of their bytes), re-encoded to Yamaha ADPCM in the packs.",
+ "_doc": "Daniel's choices (2026-11-06) for tools/aica/sm64_scene_banks.py --choices. move: out of scene_core into these levels' packs. add: on no list today (the dialog voices in src/audio/external.c), into these levels. core: into scene_core and out of the level packs, for what any level may play (Mario's bubbles, a star's sparkle and its appearance; found on hardware 2026-11-12). disk: in no pack; loaded from the asset's own files when it plays (songs still get room kept for them). Daniel 2026-11-07: with the AICA RAM freed, everything goes in a pack where it plays except the credits' song. adpcm: samples stored as PCM8 today (first 12 hex digits of the SHA-1 of their bytes), re-encoded to Yamaha ADPCM in the packs.",
  "move": {
   "sfx_20380000": [
    "castle_grounds"
@@ -108,8 +108,26 @@
   ],
   "sfx_30700000": [
    "castle_grounds"
+  ],
+  "sfx_304D0000": [
+   "ccm"
+  ],
+  "seq1D": [
+   "castle_courtyard"
+  ],
+  "sfx_50090000": [
+   "sl"
+  ],
+  "seq0E": [
+   "thi"
   ]
  },
+ "core": [
+  "sfx_300B0000",
+  "sfx_40140000",
+  "sfx_30570000",
+  "sfx_80570000"
+ ],
  "disk": [
   "seq1A"
  ],

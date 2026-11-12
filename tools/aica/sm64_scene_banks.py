@@ -19,14 +19,15 @@ bank in slot 1.
 
 Each level pack is fitted to the AICA RAM left after the core pack and the reverb ring (--arena-kb,
 --reverb-kb): its music, then its sounds (smallest flow first), then other songs (jingles, event
-music). A song left out is loaded from its own files when it plays, so the
-songs packed are chosen to leave room for the largest left out where that lets more of them play
+music). A song left out is read into main RAM from its own files when the level loads (it is named
+in the pack) and goes to AICA RAM when it plays, so the songs packed are chosen to leave room for the largest left out where that lets more of them play
 (see fit). The bank holds only the samples of what is in the pack.
 
 Pack format (little-endian): "SMPK", version 3, entry count, bank offset, bank bytes (a whole
 AFB file); per entry a 24-byte NUL-padded stem, the bank it binds (0 = this pack's, 1 = the core
-pack's, 2 = both), the offset and size of its AFX in the file, and a reserved word; files 32-byte
-aligned. Version 2 is the same without entries of bank 2.
+pack's, 2 = both, 3 = none: an asset the pack has no room for, by name only, which the runtime reads
+into main RAM from its own files when the level loads), the offset and size of its AFX in the file,
+and a reserved word; files 32-byte aligned. Version 2 is the same without entries of bank 2.
 """
 import argparse
 import hashlib
@@ -273,7 +274,7 @@ def main():
     ap.add_argument("--arena-kb", type=int, default=2023, help="AICA RAM arena (default %(default)s)")
     ap.add_argument("--reverb-kb", type=int, default=16, help="reverb ring, 0 without (default %(default)s)")
     ap.add_argument("--margin-kb", type=int, default=32, help="kept free (default %(default)s)")
-    ap.add_argument("--choices", type=Path, help="moves, additions, disk-only assets and ADPCM samples (sm64_sound_choices.json)")
+    ap.add_argument("--choices", type=Path, help="moves, additions, core additions, disk-only assets and ADPCM samples (sm64_sound_choices.json)")
     args = ap.parse_args()
     stage = args.stage / "afx"
     lists = json.loads(args.assets.read_text())
@@ -286,6 +287,13 @@ def main():
         for lvl in levels:
             if stem not in lists["levels"].setdefault(lvl, []):
                 lists["levels"][lvl].append(stem)
+    # core: into scene_core (and out of the level packs), for what any level may play.
+    for stem in choices.get("core", []):
+        for stems in lists["levels"].values():
+            if stem in stems:
+                stems.remove(stem)
+        if stem not in lists["global"]:
+            lists["global"].append(stem)
     lists["global"] = [s for s in lists["global"] if s not in disk]
 
     def load(stems):
@@ -343,8 +351,12 @@ def main():
         both = [e for e in entries if e[1] == 2]
         # Songs load last: the room one leaves when it lets go joins the free end of AICA RAM.
         entries.sort(key=lambda e: e[0].startswith("seq"))
-        size = write_pack(stage / f"scene_{number:02d}.smp", bank, entries)
         flows = sum(struct.unpack_from("<I", e[2], 20)[0] for e in entries)
+        # What the pack has no room for goes in as a name only (bank 3, no flow): the runtime reads
+        # it into main RAM from its own files when the level loads, so it never comes from the disc
+        # mid-scene. The disk choices stay out.
+        entries += [(a.stem, 3, b"") for a in left_out if a.stem not in disk]
+        size = write_pack(stage / f"scene_{number:02d}.smp", bank, entries)
         out = f" left out {' '.join(a.stem for a in left_out)}" if left_out else ""
         print(f"scene_{number:02d}.smp {lvl:17s} {len(own):3d} assets ({len(on_core)} on core, {len(both)} on both), "
               f"bank {len(bank) // 1024:4d} KB, flows {flows // 1024:4d} KB{out}")

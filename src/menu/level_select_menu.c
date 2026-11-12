@@ -9,6 +9,9 @@
 #include "game/memory.h"
 #include "game/print.h"
 #include "game/save_file.h"
+#ifdef TARGET_DC
+#include "pc/audio/sm64_aicaflow.h"
+#endif
 #include "game/sound_init.h"
 #include "level_table.h"
 #include "seq_ids.h"
@@ -141,6 +144,9 @@ int intro_default(void) {
 
 #ifndef VERSION_JP
     if (D_U_801A7C34 == 1) {
+#ifdef TARGET_DC
+        sm64_afx_menu_enter();   // the title's sounds come from its pack, also after a demo
+#endif
         if (gGlobalTimer < 0x81) {
             play_sound(SOUND_MARIO_HELLO, gDefaultSoundArgs);
         } else {

@@ -27,6 +27,9 @@ void sm64_afx_tick(void);
 /* level_update.c init_level: read the level's scene pack (and the core pack, once) before the
  * level starts, so its songs and sounds do not load from /pc mid-scene. */
 void sm64_afx_scene_prepare(s16 level);
+/* level_select_menu.c: the title is on screen. After a demo gCurrLevelNum is still the demo's
+ * level, and Mario's "press start" comes before the title's song does. */
+void sm64_afx_menu_enter(void);
 /* external.c sound_reset: the session preset's reverb (N64 ring length in 32 kHz samples, and
  * feedback, Q15) becomes the scene's DSP program. */
 void sm64_afx_reverb(u16 windowSize, u16 gain);
