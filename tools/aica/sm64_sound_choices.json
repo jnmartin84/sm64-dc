@@ -86,6 +86,28 @@
   ],
   "seq20": [
    "castle_grounds"
+  ],
+  "seq10": [
+   "castle_inside"
+  ],
+  "sfx_505F0000": [
+   "castle_inside"
+  ],
+  "sfx_50580000": [
+   "bob",
+   "wf",
+   "jrb",
+   "ccm",
+   "sl",
+   "wdw",
+   "ttm",
+   "thi",
+   "ssl",
+   "rr",
+   "wmotr"
+  ],
+  "sfx_30700000": [
+   "castle_grounds"
   ]
  },
  "disk": [
