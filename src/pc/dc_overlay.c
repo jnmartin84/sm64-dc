@@ -1,6 +1,7 @@
 /* The debug menu's Show FPS: the frame rate and the frame
  * losses of the current scene in the bottom left corner, in enDjinn's quick font
- * (third_party/endjinn). FPS counts the pictures drawn in the last second. Since the level or
+ * (third_party/endjinn). FPS counts the pictures drawn in the last second, followed by FSAA while
+ * the PVR renders with it. Since the level or
  * area last changed: MISS counts presents that came after the vblank they were paced for (a frame
  * shown late), SKIP the exact second frames skipped on purpose after a late first one
  * (DC_FRAME_MODE_60_DROP). The text goes into the PVR's TR list after everything else, with depth
@@ -86,6 +87,8 @@ static void line_out(const char *text, int x, int y) {
     enj_font_string_render(text, enj_qfont_get_header(), (int16_t) x, (int16_t) y, &sHdr);
 }
 
+extern int gfx_pvr_fsaa_x(void);
+
 // Called by gfx_pvr.c with the TR list open.
 void dc_overlay_draw(void) {
     if (!gDcOverlayOn || !dc_overlay_font_ready()) {
@@ -95,7 +98,8 @@ void dc_overlay_draw(void) {
     // enDjinn scales x by the PVR's current FSAA mode (enj_video_xscale), which gfx_pvr.c keeps
     // in enDjinn's parameters.
     const int x = 24;
-    snprintf(line, sizeof(line), "FPS %u", (unsigned) sFps);
+    // FSAA as the PVR runs now: in Auto, also off in the scenes it leaves out.
+    snprintf(line, sizeof(line), gfx_pvr_fsaa_x() > 1 ? "FPS %u FSAA" : "FPS %u", (unsigned) sFps);
     line_out(line, x, 404);
     snprintf(line, sizeof(line), "MISS %u", gfx_dc_vbl_late - sLateBase);
     line_out(line, x, 424);
