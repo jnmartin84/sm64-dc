@@ -10,7 +10,9 @@
 DC_GEN ?= build/dc/us_dc
 OUT ?= build/audio_rec
 PYTHON ?= python3
-SHZ_INCLUDE ?= $(KOS_BASE)/addons/include/sh4zam
+# Same search order as KOS_INC_PATHS: KOS addons first, then kos-ports.
+SHZ_INCLUDE ?= $(firstword $(wildcard $(KOS_BASE)/addons/include/sh4zam $(KOS_PORTS)/include/sh4zam) \
+                           $(KOS_BASE)/addons/include/sh4zam)
 
 SRCS := $(addprefix src/audio/,aica_synth.c data.c effects.c external.c globals_start.c heap.c load.c \
         playback.c seqplayer.c synthesis.c) lib/src/alBnkfNew.c src/buffers/buffers.c tools/aica/recorder/main.c

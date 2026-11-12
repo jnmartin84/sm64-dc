@@ -573,6 +573,8 @@ PLATFORM_CFLAGS += -I$(ENDJINN_DIR)/include -DENJ_CBASEPATH=\"/cd/\" -DENJ_FSAA=
 # SH4ZAM 0.9 had it, by reading SH4ZAM's inline routines without __FAST_MATH__.
 # GCC flags stock SM64 code (mario_actions_moving.c) as maybe-uninitialized.
 PLATFORM_CFLAGS += -Wno-error=maybe-uninitialized
+# GCC 16 also flags stock SM64 code (camera.c posReturn) as unused-but-set.
+PLATFORM_CFLAGS += -Wno-error=unused-but-set-variable
 
 # KOS dropped genwait_wait()'s callback argument in Nov 2025 without a version bump,
 # so detect the signature from the installed header. The same KOS deprecates

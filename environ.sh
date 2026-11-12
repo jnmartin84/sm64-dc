@@ -33,4 +33,5 @@ export KOS_SH4_PRECISION="${SM64_SH4_PRECISION:--m4-single}"
 if [ "${KOS_SH4_PRECISION}" = "-m4-single" ] ; then
     export KOS_CFLAGS="${KOS_CFLAGS} -fsingle-precision-constant"
 fi
-. ${KOS_BASE}/environ_base.sh
+export KOS_TOOLCHAIN="${KOS_TOOLCHAIN:-gcc}"
+. ${KOS_BASE}/env/environ_base.sh
