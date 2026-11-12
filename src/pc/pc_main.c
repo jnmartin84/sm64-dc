@@ -260,6 +260,20 @@ static void dbg_resolution_changed(UNUSED enj_menu_row_t *row, UNUSED void *data
 static void dbg_reverb_changed(UNUSED enj_menu_row_t *row, UNUSED void *data) {
     sm64_afx_reverb_returns();
 }
+#include "game/save_file.h"
+
+// Save: 120 stars plays with a finished game's save, kept in memory (ultra_reimplementation.c);
+// VMU gives the player's own back. Either way the game goes to the title, as Save & Quit does.
+extern void dc_star_save_set(s32 on);
+extern void tas_menu_reset_game(void);   // level_update.c
+static const char *const sDbgSaves[] = { "VMU", "120 stars" };
+static int sDbgStarSave;
+
+static void dbg_save_changed(UNUSED enj_menu_row_t *row, UNUSED void *data) {
+    dc_star_save_set(sDbgStarSave);
+    save_file_load_all();
+    tas_menu_reset_game();
+}
 #include "game/tas_slice.h"
 
 static int sDbgTas;
@@ -322,6 +336,13 @@ static enj_menu_row_t sDbgRows[] = {
               "bottom left corner.",
       .type = ENJ_MENU_CHOICE,
       .choice = { .value = &gDcOverlayOn, .labels = sDbgOffOn, .count = 2 } },
+    { .name = "Save",
+      .help = "120 stars: a finished game's save, kept in memory: nothing is written to the VMU, and "
+              "each switch to it starts it afresh. VMU: your own. Either goes back to the title.",
+      .type = ENJ_MENU_CHOICE,
+      .choice = { .value = &sDbgStarSave, .labels = sDbgSaves, .count = 2 },
+      .on_change = dbg_save_changed,
+      .apply_on_close = 1 },
     // Last: left out without the movie's files. Labels and counts come from tas_slice.c.
     { .name = "TAS replay",
       .type = ENJ_MENU_CHOICE,
