@@ -30,6 +30,37 @@ FIELDS = 18
 F_PITCH, F_DIRECT, F_MIX, F_ENV_AD = conv.FIELD_PITCH, conv.FIELD_DIRECT, conv.FIELD_MIX, conv.FIELD_ENV_AD
 
 
+def job_samples(path):
+    """The sample bytes of each zone in a .job file (sm64_afx.py writes it next to the AFX)."""
+    job = Path(path).read_bytes()
+    zone_count = struct.unpack_from("<I", job, 4)[0]
+    at, samples = 32, []
+    for _ in range(zone_count):
+        size = struct.unpack_from("<6I", job, at)[5]
+        samples.append(job[at + 24:at + 24 + size])
+        at += 24 + (size + 3) // 4 * 4
+    return samples
+
+
+def setup_zones(path, data, h, zones):
+    """The zone key of each AFX setup. AICAforge builds its own setup templates (several can share a
+    zone, in its own order), so a setup is matched to its zone by sample: the setup's binding record
+    gives its sample's place in the AFB, whose bytes are the zone's in the .job file."""
+    afb = Path(path).with_suffix(".afb").read_bytes()
+    payload = struct.unpack_from("<I", afb, 16)[0]
+    by_bytes = {}
+    for i, sample in enumerate(job_samples(Path(path).with_suffix(".job"))):
+        by_bytes.setdefault(sample, []).append(zones[i])
+    keys = [None] * h[9]
+    for r in range(h[13]):
+        pair, offset, size = struct.unpack_from("<3I", data, h[12] + 12 * r)
+        owners = by_bytes.get(afb[payload + offset:payload + offset + size], [])
+        if len(set(owners)) != 1:
+            sys.exit(f"setup {pair // (FIELDS * 2)}: its sample matches {len(set(owners))} zones of the .job")
+        keys[pair // (FIELDS * 2)] = owners[0]
+    return keys
+
+
 def afx_timeline(path, zones, total):
     """[(tick, frozenset state)] change points of the AFX stream, played for `total` ticks."""
     data = Path(path).read_bytes()
@@ -37,6 +68,7 @@ def afx_timeline(path, zones, total):
     image = data[h[4]:h[4] + h[5]]
     s0, size, setup_count = h[6], h[7], h[9]   # a lane map (AFX_FLAG_LANES) sits between setups and stream
     setups = [list(struct.unpack_from(f"<{FIELDS}H", image, i * FIELDS * 2)) for i in range(setup_count)]
+    zones = setup_zones(path, data, h, zones)
     stream = image[s0:s0 + size]
     state = {}            # channel -> [setup, fields]
     changes, tick, at, loops = [], 0, 0, 0
