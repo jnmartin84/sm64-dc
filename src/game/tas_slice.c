@@ -19,6 +19,7 @@
 #include "area.h"
 #include "buffers/buffers.h"
 #include "camera.h"
+#include "engine/math_util.h"
 #include "game_init.h"
 #include "ingame_menu.h"
 #include "level_update.h"
@@ -140,6 +141,10 @@ static s16 sEndedAct;
 static s32 sEndedActSelect;           // the movie went through the act selector, the replay doesn't
 static u32 sSlicesExact;
 static void tas_menu_build(void);
+static void own_capture(void);
+static s32 show_warp(s16 *destLevel, s16 *destArea, s16 *destWarpNode, s32 *arg);
+static void show_back(void);
+static s32 sShow;   // Show star: 1 while its replay plays, 2 while the player's own game comes back
 
 static u32 item_bytes(void) {
     u32 n = 0;
@@ -235,7 +240,11 @@ static s32 sMovie = 1;   // 0: the level select's slice, played by the controlle
 extern void dc_tas_stop(void);
 
 // initiate_warp: once a slice's level is left, the next level change goes to the next slice.
-void tas_slice_warp(s16 *destLevel, s16 *destArea, s16 *destWarpNode, s32 *arg) {
+// Nonzero: the destination must be loaded as a new level, even where it is the current one.
+s32 tas_slice_warp(s16 *destLevel, s16 *destArea, s16 *destWarpNode, s32 *arg) {
+    if (show_warp(destLevel, destArea, destWarpNode, arg)) {
+        return 1;   // Show star's way back: the player's level start, also from the same level
+    }
     // A replay the menu could not start in the level (tas_menu_level_change): from this level change.
     if (sSlices != NULL && sPlayNext == 0 && sPlayCount > 0 && *destLevel != gCurrLevelNum
         && (sPending = next_slice()) != NULL) {
@@ -244,10 +253,10 @@ void tas_slice_warp(s16 *destLevel, s16 *destArea, s16 *destWarpNode, s32 *arg) 
         *destWarpNode = sPending->warp.nodeId;
         *arg = (s32) sPending->warp.arg;
         D_8032C9E0 = 1;
-        return;
+        return 0;
     }
     if (sSlices == NULL || sPlayNext == 0 || *destLevel == gCurrLevelNum) {
-        return;
+        return 0;
     }
     if (sPlayNext >= sPlayCount && !gTasSlicesDone) {
         gTasSlicesDone = 1;
@@ -273,6 +282,7 @@ void tas_slice_warp(s16 *destLevel, s16 *destArea, s16 *destWarpNode, s32 *arg) 
         *arg = (s32) sPending->warp.arg;
         D_8032C9E0 = 1;   // no act selector: the slice has the act
     }
+    return 0;
 }
 
 // A slice that ended exactly as in the full movie arrives where the movie's next slice starts, at
@@ -356,6 +366,10 @@ void tas_slice_init_level(void) {
         sPlayCount = sPlayNext = 0;
         sPlaying = -1;
     }
+    if (sPending != NULL && sShow == 2) {
+        show_back();
+        return;
+    }
     if (sPending != NULL) {
         slice_check_end();
         const u8 *p = (const u8 *) (sPending + 1);
@@ -371,6 +385,7 @@ void tas_slice_init_level(void) {
         dc_tas_seek(sPending->sample);
         sPending = NULL;
     }
+    own_capture();
 }
 
 // make DC_TAS_MENU=1: the movie in the debug menu. A section is a slice that collects a star or a
@@ -404,6 +419,7 @@ static char sHelp[320];
 extern s32 gTasSaveInMemory;
 extern unsigned int dc_tas_samples(void);
 extern s32 tas_menu_level_change(const struct WarpDest *dest);   // level_update.c
+extern int dc_tas_playing(void);   // controller_entry_point.c
 
 static const char *const sCourseShort[] = {
     "Castle", "BoB", "WF", "JRB", "CCM", "BBH", "HMC", "LLL", "SSL", "DDD", "SL", "WDW", "TTM",
@@ -622,7 +638,10 @@ const char *tas_menu_help(s32 entry) {
 
 static s32 sWholeRun;   // the menu's whole run: it plays the movie to its end
 
+static void show_stop(void);
+
 static void menu_stop(void) {
+    show_stop();
     sWholeRun = 0;
     sPending = NULL;
     sPlayCount = sPlayNext = 0;
@@ -815,3 +834,301 @@ void tas_level_start(s32 entry) {
     menu_play(0, sLevelLabels[entry]);
 }
 
+
+// Show star (the debug menu's row): the TAS's way to a star of the level the player is in, and
+// then the player's own game again, exactly where it was. At each level start the controller plays
+// (init_level), the state is kept as a slice is (own_capture), and from then on every pad read is
+// logged. After the star's replay the level starts again from that state and the log plays, as
+// fast as the console runs it, with the picture held and the sound off: the game logic computes
+// what it did before, so the player is back where the menu was opened.
+#define OWN_PADS (30 * 60 * 36)      // pad reads logged per level: 36 minutes
+
+static struct SliceHeader *sOwn;     // the player's level start, as a slice
+static u32 *sOwnPads;
+static u32 sOwnCount;                // pad reads logged since that start
+static s32 sOwnLogging;              // 0: no start kept, or the log ran full
+static u32 sFastNext, sFastEnd;      // the log's reads the way back plays
+static s32 sShowSaveInMemory;        // gTasSaveInMemory before the replay
+static u8 sShowCourse, sShowStar;    // the star; sShowStar 7: none (a Bowser fight)
+static s32 sShowAfter;               // frames left to show once the star is got
+static s32 sShowEntries[8];          // Show star's labels: level select entries of this course
+static const char *sShowLabels[8];
+static s32 sShowCount;
+
+// What the way back must arrive at: Mario's state and the clocks when Show star was pressed.
+struct ShowMark {
+    u32 timer;
+    u16 seed;
+    s16 coins, health, area;
+    u32 action;
+    Vec3f pos, vel;
+};
+static struct ShowMark sMark;
+
+static void show_mark(struct ShowMark *m) {
+    struct MarioState *ms = &gMarioStates[0];
+    memset(m, 0, sizeof(*m));
+    m->timer = gGlobalTimer;
+    m->seed = tas_random_seed16();
+    m->coins = ms->numCoins;
+    m->health = ms->health;
+    m->area = gCurrAreaIndex;
+    m->action = ms->action;
+    vec3f_copy(m->pos, ms->pos);
+    vec3f_copy(m->vel, ms->vel);
+}
+
+extern void sm64_afx_silence(u8 silent);   // sm64_aicaflow.c
+
+// init_level, where the controller plays from: the start the log replays from.
+static void own_capture(void) {
+    if (sSlices == NULL || sShow != 0 || dc_tas_playing()) {
+        return;
+    }
+    if (sOwn == NULL) {
+        sOwn = malloc(sSliceBytes);
+        sOwnPads = malloc(OWN_PADS * sizeof(u32));
+        if (sOwn == NULL || sOwnPads == NULL) {
+            free(sOwn);
+            free(sOwnPads);
+            sOwn = NULL;
+            sOwnPads = NULL;
+            return;
+        }
+    }
+    memset(sOwn, 0, sSliceBytes);
+    sOwn->warp = sWarpDest;
+    sOwn->seed = tas_random_seed16();
+    sOwn->itemBytes = (u16) item_bytes();
+    u8 *p = (u8 *) (sOwn + 1);
+    for (u32 i = 0; i < ARRAY_COUNT(sItems); i++) {
+        memcpy(p, sItems[i].addr, sItems[i].size);
+        p += sItems[i].size;
+    }
+    sOwnCount = 0;
+    sOwnLogging = 1;
+}
+
+// Every pad read the controller makes (controller_entry_point.c).
+void tas_own_pad(const OSContPad *pad) {
+    if (!sOwnLogging || sShow != 0) {
+        return;
+    }
+    if (sOwnCount >= OWN_PADS) {
+        sOwnLogging = 0;   // the way back can only be the level's start now
+        return;
+    }
+    sOwnPads[sOwnCount++] = (u32) pad->button << 16 | (u32) (u8) pad->stick_x << 8 | (u8) pad->stick_y;
+}
+
+// The way back: nonzero while the log plays, the read it gives in pad.
+s32 tas_own_fast_pad(OSContPad *pad) {
+    if (sShow != 2 || sPending != NULL) {
+        return 0;
+    }
+    if (sFastNext < sFastEnd) {
+        u32 v = sOwnPads[sFastNext++];
+        pad->button = (u16) (v >> 16);
+        pad->stick_x = (s8) (v >> 8);
+        pad->stick_y = (s8) v;
+        return 1;
+    }
+    // Back where Show star was pressed: the player plays on, and the log with them.
+    struct ShowMark now;
+    show_mark(&now);
+    s32 same = memcmp(&now, &sMark, sizeof(now)) == 0;
+    printf("SHOW: back after %u reads, %s\n", (unsigned) sFastEnd,
+           same ? "exactly where the player was" : "NOT where the player was");
+    if (!same) {
+        printf("SHOW: timer %u/%u seed %04x/%04x action %08x/%08x coins %d/%d area %d/%d\n",
+               (unsigned) now.timer, (unsigned) sMark.timer, now.seed, sMark.seed,
+               (unsigned) now.action, (unsigned) sMark.action, now.coins, sMark.coins, now.area, sMark.area);
+    }
+    sShow = 0;
+    sOwnLogging = 1;
+    sm64_afx_silence(0);
+    return 0;
+}
+
+// Nonzero while the way back plays: the frames are not drawn (pc_main.c).
+s32 tas_show_fast(void) {
+    return sShow == 2 && sPending == NULL && sFastNext < sFastEnd;
+}
+
+// The way back's share played, in percent.
+s32 tas_show_percent(void) {
+    return sFastEnd ? (s32) (sFastNext * 100u / sFastEnd) : 100;
+}
+
+s32 tas_show_active(void) {
+    return sShow != 0;
+}
+
+// A replay or Off from the menu ends a show: Off then finds the replay's save in memory and goes
+// back to the title with the VMU's, as after any replay.
+static void show_stop(void) {
+    if (sShow == 2) {
+        sm64_afx_silence(0);
+    }
+    sShow = 0;
+    sShowAfter = 0;
+}
+
+// The replay's level change, or the end of what it shows: back to the player's level start.
+static void show_return_now(void) {
+    sShow = 2;
+    sPending = sOwn;
+    memcpy(&gCurrActNum, slice_item(sOwn, &gCurrActNum), sizeof(gCurrActNum));
+    D_8032C9E0 = 1;   // no act selector: the start has the act
+    sPlayCount = sPlayNext = 0;
+    sPlaying = sEnded = -1;
+    gTasSlicesDone = 0;
+    printf("SHOW: back to the player's game\n");
+}
+
+static s32 show_warp(s16 *destLevel, s16 *destArea, s16 *destWarpNode, s32 *arg) {
+    if (sShow == 2 && sPending == sOwn) {
+        // On the way back already: any warp still going off goes to the player's level too.
+    } else if (sShow != 1 || sPlayNext == 0 || sPending != NULL || *destLevel == gCurrLevelNum) {
+        return 0;
+    } else {
+        show_return_now();
+    }
+    *destLevel = sOwn->warp.levelNum;
+    *destArea = sOwn->warp.areaIdx;
+    *destWarpNode = sOwn->warp.nodeId;
+    *arg = (s32) sOwn->warp.arg;
+    return 1;
+}
+
+// init_level of the way back: the player's level start, and the log from there.
+static void show_back(void) {
+    const u8 *p = (const u8 *) (sOwn + 1);
+    for (u32 i = 0; i < ARRAY_COUNT(sItems); i++) {
+        memcpy(sItems[i].addr, p, sItems[i].size);
+        p += sItems[i].size;
+    }
+    sWarpDest = sOwn->warp;
+    tas_random_seed16_set(sOwn->seed);
+    sPending = NULL;
+    dc_tas_stop();
+    gTasSaveInMemory = sShowSaveInMemory;
+    sFastNext = 0;
+    if (sFastEnd > 0) {
+        sm64_afx_silence(1);
+    } else {
+        sShow = 0;   // no log to play (it ran full): the level's start it is
+        sOwnLogging = 0;
+    }
+}
+
+// update_level, once a frame: the star is got, a moment of it, then back.
+void tas_show_update(void) {
+    if (sShow != 1 || sPending != NULL || !dc_tas_playing()) {
+        return;
+    }
+    if (sShowAfter > 0) {
+        // A moment of the star, but none of a death that may follow it (the TAS leaves some
+        // levels that way).
+        if (gMarioStates[0].health < 0x100) {
+            sShowAfter = 1;
+        }
+        if (--sShowAfter == 0) {
+            if (tas_menu_level_change(&sOwn->warp)) {
+                show_return_now();
+            } else {
+                sShowAfter = 1;   // no level being played this frame: the next
+            }
+        }
+        return;
+    }
+    if (sShowStar < 7) {
+        u32 flags = save_file_get_star_flags(gCurrSaveFileNum - 1, sShowCourse == COURSE_NONE ? -1 : sShowCourse - 1);
+        if (flags >> sShowStar & 1) {
+            sShowAfter = 75;   // the grab and the start of the dance
+            printf("SHOW: the star is got\n");
+        }
+    }
+}
+
+// The row's labels: the level select's stars of the course being played, the act's selected.
+const char *const *tas_show_labels(s32 *count, s32 *selected) {
+    sShowCount = 0;
+    *selected = 0;
+    s32 course = gCurrentArea != NULL ? gCurrCourseNum : -1;
+    for (s32 i = 0; i < sLevelCount && sShowCount < (s32) ARRAY_COUNT(sShowLabels); i++) {
+        if ((s32) sLevels[i].course != course) {
+            continue;
+        }
+        if (COURSE_IS_MAIN_COURSE(course) && sLevels[i].star == gCurrActNum - 1) {
+            *selected = sShowCount;
+        }
+        sShowEntries[sShowCount] = i;
+        sShowLabels[sShowCount++] = sLevelLabels[1 + i];
+    }
+    if (sShowCount == 0) {
+        sShowLabels[0] = "-";
+    }
+    *count = sShowCount > 0 ? sShowCount : 1;
+    return sShowLabels;
+}
+
+static const char *show_unavailable(void) {
+    if (sShowCount == 0) {
+        return "Shows the TAS getting a star of the level you are in. Enter a course first.";
+    }
+    if (sShow != 0 || dc_tas_playing()) {
+        return "Not while a replay plays: TAS replay at Off first.";
+    }
+    if (sOwn == NULL) {
+        return "Not yet: it needs the level's start, the next one you enter.";
+    }
+    return NULL;
+}
+
+const char *tas_show_help(s32 value) {
+    const char *no = show_unavailable();
+    if (no != NULL) {
+        return no;
+    }
+    if (value < 0 || value >= sShowCount) {
+        value = 0;
+    }
+    u32 back = (sOwnLogging ? sOwnCount : 0) / 30;
+    size_t n = (size_t) snprintf(sHelp, sizeof(sHelp), "%s", tas_level_help(1 + sShowEntries[value]));
+    char *a = strstr(sHelp, " A: play it.");
+    if (a != NULL) {
+        n = (size_t) (a - sHelp);
+    }
+    if (sOwnLogging) {
+        snprintf(sHelp + n, sizeof(sHelp) - n,
+                 "\nThe TAS gets it, then your game comes back where it is now: your %u:%02u in this "
+                 "level replay fast, picture held. A: show it.", (unsigned) (back / 60), (unsigned) (back % 60));
+    } else {
+        snprintf(sHelp + n, sizeof(sHelp) - n,
+                 "\nThe TAS gets it, then your game comes back at this level's start (too long here "
+                 "to replay). A: show it.");
+    }
+    return sHelp;
+}
+
+// A on the row: the replay starts as the menu closes.
+s32 tas_show_start(s32 value) {
+    if (show_unavailable() != NULL || value < 0 || value >= sShowCount) {
+        return 0;
+    }
+    const struct TasLevel *l = &sLevels[sShowEntries[value]];
+    s32 saveInMemory = gTasSaveInMemory;
+    menu_stop();
+    sShowSaveInMemory = saveInMemory;
+    sShowCourse = l->course;
+    sShowStar = l->star < 7 ? l->star : 7;
+    sShowAfter = 0;
+    sFastEnd = sOwnLogging ? sOwnCount : 0;
+    show_mark(&sMark);
+    sPlaylist[sPlayCount++] = sSections[l->section].slice;
+    sPlayOn = 0;
+    sShow = 1;
+    menu_play(1, sShowLabels[value]);
+    return 1;
+}

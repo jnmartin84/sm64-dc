@@ -93,6 +93,12 @@ static int first_frame_late(unsigned int late_before) {
 static int sFrameQueued;   // send_display_list ran in this frame (the enDjinn loop below)
 
 void send_display_list(struct SPTask *spTask) {
+    extern s32 tas_show_fast(void);
+    extern s32 mtx_patch_interpolated(void);
+    if (tas_show_fast()) {   // Show star's way back: the steps run, nothing is drawn
+        mtx_patch_interpolated();   // empties its table, which points into this display list
+        return;
+    }
     sFrameQueued = 1;
     if (gDcFrameMode == DC_FRAME_MODE_30) {   // the exact matrices now; the second draw then finds
         extern s32 mtx_patch_interpolated(void);   // nothing to change and holds this frame
@@ -182,6 +188,14 @@ static int sExactNext;    // the next frame is the step's exact draw,
 static int sDropExact;    // unless the interpolated one was late (DC_FRAME_MODE_60_DROP)
 static unsigned int sLate0;
 
+static void fast_text(UNUSED void *data) {
+    extern void dc_overlay_line(const char *text, int x, int y);
+    extern s32 tas_show_percent(void);
+    char line[48];
+    snprintf(line, sizeof(line), "Back to your game  %d%%", (int) tas_show_percent());
+    dc_overlay_line(line, 220, 232);
+}
+
 static void enj_frame_step(void) {
     if (sStepped) {
         thd_pass();   // between steps, as the plain loop
@@ -192,6 +206,22 @@ static void enj_frame_step(void) {
     sFrameQueued = 0;
     gfx_start_frame();
     game_loop_one_iteration();
+    // Show star's way back (tas_slice.c): as many logic steps as fit in this frame, undrawn, and
+    // on black how far it is.
+    extern s32 tas_show_fast(void);
+    if (tas_show_fast()) {
+        uint64_t until = timer_us_gettime64() + 14000;
+        while (tas_show_fast() && timer_us_gettime64() < until) {
+            game_loop_one_iteration();
+        }
+        if (!sFrameQueued) {
+            extern int dc_overlay_font_ready(void);
+            dc_overlay_font_ready();
+            enj_render_list_add(PVR_LIST_TR_POLY, fast_text, NULL);
+            sFrameHeld = 1;   // paced as a held frame, but the text is this frame's
+            return;
+        }
+    }
     sFrameHeld = !sFrameQueued;   // nothing drawn (the reset bars): the screen stays
     if (sFrameHeld) {
         enj_render_hold_frame();
@@ -199,6 +229,10 @@ static void enj_frame_step(void) {
 }
 
 static void enj_frame(UNUSED void *data) {
+    extern s32 tas_show_fast(void);
+    if (tas_show_fast()) {   // Show star's way back: every frame runs steps, none draws the exact one
+        sExactNext = 0;
+    }
     if (sExactNext) {
         extern s32 mtx_patch_interpolated(void);
         sExactNext = 0;
@@ -295,6 +329,19 @@ static void dbg_tas_pressed(enj_menu_row_t *row, UNUSED void *data) {
                         : tas_menu_help(0);
 }
 
+static int sDbgShow;
+
+static void dbg_show_changed(enj_menu_row_t *row, UNUSED void *data) {
+    row->help = tas_show_help(sDbgShow);
+}
+
+static void dbg_show_pressed(enj_menu_row_t *row, UNUSED void *data) {
+    if (tas_show_start(sDbgShow)) {
+        sDbgTas = sDbgLevel = 0;
+        row->help = "Starts when the menu closes.";
+    }
+}
+
 static void dbg_level_changed(enj_menu_row_t *row, UNUSED void *data) {
     row->help = tas_level_help(sDbgLevel);
 }
@@ -348,6 +395,11 @@ static enj_menu_row_t sDbgRows[] = {
       .on_change = dbg_save_changed,
       .apply_on_close = 1 },
     // Last: left out without the movie's files. Labels and counts come from tas_slice.c.
+    { .name = "Show star",
+      .type = ENJ_MENU_CHOICE,
+      .choice = { .value = &sDbgShow },
+      .on_change = dbg_show_changed,
+      .on_press = dbg_show_pressed },
     { .name = "TAS replay",
       .type = ENJ_MENU_CHOICE,
       .choice = { .value = &sDbgTas },
@@ -364,9 +416,21 @@ static enj_menu_row_t sDbgRows[] = {
 // plays again, from the VMU's save at the title (the same as A on Off).
 static void dbg_menu_closed(UNUSED void *data) {
     extern s32 gTasSaveInMemory;
-    if (sDbgTas == 0 && sDbgLevel == 0 && gTasSaveInMemory) {
+    if (sDbgTas == 0 && sDbgLevel == 0 && gTasSaveInMemory && !tas_show_active()) {
         tas_menu_start(0);
     }
+}
+
+#define DBG_TAS_ROWS 3   // Show star, TAS replay, Level select: the last rows
+static enj_menu_row_t *const sDbgShowRow = &sDbgRows[sizeof(sDbgRows) / sizeof(sDbgRows[0]) - DBG_TAS_ROWS];
+
+// Show star lists the stars of the course being played, its act's selected.
+static void dbg_menu_opened(UNUSED void *data) {
+    s32 count, selected;
+    sDbgShowRow->choice.labels = tas_show_labels(&count, &selected);
+    sDbgShowRow->choice.count = count;
+    sDbgShow = selected;
+    sDbgShowRow->help = tas_show_help(sDbgShow);
 }
 
 static enj_debug_menu_t sDbgMenu = {
@@ -374,6 +438,7 @@ static enj_debug_menu_t sDbgMenu = {
     .rows = sDbgRows,
     .row_count = sizeof(sDbgRows) / sizeof(sDbgRows[0]),
     .draw_behind = dbg_menu_behind,
+    .on_open = dbg_menu_opened,
     .on_close = dbg_menu_closed,
 };
 
@@ -416,7 +481,7 @@ static void enj_loop_run(void) {
     tas[1].choice.count = tas_level_count();
     tas[1].help = tas_level_help(0);
     if (tas[0].choice.count == 0) {
-        sDbgMenu.row_count -= 2;   // no tas.m64 and tas_slices.bin
+        sDbgMenu.row_count -= DBG_TAS_ROWS;   // no tas.m64 and tas_slices.bin
     }
     enj_debug_menu_set(&sDbgMenu);
     enj_state_run();

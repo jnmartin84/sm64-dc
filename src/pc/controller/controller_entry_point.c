@@ -92,6 +92,11 @@ int dc_tas_playing(void) {
     return sTas != NULL && sTasOn;
 }
 
+// Show star (tas_slice.c): the player's pad reads since the level's start, logged, and played back
+// fast to bring the player's game back after the replay.
+extern void tas_own_pad(const OSContPad *pad);
+extern s32 tas_own_fast_pad(OSContPad *pad);
+
 void osContGetReadData(OSContPad *pad) {
     size_t i;
 
@@ -101,6 +106,9 @@ void osContGetReadData(OSContPad *pad) {
     pad->errnum = 0;
     extern void controller_dc_fsaa_poll(void);
     controller_dc_fsaa_poll();   // the FSAA toggle button, also under a movie
+    if (tas_own_fast_pad(pad)) {
+        return;
+    }
     if (sTasOn && sTasNext >= sTasSamples) {
         sTasOn = 0;   // the whole run is over, after the credits: the controller plays on
     }
@@ -118,4 +126,5 @@ void osContGetReadData(OSContPad *pad) {
     for (i = 0; i < sizeof(controller_implementations) / sizeof(struct ControllerAPI *); i++) {
         controller_implementations[i]->read(pad);
     }
+    tas_own_pad(pad);
 }

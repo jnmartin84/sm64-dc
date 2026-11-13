@@ -83,8 +83,9 @@ static void rumble_send(int strength) {
 
 void controller_dc_rumble_motor(int on) {
     extern int dc_tas_playing(void);
-    if (dc_tas_playing()) {
-        on = 0;   // a replay rumbles nobody's hands
+    extern s32 tas_show_fast(void);
+    if (dc_tas_playing() || tas_show_fast()) {
+        on = 0;   // a replay rumbles nobody's hands, nor does Show star's way back
     }
     sRumbleHistory = (uint8_t) ((sRumbleHistory << 1) | (on != 0));
     int frames = __builtin_popcount(sRumbleHistory);

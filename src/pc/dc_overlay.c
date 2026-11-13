@@ -87,6 +87,13 @@ static void line_out(const char *text, int x, int y) {
     enj_font_string_render(text, enj_qfont_get_header(), (int16_t) x, (int16_t) y, &sHdr);
 }
 
+// One line of text where the caller says, with the TR list open (Show star's way back, pc_main.c).
+void dc_overlay_line(const char *text, int x, int y) {
+    if (dc_overlay_font_ready()) {
+        line_out(text, x, y);
+    }
+}
+
 extern int gfx_pvr_fsaa_x(void);
 
 // Called by gfx_pvr.c with the TR list open.

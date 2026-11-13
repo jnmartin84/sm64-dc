@@ -40,7 +40,7 @@ A prior copy of the game is required to extract the assets. Specifically you wil
 - **Debug menu.** Hold both triggers and press Up+X+Y. It switches the frame rate (60 fps that
   drops a late frame, which is the default; 60 fps that slows down instead; or 30 fps), FSAA
   (curated, on, off, or a button that toggles it), 640x480 or 320x240 (240p), the reverb, and a
-  frame-rate overlay. It also has two rows for the TAS below. In Flycast on a keyboard, many
+  frame-rate overlay. It also has three rows for the TAS below. In Flycast on a keyboard, many
   keyboards cannot hold the default keys for it (F, V, S, D and Up) at once: map the triggers to
   other keys, or use a gamepad.
 - **TAS replay and level select.** The game logic is built without float shortcuts, so it computes
@@ -50,7 +50,12 @@ A prior copy of the game is required to extract the assets. Specifically you wil
   the run's save and state from when it went there, and the controller plays. Both play with the
   run's save and leave the one on your VMU alone. *Off* in both rows as the menu closes (or A on
   *Off*) gives the pad back, reloads your VMU save and returns to the title; so does the end of the
-  whole run, ten seconds after The End. The movie is
+  whole run, ten seconds after The End. *Show star* lists the stars of the course you are in: A
+  shows how the TAS gets the chosen one, from the level's start, and then brings your own game back
+  exactly where you opened the menu. The game keeps your state from each level's start and logs
+  your controller from there, then replays that log about nine times as fast (a minute of play
+  takes about seven seconds), with only a progress line on screen, no sound and no rumble. The
+  log covers 36 minutes in one level; after longer, you come back at the level's start. The movie is
   [TASVideos](https://tasvideos.org)' "120 stars in 1:14:04" by Alexpalix1, atmpas, Bret,
   ChouxZi3, circumark, Crackhex, CSZ, DyllonStej, elbertito, Eru, FeijoadaMolhada, fifdspence,
   Frame, Kieran, Krithalith, Manama, Mickey, Plush, roblox8192, sm64expert, snark, Superdavo0001,

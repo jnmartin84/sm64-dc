@@ -5,7 +5,7 @@
 
 void tas_slice_setup(const char *sliceFile);
 s32 tas_slice_first_level(s32 levelNum);
-void tas_slice_warp(s16 *destLevel, s16 *destArea, s16 *destWarpNode, s32 *arg);
+s32 tas_slice_warp(s16 *destLevel, s16 *destArea, s16 *destWarpNode, s32 *arg);
 void tas_slice_init_level(void);
 
 /* The debug menu's TAS row (pc_main.c): entry 0 gives the game back to the controller, 1 plays the
@@ -21,5 +21,13 @@ s32 tas_level_count(void);
 const char *const *tas_level_labels(void);
 const char *tas_level_help(s32 entry);
 void tas_level_start(s32 entry);
+/* Show star: the TAS getting a star of this course, then the player's game where it was. */
+const char *const *tas_show_labels(s32 *count, s32 *selected);
+const char *tas_show_help(s32 value);
+s32 tas_show_start(s32 value);
+s32 tas_show_active(void);
+s32 tas_show_fast(void);      /* the way back plays: the frames are not drawn */
+s32 tas_show_percent(void);
+void tas_show_update(void);   /* update_level, once a frame */
 
 #endif

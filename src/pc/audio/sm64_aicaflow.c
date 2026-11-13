@@ -1047,8 +1047,18 @@ void sm64_afx_stop_all(void) {
 
 /* AICA's MONO bit, in the register that holds the master volume too: that does not read back, so
  * this writes the full volume the firmware sets at start. */
+static u32 sMonoBit;
+static u8 sSilent;
+
 void sm64_afx_mono(u8 mono) {
-    g2_write_32(0xa0702800, mono ? 0x800fu : 0x000fu);
+    sMonoBit = mono ? 0x8000u : 0;
+    g2_write_32(0xa0702800, sMonoBit | (sSilent ? 0u : 0x000fu));
+}
+
+/* Show star's way back (tas_slice.c) replays the player's moves fast: the master volume is 0 then. */
+void sm64_afx_silence(u8 silent) {
+    sSilent = silent;
+    g2_write_32(0xa0702800, sMonoBit | (silent ? 0u : 0x000fu));
 }
 
 void sm64_afx_tick(void) {

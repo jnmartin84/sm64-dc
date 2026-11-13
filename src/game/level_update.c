@@ -611,8 +611,8 @@ s16 music_changed_through_warp(s16 arg) {
  * Set the current warp type and destination level/area/node.
  */
 void initiate_warp(s16 destLevel, s16 destArea, s16 destWarpNode, s32 arg3) {
-    tas_slice_warp(&destLevel, &destArea, &destWarpNode, &arg3);
-    if (destWarpNode >= WARP_NODE_CREDITS_MIN) {
+    s32 newLevel = tas_slice_warp(&destLevel, &destArea, &destWarpNode, &arg3);
+    if (newLevel || destWarpNode >= WARP_NODE_CREDITS_MIN) {
         sWarpDest.type = WARP_TYPE_CHANGE_LEVEL;
     } else if (destLevel != gCurrLevelNum) {
         sWarpDest.type = WARP_TYPE_CHANGE_LEVEL;
@@ -1139,6 +1139,9 @@ static s32 tas_menu_leave_level(void) {
         gCameraMovementFlags &= ~CAM_MOVE_PAUSE_SCREEN;
         raise_background_noise(1);
     }
+    // A warp under way (a death's, a star's exit) would go off after the menu's and take its place.
+    sDelayedWarpOp = WARP_OP_NONE;
+    sDelayedWarpTimer = 0;
     return 1;
 }
 
@@ -1183,6 +1186,7 @@ s32 update_level(void) {
     if (sTasToTitle) {
         tas_menu_reset_game();
     }
+    tas_show_update();
     switch (sCurrPlayMode) {
         case PLAY_MODE_NORMAL:
             changeLevel = play_mode_normal();
