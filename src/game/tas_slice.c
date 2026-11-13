@@ -582,14 +582,14 @@ const char *tas_menu_help(s32 entry) {
     if (entry <= 0 || entry >= tas_menu_count()) {
         snprintf(sHelp, sizeof(sHelp),
                  "The 120-star TAS, a star or two or the whole run, over your game from the next "
-                 "level change, with the TAS's save (the VMU's is left alone). Off and A: the pad "
-                 "plays again, from your VMU save at the title.");
+                 "level change, with the TAS's save (the VMU's is left alone). Off: the pad plays "
+                 "again as the menu closes, from your VMU save at the title.");
         return sHelp;
     }
     if (entry == 1) {
         snprintf(sHelp, sizeof(sHelp),
-                 "The whole 120-star run, from the castle grounds to the credits: %d sections, "
-                 "%u:%02u:%02u. A: play it.",
+                 "The whole 120-star run, from the intro to The End, then the title with your VMU "
+                 "save: %d sections, %u:%02u:%02u. A: play it.",
                  (int) sSectionCount, (unsigned) (total / 3600), (unsigned) (total / 60 % 60),
                  (unsigned) (total % 60));
         return sHelp;
@@ -620,7 +620,10 @@ const char *tas_menu_help(s32 entry) {
     return sHelp;
 }
 
+static s32 sWholeRun;   // the menu's whole run: it plays the movie to its end
+
 static void menu_stop(void) {
+    sWholeRun = 0;
     sPending = NULL;
     sPlayCount = sPlayNext = 0;
     sPlaying = sEnded = -1;
@@ -673,7 +676,25 @@ void tas_menu_start(s32 entry) {
         sPlaylist[sPlayCount++] = sSections[entry - 2].slice;
         sPlayOn = 0;
     }
+    sWholeRun = entry == 1;
     menu_play(1, sMenuLabels[entry]);
+}
+
+// "The End" (levels/ending/script.c), once a frame; nonzero leaves it for the splash screen, as
+// at power-on. The menu's whole run ends there: ten seconds later the pad plays again, from the
+// VMU's save. An Off where no level ran leaves at once. Otherwise the end screen stays, as on
+// the N64.
+extern s32 tas_menu_title_pending(void);   // level_update.c
+s32 tas_ending_wait(UNUSED s16 arg, UNUSED s32 reg) {
+    static u32 frames;
+    if (!sWholeRun) {
+        frames = 0;
+    } else if (++frames >= 30 * 10) {
+        frames = 0;
+        printf("TAS: the whole run is over\n");
+        menu_off();
+    }
+    return tas_menu_title_pending();
 }
 
 // The level select: each of the 120 stars (and the Bowser fights) by course, played by the
@@ -750,8 +771,8 @@ const char *tas_level_help(s32 entry) {
     if (entry <= 0 || entry >= tas_level_count()) {
         snprintf(sHelp, sizeof(sHelp),
                  "Each star, and the Bowser fights, to play yourself: from the save and the moment the "
-                 "TAS had when it entered that level for it (the VMU's save is left alone). Off and A: "
-                 "your VMU save again, from the title.");
+                 "TAS had when it entered that level for it (the VMU's save is left alone). Off: "
+                 "your VMU save again, from the title, as the menu closes.");
         return sHelp;
     }
     const struct TasLevel *l = &sLevels[entry - 1];

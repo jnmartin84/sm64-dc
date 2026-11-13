@@ -1154,18 +1154,35 @@ s32 tas_menu_level_change(const struct WarpDest *dest) {
     return 1;
 }
 
-// The debug menu's TAS Off, once the VMU's save is back (tas_slice.c): in a level, back to the
-// title as Save & Quit does, so the game goes on from the player's own save.
+// The debug menu's TAS Off, once the VMU's save is back (tas_slice.c): back to the title as Save &
+// Quit does, so the game goes on from the player's own save. Also over a replay's level change in
+// progress. Where no level runs (one loading, "The End"), at the next update_level; the end
+// screen takes it from tas_menu_title_pending, and a game started from the file select drops it.
+static s32 sTasToTitle;
+
 void tas_menu_reset_game(void) {
     if (tas_menu_leave_level()) {
+        sTasToTitle = 0;
+        sWarpDest.type = WARP_TYPE_NOT_WARPING;
         fade_into_special_warp(-2, 0);
+    } else {
+        sTasToTitle = 1;
     }
+}
+
+s32 tas_menu_title_pending(void) {
+    s32 pending = sTasToTitle;
+    sTasToTitle = 0;
+    return pending;
 }
 
 s32 update_level(void) {
     s32 changeLevel = 0;
 
     sTasLevelTimer = gGlobalTimer;
+    if (sTasToTitle) {
+        tas_menu_reset_game();
+    }
     switch (sCurrPlayMode) {
         case PLAY_MODE_NORMAL:
             changeLevel = play_mode_normal();
@@ -1304,6 +1321,7 @@ s32 lvl_init_from_save_file(UNUSED s16 arg0, s32 levelNum) {
     }
 #endif
     levelNum = tas_slice_first_level(levelNum);
+    sTasToTitle = 0;   // the game starts from the file select: the title was reached
     sWarpDest.type = WARP_TYPE_NOT_WARPING;
     sDelayedWarpOp = WARP_OP_NONE;
     gShouldNotPlayCastleMusic = !save_file_exists(gCurrSaveFileNum - 1);

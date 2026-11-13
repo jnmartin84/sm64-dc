@@ -41,11 +41,12 @@ A prior copy of the game is required to extract the assets. Specifically you wil
   other keys, or use a gamepad.
 - **TAS replay and level select.** The game logic is built without float shortcuts, so it computes
   what the N64 does and an N64 tool-assisted speedrun plays in sync on the Dreamcast. *TAS replay*
-  plays the whole 120-star run, or one section of it (a star or two, or a Bowser fight), from the
-  next level change. *Level select* puts you in any star's level, with the run's save and state from
-  when it went there, and the controller plays. Both play with the run's save and leave the one on
-  your VMU alone; *Off* in either row gives the pad back and, after a replay, reloads your VMU save
-  and returns to the title. The movie is
+  plays the whole 120-star run, from the intro to The End, or one section of it (a star or two, or
+  a Bowser fight), from the next level change. *Level select* puts you in any star's level, with
+  the run's save and state from when it went there, and the controller plays. Both play with the
+  run's save and leave the one on your VMU alone. *Off* in both rows as the menu closes (or A on
+  *Off*) gives the pad back, reloads your VMU save and returns to the title; so does the end of the
+  whole run, ten seconds after The End. The movie is
   [TASVideos](https://tasvideos.org)' "120 stars in 1:14:04" by Alexpalix1, atmpas, Bret,
   ChouxZi3, circumark, Crackhex, CSZ, DyllonStej, elbertito, Eru, FeijoadaMolhada, fifdspence,
   Frame, Kieran, Krithalith, Manama, Mickey, Plush, roblox8192, sm64expert, snark, Superdavo0001,

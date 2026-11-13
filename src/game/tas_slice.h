@@ -14,6 +14,7 @@ s32 tas_menu_count(void);
 const char *const *tas_menu_labels(void);
 const char *tas_menu_help(s32 entry);   /* the entry's course, stars and times; a static buffer */
 void tas_menu_start(s32 entry);
+s32 tas_ending_wait(s16 arg, s32 reg);   /* "The End"'s level script: nonzero leaves for the title */
 /* The level select row: entry 0 is Off, the others each star (and Bowser fight) by course, for the
  * controller to play from the movie's state when it entered that level for it. */
 s32 tas_level_count(void);

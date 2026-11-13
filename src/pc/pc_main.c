@@ -276,7 +276,7 @@ static void dbg_save_changed(UNUSED enj_menu_row_t *row, UNUSED void *data) {
 }
 #include "game/tas_slice.h"
 
-static int sDbgTas;
+static int sDbgTas, sDbgLevel;
 
 static void dbg_tas_changed(enj_menu_row_t *row, UNUSED void *data) {
     row->help = tas_menu_help(sDbgTas);
@@ -285,12 +285,13 @@ static void dbg_tas_changed(enj_menu_row_t *row, UNUSED void *data) {
 // A starts the replay: the game warps when the menu closes, as its logic runs again.
 static void dbg_tas_pressed(enj_menu_row_t *row, UNUSED void *data) {
     tas_menu_start(sDbgTas);
+    if (sDbgTas) {
+        sDbgLevel = 0;   // one of the two plays: Off in both rows hands the pad back
+    }
     row->help = sDbgTas ? "Starts when the menu closes: at once in a level, else at the file's "
-                          "first level. Off and A: the pad plays again, from your VMU save."
+                          "first level. Off: the pad plays again, from your VMU save."
                         : tas_menu_help(0);
 }
-
-static int sDbgLevel;
 
 static void dbg_level_changed(enj_menu_row_t *row, UNUSED void *data) {
     row->help = tas_level_help(sDbgLevel);
@@ -299,6 +300,7 @@ static void dbg_level_changed(enj_menu_row_t *row, UNUSED void *data) {
 static void dbg_level_pressed(enj_menu_row_t *row, UNUSED void *data) {
     tas_level_start(sDbgLevel);
     if (sDbgLevel) {
+        sDbgTas = 0;
         row->help = "Starts when the menu closes: at once in a level, else at the file's first level.";
     }
 }
@@ -356,11 +358,21 @@ static enj_menu_row_t sDbgRows[] = {
       .on_press = dbg_level_pressed },
 };
 
+// TAS replay and Level select both at Off as the menu closes, while one of them plays: the pad
+// plays again, from the VMU's save at the title (the same as A on Off).
+static void dbg_menu_closed(UNUSED void *data) {
+    extern s32 gTasSaveInMemory;
+    if (sDbgTas == 0 && sDbgLevel == 0 && gTasSaveInMemory) {
+        tas_menu_start(0);
+    }
+}
+
 static enj_debug_menu_t sDbgMenu = {
     .title = "Super Mario 64",
     .rows = sDbgRows,
     .row_count = sizeof(sDbgRows) / sizeof(sDbgRows[0]),
     .draw_behind = dbg_menu_behind,
+    .on_close = dbg_menu_closed,
 };
 
 static void enj_frame_shown(UNUSED void *data) {
