@@ -556,107 +556,8 @@ void aSetLoopImpl(ADPCM_STATE *adpcm_loop_state) {
 #include <kos.h>
 
 
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
-inline static void shz_xmtrx_load_3x4_rows(const shz_vec4_t* r1, const shz_vec4_t* r2, const shz_vec4_t* r3) {
-    asm volatile(R"(
-        pref    @%0
-        frchg
-
-        fldi0   fr12
-        fldi0   fr13
-        fldi0   fr14
-        fldi1   fr15
-
-        pref    @%1
-        fmov.s  @%0+, fr0
-        fmov.s  @%0+, fr1
-        fmov.s  @%0+, fr2
-        fmov.s  @%0,  fr3
-
-        pref    @%2
-        fmov.s  @%1+, fr4
-        fmov.s  @%1+, fr5
-        fmov.s  @%1+, fr6
-        fmov.s  @%1,  fr7
-
-        fmov.s  @%2+, fr8
-        fmov.s  @%2+, fr9
-        fmov.s  @%2+, fr10
-        fmov.s  @%2,  fr11
-
-        frchg
-    )"
-                 : "+&r"(r1), "+&r"(r2), "+&r"(r3));
-}
-
-SHZ_FORCE_INLINE void shz_copy_16_shorts(void* restrict dst, const void* restrict src) {
-    asm volatile(R"(
-        mov.w   @%[s]+, r0
-        mov.w   @%[s]+, r1
-        mov.w   @%[s]+, r2
-        mov.w   @%[s]+, r3
-        mov.w   @%[s]+, r4
-        mov.w   @%[s]+, r5
-        mov.w   @%[s]+, r6
-        mov.w   @%[s]+, r7
-        add     #16, %[d]
-        mov.w   r7, @-%[d]
-        mov.w   r6, @-%[d]
-        mov.w   r5, @-%[d]
-        mov.w   r4, @-%[d]
-        mov.w   r3, @-%[d]
-        mov.w   r2, @-%[d]
-        mov.w   r1, @-%[d]
-        mov.w   r0, @-%[d]
-        mov.w   @%[s]+, r0
-        mov.w   @%[s]+, r1
-        mov.w   @%[s]+, r2
-        mov.w   @%[s]+, r3
-        mov.w   @%[s]+, r4
-        mov.w   @%[s]+, r5
-        mov.w   @%[s]+, r6
-        mov.w   @%[s]+, r7
-        add     #32, %[d]
-        mov.w   r7, @-%[d]
-        mov.w   r6, @-%[d]
-        mov.w   r5, @-%[d]
-        mov.w   r4, @-%[d]
-        mov.w   r3, @-%[d]
-        mov.w   r2, @-%[d]
-        mov.w   r1, @-%[d]
-        mov.w   r0, @-%[d]
-    )"
-                 : [d] "+r"(dst), [s] "+r"(src)
-                 :
-                 : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "memory");
-}
-
-SHZ_FORCE_INLINE void shz_zero_16_shorts(void* dst) {
-    asm volatile(R"(
-        xor     r0, r0
-        add     #32 %0
-        mov.w   r0, @-%0
-        mov.w   r0, @-%0
-        mov.w   r0, @-%0
-        mov.w   r0, @-%0
-        mov.w   r0, @-%0
-        mov.w   r0, @-%0
-        mov.w   r0, @-%0
-        mov.w   r0, @-%0
-        mov.w   r0, @-%0
-        mov.w   r0, @-%0
-        mov.w   r0, @-%0
-        mov.w   r0, @-%0
-        mov.w   r0, @-%0
-        mov.w   r0, @-%0
-        mov.w   r0, @-%0
-        mov.w   r0, @-%0
-    )"
-                 :
-                 : "r"(dst)
-                 : "r0", "memory");
-}
 
 static inline s16 clamp16f(float v) {
     // v *= recip2048;
@@ -735,11 +636,11 @@ void aADPCMdecImpl(uint8_t flags, ADPCM_STATE state) {
     uint8_t* in = BUF_U8(rspa.in);
     int nbytes = ROUND_UP_32(rspa.nbytes);
     if (flags & A_INIT) {
-        shz_zero_16_shorts(out);
+        shz_memset2_16(out, 0);
     } else if (flags & A_LOOP) {
-        shz_copy_16_shorts(out, rspa.adpcm_loop_state);
+        shz_memcpy2_16(out, rspa.adpcm_loop_state);
     } else {
-        shz_copy_16_shorts(out, state);
+        shz_memcpy2_16(out, state);
     }
     MEM_BARRIER_PREF(in);
     out += 16;
@@ -789,10 +690,10 @@ void aADPCMdecImpl(uint8_t flags, ADPCM_STATE state) {
             float *accf = (float *)acc_vec;
             const shz_vec4_t in_vec = { .x = prev2, .y = prev1, .z = 1.0f };
 
-            shz_xmtrx_load_3x4_rows((const shz_vec4_t*)&tbl[0][0], (const shz_vec4_t*)&tbl[1][0], (const shz_vec4_t*)&ins[0]);
-            acc_vec[0] = shz_xmtrx_trans_vec4(in_vec);
-            shz_xmtrx_load_3x4_rows((const shz_vec4_t*)&tbl[0][4], (const shz_vec4_t*)&tbl[1][4], (const shz_vec4_t*)&ins[4]);
-            acc_vec[1] = shz_xmtrx_trans_vec4(in_vec);
+            shz_xmtrx_load_cols_4x3((const shz_vec4_t*)&tbl[0][0], (const shz_vec4_t*)&tbl[1][0], (const shz_vec4_t*)&ins[0]);
+            acc_vec[0] = shz_xmtrx_transform_vec4(in_vec);
+            shz_xmtrx_load_cols_4x3((const shz_vec4_t*)&tbl[0][4], (const shz_vec4_t*)&tbl[1][4], (const shz_vec4_t*)&ins[4]);
+            acc_vec[1] = shz_xmtrx_transform_vec4(in_vec);
 
             {
                 register float fone asm("fr8")  = 1.0f;
@@ -802,9 +703,9 @@ void aADPCMdecImpl(uint8_t flags, ADPCM_STATE state) {
                 accf[2] = shz_dot8f(fone, ins0, ins1, ins2, accf[2], tbl[1][1], tbl[1][0], 0.0f);
                 accf[7] = shz_dot8f(fone, ins0, ins1, ins2, accf[7], tbl[1][6], tbl[1][5], tbl[1][4]);
                 accf[1] += (tbl[1][0] * ins0);
-                shz_xmtrx_load_4x4_cols((const shz_vec4_t*)&accf[3], (const shz_vec4_t*)&tbl[1][2], (const shz_vec4_t*)&tbl[1][1], (const shz_vec4_t*)&tbl[1][0]);
+                shz_xmtrx_load_cols_4x4((const shz_vec4_t*)&accf[3], (const shz_vec4_t*)&tbl[1][2], (const shz_vec4_t*)&tbl[1][1], (const shz_vec4_t*)&tbl[1][0]);
                 *(SHZ_ALIASING shz_vec4_t*)&accf[3] =
-                    shz_xmtrx_trans_vec4((shz_vec4_t) { .x = fone, .y = ins0, .z = ins1, .w = ins2 });
+                    shz_xmtrx_transform_vec4((shz_vec4_t) { .x = fone, .y = ins0, .z = ins1, .w = ins2 });
             }
             {
                 register float ins3 asm("fr8")  = ins[3];
@@ -829,7 +730,7 @@ void aADPCMdecImpl(uint8_t flags, ADPCM_STATE state) {
         nbytes -= 16 * sizeof(int16_t);
     }
 
-    shz_copy_16_shorts(state, (out - 16));
+    shz_memcpy2_16(state, (out - 16));
 }
 
 void aResampleImpl(uint8_t flags, uint16_t pitch, RESAMPLE_STATE state) {
@@ -851,7 +752,7 @@ void aResampleImpl(uint8_t flags, uint16_t pitch, RESAMPLE_STATE state) {
 #endif
 
     if (!(flags & A_INIT)) {
-        shz_copy_16_shorts(tmp, state);
+        shz_memcpy2_16(tmp, state);
 #if 0
         dp = tmp;
         sp = state;
@@ -951,8 +852,8 @@ void aEnvMixerImpl(uint8_t flags, ENVMIX_STATE state) {
     } else {
 //        n64_memcpy(vols[0], state, 32);
 //        n64_memcpy(vols[1], state + 16, 32);
-        shz_copy_16_shorts(vols[0], state);//, 32);
-        shz_copy_16_shorts(vols[1], state + 16);//, 32);
+        shz_memcpy2_16(vols[0], state);//, 32);
+        shz_memcpy2_16(vols[1], state + 16);//, 32);
         target[0] = state[32];
         target[1] = state[35];
         rate[0] = (state[33] << 16) | (uint16_t)state[34];

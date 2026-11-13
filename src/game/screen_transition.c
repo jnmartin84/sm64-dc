@@ -13,7 +13,10 @@
 #include "segment2.h"
 #include "sm64.h"
 
-#include "sh4zam.h"
+#include "sh4zam_port.h"
+#ifdef TARGET_DC
+#include "pc/gfx/gfx_dc_tags.h"
+#endif
 
 u8 sTransitionColorFadeCount[4] = { 0 };
 u16 sTransitionTextureFadeCount[2] = { 0 };
@@ -94,6 +97,59 @@ Vtx *vertex_transition_color(struct WarpTransitionData *transData, u8 alpha) {
     return verts;
 }
 
+#if defined(TARGET_DC)
+// Fades (gfx_dc_tags.h DC_GFX_FADE): the frame's fade goes into the master display list's first two
+// commands, and its rectangle is not drawn. One fade a frame: a transition's, drawn last, takes it
+// from the pause shade, whose rectangle is then drawn after all (and fades with the rest).
+static Gfx *sFadeHead;          // the master display list's first two commands
+static Gfx *sFadeShade;         // shade_screen's two commands while the fade is the shade's
+static const Gfx *sFadeShadeDraw;
+
+void dc_fade_frame_begin(void) {
+    sFadeHead = gDisplayListHead;
+    gDPNoOp(gDisplayListHead++);
+    gDPNoOp(gDisplayListHead++);
+    sFadeShade = NULL;
+}
+
+static void fade_take(u8 r, u8 g, u8 b, u8 alpha) {
+    gDPNoOpTag(&sFadeHead[0], DC_GFX_FADE);
+    gDPNoOpTag(&sFadeHead[1], (u32) r << 24 | (u32) g << 16 | (u32) b << 8 | alpha);
+}
+
+// shade_screen (ingame_menu.c): draw is its rectangle, state the same lists without the triangles.
+void dc_fade_shade(u8 r, u8 g, u8 b, u8 alpha, const Gfx *draw, const Gfx *state) {
+    if (sFadeHead == NULL || sFadeHead[0].words.w1 != 0) {   // the frame's fade is taken
+        gSPDisplayList(gDisplayListHead++, draw);
+        return;
+    }
+    fade_take(r, g, b, alpha);
+    sFadeShade = gDisplayListHead;
+    sFadeShadeDraw = draw;
+    gSPDisplayList(gDisplayListHead++, state);
+    gDPNoOpTag(gDisplayListHead++, DC_GFX_FADE_END);
+}
+
+// dl_transition_color's rectangle below full colour (a cover at 255): TRUE when it is not drawn. It
+// fades the frame unless it only covers the ending's letterbox band, and alpha 0 draws nothing.
+static s32 fade_transition(struct WarpTransitionData *transData, u8 alpha) {
+    if (alpha == 0) {
+        return TRUE;
+    }
+    if (sFadeHead == NULL || D_8032CE78 != NULL) {
+        return FALSE;
+    }
+    if (sFadeShade != NULL) {
+        gSPDisplayList(&sFadeShade[0], sFadeShadeDraw);
+        gDPNoOp(&sFadeShade[1]);
+        sFadeShade = NULL;
+    }
+    fade_take(transData->red, transData->green, transData->blue, alpha);
+    gDPNoOpTag(gDisplayListHead++, DC_GFX_FADE_END);
+    return TRUE;
+}
+#endif
+
 s32 dl_transition_color(s8 fadeTimer, u8 transTime, struct WarpTransitionData *transData, u8 alpha) {
     Vtx *verts = vertex_transition_color(transData, alpha);
 
@@ -102,7 +158,18 @@ s32 dl_transition_color(s8 fadeTimer, u8 transTime, struct WarpTransitionData *t
         gDPSetCombineMode(gDisplayListHead++, G_CC_SHADE, G_CC_SHADE);
         gDPSetRenderMode(gDisplayListHead++, G_RM_AA_XLU_SURF, G_RM_AA_XLU_SURF2);
         gSPVertex(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(verts), 4, 0);
+#if defined(TARGET_DC)
+        /* A fade that has reached full colour is a solid cover (gfx_dc_tags.h); the steps before
+         * it stay a blended quad. */
+        if (alpha == 255) gDPNoOpTag(gDisplayListHead++, DC_GFX_COVER_BEGIN);
+#endif
+#if defined(TARGET_DC)
+        if (alpha == 255 || !fade_transition(transData, alpha))
+#endif
         gSPDisplayList(gDisplayListHead++, dl_draw_quad_verts_0123);
+#if defined(TARGET_DC)
+        if (alpha == 255) gDPNoOpTag(gDisplayListHead++, DC_GFX_COVER_END);
+#endif
         gSPDisplayList(gDisplayListHead++, dl_screen_transition_end);
     }
     return set_and_reset_transition_fade_timer(fadeTimer, transTime);
@@ -128,14 +195,14 @@ s16 calc_tex_transition_radius(s8 fadeTimer, s8 transTime, struct WarpTransition
     return (s16)(result + 0.5f);
 }
 
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
 f32 calc_tex_transition_time(s8 fadeTimer, s8 transTime, struct WarpTransitionData *transData) {
     f32 startX = transData->startTexX;
     f32 startY = transData->startTexY;
     f32 endX = transData->endTexX;
     f32 endY = transData->endTexY;
-    f32 sqrtfXY = shz_sqrtf_fsrra((startX - endX) * (startX - endX) + (startY - endY) * (startY - endY));
+    f32 sqrtfXY = shz_sqrtf((startX - endX) * (startX - endX) + (startY - endY) * (startY - endY));
     f32 result = shz_divf((f32) sTransitionColorFadeCount[fadeTimer] * sqrtfXY , (f32)(transTime - 1));
 
     return result;
@@ -203,6 +270,58 @@ void *sTextureTransitionID[] = {
     texture_transition_bowser_half,
 };
 
+#if defined(TARGET_DC)
+// The masks as polygons (tools/dc_mask_mesh.py): what is solid in the texture goes to the OP list as
+// a cover, a soft ring around the hole to TR, and over the hole nothing is drawn. The textured square
+// is a blended layer in every tile it touches, twice as many with FSAA, and most of it adds nothing.
+#include "screen_transition_mesh.h"
+
+static const Gfx *const sTransitionMesh[][2] = {
+    { dl_mask_star_cover, dl_mask_star_feather },
+    { dl_mask_circle_cover, dl_mask_circle_feather },
+    { dl_mask_mario_cover, dl_mask_mario_feather },
+    { dl_mask_bowser_cover, dl_mask_bowser_feather },
+};
+
+// The transition's square: the mesh's -MASK_MESH_ONE..MASK_MESH_ONE, turned and placed as
+// make_tex_transition_vertex does.
+static void mtx_transition_mesh(Mtx *mtx, s8 fadeTimer, s16 centerTransX, s16 centerTransY, s16 texTransRadius) {
+    u16 angle = sTransitionTextureFadeCount[fadeTimer];
+    f32 scale = texTransRadius / (f32) MASK_MESH_ONE;
+    Mat4 m;
+
+    mtxf_identity(m);
+    m[0][0] = scale * coss(angle);
+    m[0][1] = scale * sins(angle);
+    m[1][0] = -m[0][1];
+    m[1][1] = m[0][0];
+    m[3][0] = centerTransX;
+    m[3][1] = centerTransY;
+    mtxf_to_mtx(mtx, m);
+}
+
+static void render_transition_mesh(Vtx *verts, Mtx *mtx, struct WarpTransitionData *transData, s16 texTransRadius, s8 texID) {
+    gSPDisplayList(gDisplayListHead++, dl_proj_mtx_fullscreen);
+    // The primitive colour, as the mesh's vertices only hold alpha (the star that opens a level from
+    // the file select is white).
+    gDPSetCombineLERP(gDisplayListHead++, 0, 0, 0, PRIMITIVE, 0, 0, 0, SHADE, 0, 0, 0, PRIMITIVE, 0, 0, 0, SHADE);
+    gDPSetPrimColor(gDisplayListHead++, 0, 0, transData->red, transData->green, transData->blue, 255);
+    gDPSetRenderMode(gDisplayListHead++, G_RM_AA_XLU_SURF, G_RM_AA_XLU_SURF2);
+    gSPVertex(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(verts), 8, 0);
+    gDPNoOpTag(gDisplayListHead++, DC_GFX_COVER_BEGIN);
+    gSPDisplayList(gDisplayListHead++, dl_transition_draw_filled_region);
+    if (texTransRadius > 0) {
+        gSPMatrix(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(mtx), G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
+        gSPDisplayList(gDisplayListHead++, sTransitionMesh[texID][0]);
+    }
+    gDPNoOpTag(gDisplayListHead++, DC_GFX_COVER_END);
+    if (texTransRadius > 0) {
+        gSPDisplayList(gDisplayListHead++, sTransitionMesh[texID][1]);
+    }
+    gSPDisplayList(gDisplayListHead++, dl_screen_transition_end);
+}
+#endif
+
 s32 render_textured_transition(s8 fadeTimer, s8 transTime, struct WarpTransitionData *transData, s8 texID, s8 transTexType) {
     f32 texTransTime = calc_tex_transition_time(fadeTimer, transTime, transData);
     u16 texTransPos = convert_tex_transition_angle_to_pos(transData);
@@ -211,6 +330,21 @@ s32 render_textured_transition(s8 fadeTimer, s8 transTime, struct WarpTransition
     s16 texTransRadius = calc_tex_transition_radius(fadeTimer, transTime, transData);
     Vtx *verts = alloc_display_list(8 * sizeof(*verts));
 
+#if defined(TARGET_DC)
+    {
+        Mtx *mtx = alloc_display_list(sizeof(*mtx));
+
+        if (verts != NULL && mtx != NULL) {
+            // The fill stops a pixel inside the mesh's square, so no gap opens between them.
+            load_tex_transition_vertex(verts, fadeTimer, transData, centerTransX, centerTransY,
+                                       texTransRadius > 0 ? texTransRadius - 1 : 0, transTexType);
+            mtx_transition_mesh(mtx, fadeTimer, centerTransX, centerTransY, texTransRadius);
+            render_transition_mesh(verts, mtx, transData, texTransRadius, texID);
+            sTransitionTextureFadeCount[fadeTimer] += transData->texTimer;
+        }
+        return set_and_reset_transition_fade_timer(fadeTimer, transTime);
+    }
+#endif
     if (verts != NULL) {
         load_tex_transition_vertex(verts, fadeTimer, transData, centerTransX, centerTransY, texTransRadius, transTexType);
         gSPDisplayList(gDisplayListHead++, dl_proj_mtx_fullscreen)
@@ -223,7 +357,15 @@ s32 render_textured_transition(s8 fadeTimer, s8 transTime, struct WarpTransition
         // XLU draw is solid opaque black -- identical look, but now TR -> always on top.
         gDPSetRenderMode(gDisplayListHead++, G_RM_AA_XLU_SURF, G_RM_AA_XLU_SURF2);
         gSPVertex(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(verts), 8, 0);
+#if defined(TARGET_DC)
+        // On the Dreamcast the fill is a COVER instead (gfx_dc_tags.h): opaque again, but above
+        // every world depth of the frame, so the Bowser-level problem above cannot return.
+        gDPNoOpTag(gDisplayListHead++, DC_GFX_COVER_BEGIN);
+#endif
         gSPDisplayList(gDisplayListHead++, dl_transition_draw_filled_region);
+#if defined(TARGET_DC)
+        gDPNoOpTag(gDisplayListHead++, DC_GFX_COVER_END);
+#endif
         //gDPPipeSync(gDisplayListHead++);
         gDPSetCombineMode(gDisplayListHead++, G_CC_MODULATEIDECALA, G_CC_MODULATEIDECALA);
         gDPSetRenderMode(gDisplayListHead++, G_RM_AA_XLU_SURF, G_RM_AA_XLU_SURF2);

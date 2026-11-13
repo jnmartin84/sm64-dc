@@ -15,7 +15,8 @@
 #include "data.h"
 #include "aica_synth.h"
 
-#ifdef TARGET_DC
+/* DC_AICAFLOW: AICAflow owns the AICA (src/pc/audio/sm64_aicaflow.c); this driver is out. */
+#if defined(TARGET_DC) && !defined(DC_AICAFLOW)
 
 #include <stdio.h>
 #include <dc/sound/sound.h>
@@ -73,6 +74,9 @@ typedef struct {
     u32 sentFreq;      /* last freq/vol/pan pushed to the channel; gates redundant updates */
     u8  sentVol, sentPan;
     u8  rateScale;     /* per-sample playback-freq scale (/256, 0 = none) for resampled voices */
+#ifdef DC_AUDIO_RECORD
+    u8  sentRev;       /* last reverb send logged (the recorder logs a change of it as an UPDATE) */
+#endif
 } Voice;
 static Voice sVoices[MAX_VOICES];
 static u32 sWaveAram[NUM_WAVEFORMS][NUM_WAVE_BANDS];
@@ -112,6 +116,50 @@ static Stream sStreams[MAX_STREAMS];
 typedef struct {
     u32 base, type, length, loop, loopstart, loopend, rate_scale;
 } Resolved;
+
+#ifdef DC_AUDIO_RECORD
+/* Recorder (make DC_AUDIO_RECORD=1): every voice command the driver sends,
+   stamped with the sequencer sub-update it was sent in, into a ring that
+   src/pc/pc_main.c drains to /pc. tools/aica/sm64_afx.py turns the log into
+   AICAflow assets. The AICA still plays, so a recording run is audible. */
+#include "aica_record.h"
+static AicaRecord sRecRing[AICA_RECORD_RING];
+volatile u32 gAicaRecHead, gAicaRecTail;   /* head: audio thread; tail: main thread */
+static u8 sRecSeqChannel;
+u32 gAicaRecTick, gAicaRecDropped;
+u64 gAicaRecStartUs;   /* SH4 time of the first sub-update, for the measured sub-update rate */
+void aica_record(u8 cmd, u8 ch, u8 vol, u8 pan, u32 freq, u32 key, u8 reverb) {
+    u32 head = gAicaRecHead;
+    if (head - gAicaRecTail >= AICA_RECORD_RING) { gAicaRecDropped++; return; }
+    AicaRecord *r = &sRecRing[head % AICA_RECORD_RING];
+    r->tick = gAicaRecTick; r->cmd = cmd; r->ch = ch; r->vol = vol; r->pan = pan;
+    r->freq = freq; r->key = key; r->reverb = reverb; r->seqChannel = sRecSeqChannel;
+    gAicaRecHead = head + 1;
+}
+const AicaRecord *aica_record_at(u32 index) { return &sRecRing[index % AICA_RECORD_RING]; }
+/* The reverb send of the note being sent: the AICA voice driver has no send, so it is only
+   logged (the N64 mixer's wet send, which AICAflow flows carry as DSP_SEND). */
+static u8 sRecReverb;
+#define AICA_REC(cmd, ch, vol, pan, freq, key) aica_record(cmd, ch, vol, pan, freq, key, sRecReverb)
+static void rec_note(const struct Note *note) {
+    sRecReverb = note->reverb;
+    sRecSeqChannel = 0xff;
+    if (note->parentLayer != NO_LAYER) {
+        const struct SequenceChannel *channel = note->parentLayer->seqChannel;
+        for (u8 i = 0; i < CHANNELS_MAX; i++) {
+            if (channel->seqPlayer->channels[i] == channel) sRecSeqChannel = i;
+        }
+    }
+}
+#define AICA_REC_NOTE(note) rec_note(note)
+#define AICA_REC_CHANGED(v, note) ((v)->sentRev != (note)->reverb)
+#define AICA_REC_SENT(v, note) ((v)->sentRev = (note)->reverb)
+#else
+#define AICA_REC(cmd, ch, vol, pan, freq, key) ((void) 0)
+#define AICA_REC_NOTE(note) ((void) 0)
+#define AICA_REC_CHANGED(v, note) 0
+#define AICA_REC_SENT(v, note) ((void) 0)
+#endif
 
 
 static int sample_lookup(u32 key, const AicaSampleDesc** out) {
@@ -288,6 +336,9 @@ static int resolve(struct Note* note, u32* outKey, Resolved* res, AramEntry** ou
         AramEntry* e;
         if (s == NULL || s->sampleAddr == NULL) return 0;
         key = (u32)s->sampleAddr - (u32)sTblBase;
+#ifdef AICA_RECORD_HOST
+        key -= 0x130;   /* the keys are the Dreamcast's: the host's .tbl header has 64-bit entries */
+#endif
         if (!sample_lookup(key, &d)) return 0;
         if (d->stream) { *outDesc = d; *outKey = key; return 2; }   /* SH4-streamed */
         e = cache_acquire(key, d->pool_offset, d->byte_len);
@@ -315,6 +366,7 @@ static void chan_start(s32 ch, const Resolved* r, u32 freq, u32 vol, u32 pan) {
 }
 
 static void chan_update(s32 ch, u32 freq, u32 vol, u32 pan) {
+    AICA_REC(AICA_REC_UPDATE, (u8) ch, (u8) vol, (u8) pan, freq, 0);
     AICA_CMDSTR_CHANNEL(tmp, cmd, chan);
     cmd->cmd = AICA_CMD_CHAN; cmd->timestamp = 0; cmd->size = AICA_CMDSTR_CHANNEL_SIZE; cmd->cmd_id = ch;
     chan->cmd = AICA_CH_CMD_UPDATE | AICA_CH_UPDATE_SET_FREQ | AICA_CH_UPDATE_SET_VOL | AICA_CH_UPDATE_SET_PAN;
@@ -323,6 +375,7 @@ static void chan_update(s32 ch, u32 freq, u32 vol, u32 pan) {
 }
 
 static void chan_stop(s32 ch) {
+    AICA_REC(AICA_REC_STOP, (u8) ch, 0, 0, 0, 0);
     AICA_CMDSTR_CHANNEL(tmp, cmd, chan);
     cmd->cmd = AICA_CMD_CHAN; cmd->timestamp = 0; cmd->size = AICA_CMDSTR_CHANNEL_SIZE; cmd->cmd_id = ch;
     chan->cmd = AICA_CH_CMD_STOP;
@@ -409,6 +462,7 @@ static void stream_start(s32 noteIndex, const AicaSampleDesc* d, u32 freq, u32 v
     s->loopEnd = d->loop_end ? d->loop_end : d->nsamples;
     s->cur = 0; s->quant = 127; s->srcPos = 0; s->haveLoopSnap = 0;
     s->written = 0; s->freq = freq;
+    AICA_REC(AICA_REC_START, (u8) ch, (u8) vol, (u8) pan, freq, d->src_offset | AICA_REC_KEY_STREAM);
 
     stream_fill(s, STREAM_RING_SAMPLES);  /* pre-fill the whole ring */
 
@@ -518,6 +572,9 @@ void AicaSynth_Init(void) {
 void AicaSynth_RefreshActive(void) {
     s32 numNotes = gMaxSimultaneousNotes;
     s32 i;
+#ifdef DC_AUDIO_RECORD
+    if (gAicaRecTick++ == 0) gAicaRecStartUs = timer_us_gettime64();
+#endif
 #if AICA_PAN_LOG
     static u32 sRefreshTick = 0;
     sRefreshTick++;
@@ -540,10 +597,12 @@ void AicaSynth_RefreshActive(void) {
             freq = calc_freq(note, 0, v->rateScale);
         vol = calc_vol(note);
         pan = calc_pan(note);
+        AICA_REC_NOTE(note);
 
-        if (freq != v->sentFreq || (u8)vol != v->sentVol || (u8)pan != v->sentPan) {
+        if (freq != v->sentFreq || (u8)vol != v->sentVol || (u8)pan != v->sentPan || AICA_REC_CHANGED(v, note)) {
             chan_update(v->channel, freq, vol, pan);
             v->sentFreq = freq; v->sentVol = (u8)vol; v->sentPan = (u8)pan;
+            AICA_REC_SENT(v, note);
 #if AICA_PAN_LOG
             {
                 static u32 lines = 0;
@@ -592,6 +651,7 @@ void AicaSynth_Update(void) {
 
         vol = calc_vol(note);
         pan = calc_pan(note);
+        AICA_REC_NOTE(note);
 
         if (rc == 2) {
             /* Streamed long sample: dedicated channel + SH4-fed PCM ring. */
@@ -630,8 +690,11 @@ void AicaSynth_Update(void) {
             v->channel = chn; v->active = 1; v->sampleKey = key; v->entry = entry;
             v->waveSc = (note->sound == NULL) ? (u8)norm_sc(note->sampleCount) : 0;
             v->rateScale = (u8)res.rate_scale;
+            AICA_REC(AICA_REC_START, (u8) chn, (u8) vol, (u8) pan, freq,
+                     note->sound == NULL ? key | (wave_band(norm_sc(note->sampleCount)) << 24) : key);
             chan_start(chn, &res, freq, vol, pan);
             v->sentFreq = freq; v->sentVol = (u8)vol; v->sentPan = (u8)pan;
+            AICA_REC_SENT(v, note);
 #if AICA_OCTAVE_LOG
             /* Find ADPCM samples the game pitches past ~+1 octave (note->frequency
                > ~2). Those pitch-clamp on AICA ADPCM and need FORCE_PCM. nf=1.89
@@ -663,9 +726,10 @@ void AicaSynth_Update(void) {
 #endif
         } else {
             if (entry) cache_release(entry);
-            if (freq != v->sentFreq || (u8)vol != v->sentVol || (u8)pan != v->sentPan) {
+            if (freq != v->sentFreq || (u8)vol != v->sentVol || (u8)pan != v->sentPan || AICA_REC_CHANGED(v, note)) {
                 chan_update(v->channel, freq, vol, pan);
                 v->sentFreq = freq; v->sentVol = (u8)vol; v->sentPan = (u8)pan;
+                AICA_REC_SENT(v, note);
             }
         }
     }

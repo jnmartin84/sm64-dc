@@ -131,7 +131,7 @@ void func_80181EB0(struct Connection *cxn) {
         sp0->unk20.z += sp34.z;
     }
 }
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 /* @ 230858 -> 230B70 */
 void func_80182088(struct Connection *cxn) {
     struct GdVec3f sp4C;
@@ -151,7 +151,7 @@ void func_80182088(struct Connection *cxn) {
     sp4C.y = sp1C->unk20.y - sp18->unk20.y;
     sp4C.z = sp1C->unk20.z - sp18->unk20.z;
     sp20 = gd_vec3f_magnitude(&sp4C);
-    f32 invsp20 = shz_fast_invf(sp20);
+    f32 invsp20 = shz_invf(sp20);
     sp24 = sp20 - cxn->unk24;
     sp4C.x *= invsp20;
     sp4C.y *= invsp20;

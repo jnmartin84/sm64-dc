@@ -35,7 +35,7 @@
 #include "sound_init.h"
 #include "thread6.h"
 
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
 u32 unused80339F10;
 s8 filler80339F1C[20];
@@ -766,7 +766,7 @@ void set_steep_jump_action(struct MarioState *m) {
         scaled_sincoss(faceAngleTemp, &y, &x, m->forwardVel);
         x *= 0.75f;
 
-        m->forwardVel = shz_sqrtf_fsrra(y * y + x * x);
+        m->forwardVel = shz_sqrtf(y * y + x * x);
         m->faceAngle[1] = atan2s(x, y) + angleTemp;
     }
 
@@ -1230,9 +1230,9 @@ void squish_mario_model(struct MarioState *m) {
             m->squishTimer -= 1;
 
             m->marioObj->header.gfx.scale[1] =
-                1.0f - ((sSquishScaleOverTime[15 - m->squishTimer] * 0.6f) * 0.01f); // / 100.0f);
+                1.0f - ((sSquishScaleOverTime[15 - m->squishTimer] * 0.6f) / 100.0f);
             m->marioObj->header.gfx.scale[0] =
-                ((sSquishScaleOverTime[15 - m->squishTimer] * 0.4f) * 0.01f /* / 100.0f */) + 1.0f;
+                ((sSquishScaleOverTime[15 - m->squishTimer] * 0.4f) / 100.0f) + 1.0f;
 
             m->marioObj->header.gfx.scale[2] = m->marioObj->header.gfx.scale[0];
         } else {
@@ -1512,7 +1512,7 @@ void update_mario_health(struct MarioState *m) {
         // Play a noise to alert the player when Mario is close to drowning.
         if (((m->action & ACT_GROUP_MASK) == ACT_GROUP_SUBMERGED) && (m->health < 0x300)) {
             play_sound(SOUND_MOVING_ALMOST_DROWNING, gDefaultSoundArgs);
-#ifdef VERSION_SH
+#ifdef ENABLE_RUMBLE
             if (!gRumblePakTimer) {
                 gRumblePakTimer = 36;
                 if (is_rumble_finished_and_queue_empty()) {
@@ -1678,7 +1678,7 @@ void mario_update_hitbox_and_cap_model(struct MarioState *m) {
     }
 }
 
-#ifdef VERSION_SH
+#ifdef ENABLE_RUMBLE
 void func_sh_8025574C(void) {
     if (gMarioState->particleFlags & PARTICLE_HORIZONTAL_STAR) {
         queue_rumble_data(5, 80);
@@ -1782,7 +1782,7 @@ s32 execute_mario_action(UNUSED struct Object *o) {
 
         play_infinite_stairs_music();
         gMarioState->marioObj->oInteractStatus = 0;
-#ifdef VERSION_SH
+#ifdef ENABLE_RUMBLE
         func_sh_8025574C();
 #endif
 

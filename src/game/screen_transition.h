@@ -23,5 +23,9 @@ enum TextureTransitionType
 
 int render_screen_transition(s8 fadeTimer, s8 transType, u8 transTime, struct WarpTransitionData *transData);
 Gfx *geo_cannon_circle_base(s32 callContext, struct GraphNode *node, UNUSED Mat4 mtx);
+#if defined(TARGET_DC)
+void dc_fade_frame_begin(void);
+void dc_fade_shade(u8 r, u8 g, u8 b, u8 alpha, const Gfx *draw, const Gfx *state);
+#endif
 
 #endif // SCREEN_TRANSITION_H

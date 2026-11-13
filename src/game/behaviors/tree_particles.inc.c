@@ -22,7 +22,7 @@ void bhv_tree_snow_or_leaf_loop(void) {
     if (o->oVelY < -8.0f)
         o->oVelY = -8.0f;
     if (o->oForwardVel > 0)
-        o->oForwardVel -= 0.3f;
+        o->oForwardVel -= 0.3;
     else
         o->oForwardVel = 0;
     o->oPosX += sins(o->oMoveAngleYaw) * sins(o->oTreeSnowOrLeafUnkF4) * o->oTreeSnowOrLeafUnkF8;
@@ -52,7 +52,7 @@ void bhv_snow_leaf_particle_spawn_init(void) {
             obj->oVelY = random_float() * 15.0f;
         }
     } else {
-        if (random_float() < 0.3f) {
+        if (random_float() < 0.3) {
             obj = spawn_object(o, MODEL_LEAVES, bhvTreeLeaf);
             scale = random_float() * 3.0f;
             obj_scale_xyz(obj, scale, scale, scale);

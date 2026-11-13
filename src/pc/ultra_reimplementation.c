@@ -150,7 +150,10 @@ s32 osAiSetFrequency(u32 freq) {
     return D_8033491C / (s32) a1;
 }
 
+// A finished game's save, for the debug menu's Save: 120 stars (dc_star_save_set). A new VMU
+// file starts blank, as a new cartridge's EEPROM did.
 #include "120_star_save.h"
+static u8 sBlankEeprom[512];
 
 #include <kos.h>
 
@@ -160,7 +163,27 @@ uint8_t icondata[512];
 
 char *ico_fn = "/rd/mario.ico";
 
+// The debug menu's TAS replay and level select (tas_slice.c) play with the movie's save, so while
+// one is on the EEPROM lives here, and the player's save stays on the VMU untouched. Off gives
+// the VMU back.
+static u8 sTasEeprom[512];
+s32 gTasSaveInMemory;
+// The debug menu's Save: 120 stars plays with that save, here too and never written to the VMU.
+// Each switch to it starts from the full save again.
+static u8 sStarEeprom[512];
+static s32 sStarSave;
+#define TAS_EEPROM (gTasSaveInMemory || sStarSave)
+#define MEM_EEPROM (gTasSaveInMemory ? sTasEeprom : sStarEeprom)
+
+void dc_star_save_set(s32 on) {
+    sStarSave = on;
+    if (on) {
+        memcpy(sStarEeprom, eeprom, sizeof(sStarEeprom));
+    }
+}
+
 s32 osEepromProbe(UNUSED OSMesgQueue *mq) {
+    if (TAS_EEPROM) return 1;
     maple_device_t *vmudev = maple_enum_type(0, MAPLE_FUNC_MEMCARD);
     if (!vmudev) {
         vid_border_color(255, 0, 0);
@@ -185,7 +208,7 @@ s32 osEepromProbe(UNUSED OSMesgQueue *mq) {
         pkg.icon_data = icondata;
         pkg.icon_anim_speed = 0;
         pkg.data_len = 512;
-        pkg.data = eeprom;
+        pkg.data = sBlankEeprom;
         vmu_pkg_load_icon(&pkg, ico_fn);
         uint8_t *pkg_out;
         ssize_t pkg_size;
@@ -201,7 +224,7 @@ s32 osEepromProbe(UNUSED OSMesgQueue *mq) {
         fs_close(eeprom_file);
         eeprom_file = -1;
         free(pkg_out);
-        osEepromLongWrite(NULL, 0, eeprom, 512);
+        osEepromLongWrite(NULL, 0, sBlankEeprom, 512);
     } else {
         fs_close(eeprom_file);
         eeprom_file = -1;
@@ -223,6 +246,10 @@ s32 osEepromProbe(UNUSED OSMesgQueue *mq) {
 }
 
 s32 osEepromLongRead(UNUSED OSMesgQueue *mq, unsigned char address, unsigned char *buffer, s32 length) {
+    if (TAS_EEPROM) {
+        memcpy(buffer, MEM_EEPROM + address * 8, (size_t) length);
+        return 0;
+    }
     if (eeprom_file == -1) {
         maple_device_t *vmudev = maple_enum_type(0, MAPLE_FUNC_MEMCARD);
         if (!vmudev) {
@@ -274,6 +301,10 @@ s32 osEepromRead(OSMesgQueue* mq, u8 address, u8* buffer) {
 }
 
 s32 osEepromLongWrite(UNUSED OSMesgQueue *mq, unsigned char address, unsigned char *buffer, s32 length) {
+    if (TAS_EEPROM) {
+        memcpy(MEM_EEPROM + address * 8, buffer, (size_t) length);
+        return 0;
+    }
     if (eeprom_file == -1) {
         maple_device_t *vmudev = maple_enum_type(0, MAPLE_FUNC_MEMCARD);
         if (!vmudev) {

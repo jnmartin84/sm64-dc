@@ -3,7 +3,7 @@
 // Drop-in replacement for the GLdc backend (gfx_gldc.c): implements the same
 // struct GfxRenderingAPI, but submits geometry straight to the PVR via the
 // direct-render (store-queue) path instead of going through OpenGL. The
-// gfx_retro_dc.c front-end (command interpreter, combiner, SW clip/cull/scissor)
+// gfx_retro_dc.c front-end (display-list commands, combiner, SW clip/cull/scissor)
 // is shared; only this backend differs. SM64's rapi is the SINGLE-TEXTURE variant
 // (shader_get_info returns the used-texture bool; no tile params), so this backend
 // is adapted accordingly vs MK64's two-tile version.
@@ -24,6 +24,8 @@
 #include "gfx_rendering_api.h"
 #include "macros.h"
 #include "gl_fast_vert.h"   // dc_fast_t (the front-end's per-vertex emit struct)
+#include "sh4zam_port.h"
+#include <enDjinn/enj_state.h>
 
 extern int cur_frame_persp;
 extern int prev_frame_had_persp;
@@ -35,6 +37,38 @@ extern int has_done_3d;
 // than corrupting the SQ at runtime.
 _Static_assert(sizeof(dc_fast_t) == sizeof(pvr_vertex_t), "dc_fast_t must match pvr_vertex_t layout");
 _Static_assert(sizeof(pvr_poly_hdr_t) == 32, "pvr_poly_hdr_t must be one 32-byte SQ slot");
+
+// FSAA: the PVR renders twice as wide and the scaler filters down on output, so every x the
+// front-end bakes is in a (DC_FB_W << 1)-wide space (gfx_retro_dc.c DC_FSAA_X).
+// The framebuffer: 640x480, or 320x240 in the 240p mode (gDcVideo240p, dc_video_options.h), which
+// the debug menu can switch. Render width = DC_FB_W << the current FSAA mode (FSAA can be switched
+// off per course).
+static int sFbW = 640, sFbH = 480;
+static int sRenderW = 640 << 1;
+#define DC_FB_W sFbW
+#define DC_FB_H sFbH
+#define DC_RENDER_W sRenderW
+// These scenes are drawn without FSAA in the curated mode, as FSAA_SCENE(level, area)
+// (comma-separated): their fill does not fit 60 fps with FSAA, which doubles it.
+#include "pc/dc_video_options.h"
+#include "pc/dc_overlay.h"
+#include "level_table.h"
+#define FSAA_SCENE(level, area) ((level) * 16 + (area))
+#ifndef DC_FSAA_OFF_SCENES
+// Water and lava, whose TR fill covers much of the screen: WDW 1-2, JRB 1, THI 1, LLL 2, DDD 1-2,
+// COTMC 1. And the scenes under 98% of frames on time with FSAA on in a 120-star playthrough:
+// VCUTM 97.1%, SL 93.5%, BITDW 97.9%, Bowser 1 94%, and THI 3, the Wiggler's room, 88.6%. TTC holds
+// 99.2% with its grid in TR.
+#define DC_FSAA_OFF_SCENES                                                                         \
+    FSAA_SCENE(LEVEL_WDW, 1), FSAA_SCENE(LEVEL_WDW, 2), FSAA_SCENE(LEVEL_JRB, 1),                  \
+    FSAA_SCENE(LEVEL_THI, 1), FSAA_SCENE(LEVEL_THI, 3), FSAA_SCENE(LEVEL_LLL, 2),                  \
+    FSAA_SCENE(LEVEL_DDD, 1), FSAA_SCENE(LEVEL_DDD, 2), FSAA_SCENE(LEVEL_COTMC, 1),                \
+    FSAA_SCENE(LEVEL_VCUTM, 1), FSAA_SCENE(LEVEL_SL, 1), FSAA_SCENE(LEVEL_BITDW, 1),               \
+    FSAA_SCENE(LEVEL_BOWSER_1, 1)
+#endif
+static void pvr_post_init(void);
+static void gfx_pvr_request_fsaa_for_scene(int level, int area);
+extern s16 gCurrLevelNum, gCurrAreaIndex;
 
 // ---------------------------------------------------------------------------
 // Shader bookkeeping — The front-end treats ShaderProgram opaquely
@@ -130,7 +164,11 @@ static uint32_t sCurBound = 0;   // last select_texture id == upload target
 // on real sampler-state change); the same scene now measures ~73 batches, so 512 keeps ~7x margin.
 #define TR_MAX_BATCH     512
 
-typedef struct { pvr_poly_hdr_t __attribute__((aligned(32))) hdr; uint32_t start, count; } PvrBatch;
+typedef struct {
+    pvr_poly_hdr_t __attribute__((aligned(32))) hdr;
+    uint32_t start, count;
+    uint8_t fade;    // FADE_*: how the frame's fade reaches its vertices (pvr_flush_bucket)
+} PvrBatch;
 typedef struct {
     pvr_vertex_t *verts; PvrBatch *batch;
     uint32_t nverts, max_verts;
@@ -166,6 +204,156 @@ static int sDropV = 0, sDropB = 0;
 // A depth/texture/shader state change affects the live OP header and the next PT and TR
 // batches. (gfx_pvr_set_blend only routes OP/PT/TR, so it does NOT dirty headers.)
 static void pvr_mark_dirty(void) { sOpDirty = 1; sTR.dirty = 1; sPunch.dirty = 1; }
+// A fade (gfx_dc_tags.h DC_GFX_FADE: the colour C at alpha a over all drawn before its rectangle)
+// through the PVR's fog, which mixes a colour into a polygon's pixels after texturing and before
+// blending. lerp(pixel, C, a) is the fade for any texture mode, and blending keeps it: a blended
+// source over a faded destination is the faded blend (an additive one gains C*a*alpha).
+// * A polygon without the game's fog gets TABLE fog: the table is a everywhere, its colour C.
+// * One with vertex fog (amount f, colour F) keeps it. Its colours fade in its vertices
+//   (rgb*(1-a) + C*a, the C*a on the offset colour when textured) and the vertex fog colour is
+//   F*(1-a) + C*a: together the fade of the fogged pixel. REPLACE becomes MODULATE with a grey of
+//   1-a; DECAL's texel cannot be scaled, so a fogged DECAL polygon stays a little bright.
+// The fog registers are read while the PVR renders, and it renders the frame before while this one
+// is sent: they are written at the end of the frame if that render is done, else by its render-done
+// interrupt, which comes before this frame's render can begin (fade_registers).
+#define FADE_NONE        0
+#define FADE_TABLE       1   // the header's fog is the table's now
+#define FADE_VTX         2   // vertex fog kept, untextured: the vertex's base colour fades
+#define FADE_VTX_TEX     3   // the same, textured: base and offset colour fade, C*a on the offset
+#define FADE_VTX_REPLACE 4   // FADE_VTX_TEX, its REPLACE now MODULATE with a white base
+static uint8_t sFadeOn, sFadeFrame;   // a fade now / this frame
+static uint32_t sFadeRgba;            // 0xRRGGBBAA
+static uint8_t sFadeKeep[256];        // c * (255 - a) / 255, rounded down
+static uint32_t sFadeAdd;             // C * a / 255 as 0x00RRGGBB, rounded down: no carry with keep
+static uint8_t sHdrFade;              // FADE_* of the header pvr_compile_header made last
+static uint8_t sOpFade;               // FADE_* of the live OP header
+static uint32_t sFogColor;            // the game's vertex fog colour, as the register takes it
+static uint32_t sFogRegVertex, sFogRegTable;   // what the registers hold for this frame (sFogRegValid)
+static uint8_t sFogRegValid;          // 1 vertex colour, 2 table colour and table
+static uint8_t sFogTableUsed;         // a header of this frame has table fog
+static uint8_t sFogWant;              // what fade_write writes: 1 vertex colour, 2 the table's
+static volatile uint8_t sFogPending;  // fade_write waits for the render running now to end
+static volatile uint32_t sRendersDone;   // render-done interrupts (fade_render_done)
+static uint32_t sRendersBegun;        // scenes whose render has begun: one each frame start
+static uint8_t sSceneSent;            // this frame's scene goes to the PVR
+static asic_evt_handler_entry_t sKosRenderDone;   // KOS's handler, called after ours
+
+static inline uint32_t fade_rgb(uint32_t c) {
+    return (uint32_t) sFadeKeep[c >> 16 & 0xff] << 16 | (uint32_t) sFadeKeep[c >> 8 & 0xff] << 8 |
+           sFadeKeep[c & 0xff];
+}
+
+// The fade's change to a header just compiled; FADE_* for its vertices.
+static uint8_t fade_header(pvr_poly_hdr_t *h) {
+    if (!sFadeOn) return FADE_NONE;
+    if (h->m2.fog_type != PVR_FOG_VERTEX) {
+        h->m2.fog_type = PVR_FOG_TABLE;
+        sFogTableUsed = 1;
+        return FADE_TABLE;
+    }
+    if (!h->m0.txr_en) return FADE_VTX;
+    if (h->m2.shading != PVR_TXRENV_REPLACE) return FADE_VTX_TEX;
+    h->m2.shading = PVR_TXRENV_MODULATE;
+    return FADE_VTX_REPLACE;
+}
+
+// A vertex of a FADE_VTX* batch, faded in a copy (the store queues cannot be read back).
+static void __attribute__((noinline)) fade_vertex(pvr_vertex_t *v, uint8_t mode) {
+    uint32_t base = mode == FADE_VTX_REPLACE ? v->argb | 0x00ffffffu : v->argb;
+    base = (base & 0xff000000u) | fade_rgb(base);
+    uint32_t off = (v->oargb & 0xff000000u) | fade_rgb(v->oargb);
+    if (mode == FADE_VTX) base += sFadeAdd;
+    else off += sFadeAdd;
+    v->argb = base;
+    v->oargb = off;
+}
+
+// The frame's fade starts (gfx_retro_dc.c gfx_dc_tag): every header from here on takes it.
+void gfx_pvr_fade_begin(uint32_t rgba) {
+    uint32_t a = rgba & 0xff;
+    sFadeRgba = rgba;
+    sFadeOn = sFadeFrame = 1;
+    for (uint32_t c = 0; c < 256; c++) sFadeKeep[c] = (uint8_t) (c * (255 - a) / 255);
+    sFadeAdd = ((rgba >> 24) * a / 255) << 16 | ((rgba >> 16 & 0xff) * a / 255) << 8 |
+               (rgba >> 8 & 0xff) * a / 255;
+    // The background plane is no polygon (KOS draws it at the render's start): faded here.
+    extern int clear_color;
+    float bg[3];
+    bg[0] = ((clear_color >> 11) & 0x1F) * (1.0f / 31.0f);
+    bg[1] = ((clear_color >> 6) & 0x1F) * (1.0f / 31.0f);
+    bg[2] = ((clear_color >> 1) & 0x1F) * (1.0f / 31.0f);
+    const float fa = a * (1.0f / 255.0f);
+    pvr_set_bg_color(bg[0] + ((rgba >> 24) * (1.0f / 255.0f) - bg[0]) * fa,
+                     bg[1] + ((rgba >> 16 & 0xff) * (1.0f / 255.0f) - bg[1]) * fa,
+                     bg[2] + ((rgba >> 8 & 0xff) * (1.0f / 255.0f) - bg[2]) * fa);
+    pvr_mark_dirty();
+}
+
+// Where the fade's rectangle was: what follows is drawn as it is (the pause menu over its shade).
+void gfx_pvr_fade_end(void) {
+    sFadeOn = 0;
+    pvr_mark_dirty();
+}
+
+// Writes sFogRegVertex and sFogRegTable as sFogWant says.
+static void fade_write(void) {
+    if (sFogWant & 1) PVR_SET(PVR_FOG_VERTEX_COLOR, sFogRegVertex);
+    if (sFogWant & 2) {
+        const uint32_t a = sFogRegTable & 0xff;
+        PVR_SET(PVR_FOG_TABLE_COLOR, 0xff000000u | sFogRegTable >> 8);
+        for (uint32_t i = 0; i < 128; i++) PVR_SET(PVR_FOG_TABLE_BASE + i * 4, a << 8 | a);
+    }
+}
+
+// The TSP finished a render (interrupt context): the next frame's fog registers, if they wait.
+static void fade_render_done(uint32_t code, UNUSED void *data) {
+    if (sFogPending) {
+        fade_write();
+        sFogPending = 0;
+    }
+    sRendersDone++;
+    if (sKosRenderDone.hdl != NULL) sKosRenderDone.hdl(code, sKosRenderDone.data);
+}
+
+// pvr_post_init: after each pvr_init, which hooks KOS's own handler again.
+static void fade_hook_render_done(void) {
+    asic_evt_handler_entry_t old = asic_evt_set_handler(ASIC_EVT_PVR_RENDERDONE_TSP, fade_render_done, NULL);
+    if (old.hdl != fade_render_done) sKosRenderDone = old;
+    sFogPending = 0;
+    sFogRegValid = 0;   // pvr_init's values: written again at the frame's end
+    sRendersBegun = sRendersDone;
+    sSceneSent = 0;
+}
+
+// gfx_pvr_start_frame, once the PVR takes this frame (pvr_wait_ready: the frame before renders).
+static void fade_frame_start(void) {
+    if (sSceneSent) sRendersBegun++;
+    if (sRendersBegun < sRendersDone) sRendersBegun = sRendersDone;   // a scene not of gfx_pvr
+    sSceneSent = 0;
+    sFadeOn = sFadeFrame = 0;   // until the display list's DC_GFX_FADE
+    sFogTableUsed = 0;
+}
+
+// gfx_pvr_end_frame: the fog registers this frame renders with.
+static void fade_registers(void) {
+    uint32_t vtx = sFogColor;
+    if (sFadeFrame) vtx = (vtx & 0xff000000u) | (fade_rgb(vtx) + sFadeAdd);
+    const int table = sFadeFrame && sFogTableUsed;
+    uint8_t want = 0;
+    if (!(sFogRegValid & 1) || vtx != sFogRegVertex) want |= 1;
+    if (table && (!(sFogRegValid & 2) || sFadeRgba != sFogRegTable)) want |= 2;
+    sSceneSent = 1;
+    if (!want) return;
+    sFogRegVertex = vtx;
+    if (want & 2) sFogRegTable = sFadeRgba;
+    sFogRegValid |= want;
+    const irq_mask_t irq = irq_disable();
+    sFogWant = want;
+    if (sRendersBegun > sRendersDone) sFogPending = 1;   // the frame before still renders
+    else fade_write();
+    irq_restore(irq);
+}
+
 // Compile one of the SIX base headers ONCE via the official pvr_poly_cxt+pvr_poly_compile, so
 // every PER-LIST field (list_type/alpha/txralpha/blend defaults) is correct for this list. The
 // textured bases seed from whatever texture is bound on first use; their texture-specific fields
@@ -193,7 +381,15 @@ static void pvr_ensure_base(int textured, int kind, int list) {
 // Build a poly header for the current state. pvr_poly_compile runs only ONCE per base (6 total);
 // per draw this copies the matching base and bit-patches the texture fields + per-draw state
 // in place (OoT technique) — no per-draw recompile. Per-list state stays from the base.
-static void pvr_compile_header(pvr_poly_hdr_t *out, int kind) {
+// A native segment's precompiled header (gfx_native.inc.c), used for its kind instead of the
+// current state while the segment draws.
+static const pvr_poly_hdr_t *sForcedHdr[3];
+
+static void pvr_compile_header_raw(pvr_poly_hdr_t *out, int kind) {
+    if (sForcedHdr[kind] != NULL) {
+        *out = *sForcedHdr[kind];
+        return;
+    }
     int list = (kind == PVR_KIND_TR) ? PVR_LIST_TR_POLY
              : (kind == PVR_KIND_PT) ? PVR_LIST_PT_POLY
              :                         PVR_LIST_OP_POLY;
@@ -232,6 +428,14 @@ static void pvr_compile_header(pvr_poly_hdr_t *out, int kind) {
     }
 }
 
+// The header the current state (or the native renderer's forced header) draws with, with the fade.
+static void pvr_compile_header(pvr_poly_hdr_t *out, int kind) {
+    pvr_compile_header_raw(out, kind);
+    sHdrFade = fade_header(out);
+}
+
+#define PROF_BATCH_ALPHA(bt, kind) ((void) 0)
+
 // Append n vertices (n/3 tris) of already-screen-baked dc_fast_t to a bucket,
 // starting a new batch when the bucket's header state has changed.
 static void pvr_append(PvrBucket *b, int kind, const dc_fast_t *tris, size_t n) {
@@ -239,6 +443,8 @@ static void pvr_append(PvrBucket *b, int kind, const dc_fast_t *tris, size_t n) 
         if (b->nbatch >= b->max_batch) { if (sDropB++ < 8) printf("PVR_DROP batch %d\n", kind); return; }
         b->cur = b->nbatch++;
         pvr_compile_header(&b->batch[b->cur].hdr, kind);
+        b->batch[b->cur].fade = sHdrFade;
+        PROF_BATCH_ALPHA(&b->batch[b->cur], kind);
         b->batch[b->cur].start = b->nverts;
         b->batch[b->cur].count = 0;
         b->dirty = 0;
@@ -263,6 +469,8 @@ dc_fast_t *pvr_reserve(int kind, size_t n) {
         if (b->nbatch >= b->max_batch) { if (sDropB++ < 8) printf("PVR_DROP batch %d\n", kind); return NULL; }
         b->cur = b->nbatch++;
         pvr_compile_header(&b->batch[b->cur].hdr, kind);
+        b->batch[b->cur].fade = sHdrFade;
+        PROF_BATCH_ALPHA(&b->batch[b->cur], kind);
         b->batch[b->cur].start = b->nverts;
         b->batch[b->cur].count = 0;
         b->dirty = 0;
@@ -278,22 +486,52 @@ dc_fast_t *pvr_reserve(int kind, size_t n) {
     return out;
 }
 
+#define HASH_OP_HEADER(h) ((void) 0)
+#define HASH_VERTEX(kind, hdr, v, flags) ((void) 0)
+
+// Send one store queue's 32 bytes to the TA. Unlike pvr_dr_commit (sq_flush) this has no "memory"
+// clobber: the asm only reads this vertex, so GCC keeps everything else in registers around it.
+static inline void sq_send(pvr_vertex_t *v) {
+    __asm__ __volatile__("pref @%0" : : "r"(v), "m"(*v));
+}
+
+// One store-queue vertex: pvr_dr_target's double-buffered address, kept in a register by the
+// caller instead of the global pvr_dr_addr being loaded and stored per vertex.
+static inline pvr_vertex_t *sq_next(uint32_t *addr) {
+    *addr ^= 32;
+    return (pvr_vertex_t *) __builtin_assume_aligned((void *) *addr, 32);
+}
+
 // Replay a bucket's batches (header + its verts) to the open list via the DR path.
 static void pvr_flush_bucket(PvrBucket *b) {
+    uint32_t addr = pvr_dr_addr;
     for (int i = 0; i < b->nbatch; i++) {
         PvrBatch *bt = &b->batch[i];
         if (!bt->count) continue;
-        pvr_poly_hdr_t *hp = (pvr_poly_hdr_t *) pvr_dr_target(sDrState);
+        pvr_poly_hdr_t *hp = (pvr_poly_hdr_t *) sq_next(&addr);
         *hp = bt->hdr;
-        pvr_dr_commit(hp);
+        sq_send((pvr_vertex_t *) hp);
+        const pvr_vertex_t *src = &b->verts[bt->start];
+        if (bt->fade >= FADE_VTX) {
+            for (uint32_t v = 0; v < bt->count; v++) {
+                pvr_vertex_t t = src[v];
+                fade_vertex(&t, bt->fade);
+                pvr_vertex_t *vp = sq_next(&addr);
+                *vp = t;
+                sq_send(vp);
+            }
+            continue;
+        }
         for (uint32_t v = 0; v < bt->count; v++) {
-            pvr_vertex_t *vp = (pvr_vertex_t *) pvr_dr_target(sDrState);
-            *vp = b->verts[bt->start + v];
+            pvr_vertex_t *vp = sq_next(&addr);
+            *vp = src[v];
             // Flags are already set in the bucket: 3-vert tris by pvr_reserve, 4-vert quads by
             // gfx_pvr_draw_quad_2d. Do NOT re-stamp here — a blanket (v%3) would corrupt the 2D quads.
-            pvr_dr_commit(vp);
+            sq_send(vp);
+            HASH_VERTEX(b == &sTR ? PVR_KIND_TR : PVR_KIND_PT, hh, &src[v], src[v].flags);
         }
     }
+    pvr_dr_addr = addr;
 }
 
 // Scratch for POT padding (max 256x256 @ 16bpp = 128KB). MK64 textures are small.
@@ -311,24 +549,16 @@ static void pvr_pad16(const uint16_t *in, int iw, int ih, uint16_t *out, int ow,
 
     for (y = 0; y < ih; y++) {
         uint16_t *o = out + (y * ow);
-        memcpy(o, in + (y * iw), iw * 2);
+        shz_memcpy(o, in + (y * iw), iw * 2);
         uint16_t edge = (iw > 0) ? in[(y * iw) + iw - 1] : 0;
         for (int x = iw; x < ow; x++) o[x] = edge;
     }
     if (ih > 0) {
         const uint16_t *last = out + ((ih - 1) * ow);
-        for (; y < oh; y++) memcpy(out + (y * ow), last, ow * 2);
+        for (; y < oh; y++) shz_memcpy(out + (y * ow), last, ow * 2);
     }
 }
 
-// Framebuffer dimensions — must match gfx_dc.c SCR_WIDTH/HEIGHT. LOWRES = native 240p (320x240).
-#if LOWRES
-#define DC_FB_W 320
-#define DC_FB_H 240
-#else
-#define DC_FB_W 640
-#define DC_FB_H 480
-#endif
 
 // Mirror of OoT's known-good params for this toolchain:
 //   {OP, OP_MOD, TR, TR_MOD, PT} bin sizes, vtxbuf, dma, fsaa, autosort_disabled, overflow
@@ -337,12 +567,16 @@ static void pvr_pad16(const uint16_t *in, int iw, int ih, uint16_t *out, int ow,
 // real alpha-BLEND surfaces go to the deferred TR bucket. At end_frame PT is flushed first
 // (writes depth, alpha-tested opaque), then TR composites over it. All three lists' bins
 // are live -> {OP, OP_MOD, TR, TR_MOD, PT}.
+#ifndef DC_PT_CHUNK
+#define DC_PT_CHUNK 64
+#endif
+_Static_assert(DC_PT_CHUNK >= 32 && DC_PT_CHUNK <= 512, "ISP_FEED_CFG punch-through chunk, vertices");
 static pvr_init_params_t sPvrParams = {
     { PVR_BINSIZE_32, PVR_BINSIZE_0, PVR_BINSIZE_32, PVR_BINSIZE_0, PVR_BINSIZE_32 },
     512 * 1024,
     1,  // dma
-    0,  // fsaa
-    0,  // autosort_disabled (0 = autosort on; needed for TR in P3)
+    1,  // fsaa: horizontal supersampling (DC_RENDER_W wide)
+    0,  // autosort_disabled (0 = autosort; presort measured no faster with FSAA, 2026-10-24)
     2,  // overflow buffers
     0,  // vbuf_doublebuf_disabled (0 = double-buffering on)
 };
@@ -554,9 +788,7 @@ void gfx_pvr_set_fog(uint8_t enabled) {
 // Vertex fog colour register (0x00b4). Global, read at render time — write it directly
 // (KOS's pvr_fog_vertex_color is a stub). Not part of the poly header, so no dirty needed.
 void gfx_pvr_set_fog_color(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
-    PVR_SET(PVR_FOG_VERTEX_COLOR,
-            PVR_PACK_COLOR(a * (1.0f / 255.0f), r * (1.0f / 255.0f),
-                           g * (1.0f / 255.0f), b * (1.0f / 255.0f)));
+    sFogColor = (uint32_t) a << 24 | (uint32_t) r << 16 | (uint32_t) g << 8 | b;   // fade_registers writes it
 }
 static void gfx_pvr_set_viewport(UNUSED int x, UNUSED int y, UNUSED int w, UNUSED int h) { /* front-end SW viewport */ }
 static void gfx_pvr_set_scissor(UNUSED int x, UNUSED int y, UNUSED int w, UNUSED int h)  { /* front-end SW scissor */ }
@@ -595,11 +827,35 @@ void gfx_pvr_set_blend_factors(uint8_t src_code, uint8_t dst_code) {
     }
 }
 
+#define PROF_COUNT_OP(a, b, c) ((void) 0)
+
+// The native renderer (gfx_native.inc.c). A segment is compiled with the header the current state
+// gives (gfx_pvr_header_for) and later drawn with that header (gfx_pvr_native_header) without the
+// state; gfx_pvr_native_end hands the lists back to the current state.
+void gfx_pvr_header_for(int kind, pvr_poly_hdr_t *out) {
+    pvr_compile_header_raw(out, kind);   // kept: a fade reaches it when it is drawn
+}
+
+// (depth_test: the header has it as its depth compare here; the host's needs it apart.)
+void gfx_pvr_native_header(int kind, const pvr_poly_hdr_t *hdr, UNUSED int depth_test) {
+    sForcedHdr[kind] = hdr;
+    if (kind == PVR_KIND_OP) sOpDirty = 1;
+    else if (kind == PVR_KIND_PT) sPunch.dirty = 1;
+    else sTR.dirty = 1;
+}
+
+void gfx_pvr_native_end(void) {
+    sForcedHdr[0] = sForcedHdr[1] = sForcedHdr[2] = NULL;
+    pvr_mark_dirty();
+}
+
 // (Re)emit the live OP header to the open OP list when depth/texture state changed.
 static inline void pvr_emit_op_header(void) {
     if (!sOpDirty) return;
     pvr_poly_hdr_t __attribute__((aligned(32))) hdr;
     pvr_compile_header(&hdr, PVR_KIND_OP);
+    sOpFade = sHdrFade;
+    HASH_OP_HEADER(&hdr);
     pvr_poly_hdr_t *hp = (pvr_poly_hdr_t *) pvr_dr_target(sDrState);
     *hp = hdr;
     pvr_dr_commit(hp);
@@ -614,16 +870,108 @@ void pvr_submit_op(const dc_fast_t *tris, size_t n) {
     pvr_emit_op_header();
     for (size_t i = 0; i < n; i++) {
         pvr_vertex_t *v = (pvr_vertex_t *) pvr_dr_target(sDrState);
+        if (sOpFade >= FADE_VTX) {
+            pvr_vertex_t t = *(const pvr_vertex_t *) &tris[i];
+            fade_vertex(&t, sOpFade);
+            *v = t;
+        } else
         *v = *(const pvr_vertex_t *) &tris[i];
         v->flags = ((i % 3) == 2) ? PVR_CMD_VERTEX_EOL : PVR_CMD_VERTEX;
+        HASH_VERTEX(PVR_KIND_OP, sHashOpHdr, &tris[i], ((i % 3) == 2) ? PVR_CMD_VERTEX_EOL : PVR_CMD_VERTEX);
         pvr_dr_commit(v);
     }
+}
+
+// pvr_submit_op_tri under a fade of vertex-fogged polygons, out of .sub0.
+static void __attribute__((noinline, cold)) op_tri_faded(const dc_fast_t *a, const dc_fast_t *b,
+                                                         const dc_fast_t *c) {
+    const dc_fast_t t[3] = { *a, *b, *c };
+    pvr_submit_op(t, 3);   // fades its vertices
+}
+
+// A baked vertex into the store queue at v with its command word, and sent: as sh4zam's
+// shz_sq_memcpy32_1 (four 64-bit moves in and out instead of eight words each), the command word
+// written over the first before the queue fires. The size switch (fschg) is inside the one asm, so
+// no FPU instruction of the compiler's can land between. src is 32-byte aligned (the baked arrays).
+static inline __attribute__((always_inline)) void sq_put_vertex(pvr_vertex_t *v, const dc_fast_t *src, uint32_t flags) {
+#ifdef __sh__
+    const dc_fast_t *s = src;
+    pvr_vertex_t *d = v;
+    __asm__ __volatile__(
+        "fschg\n\t"
+        "fmov.d @%[s]+, dr0\n\t"
+        "fmov.d @%[s]+, dr2\n\t"
+        "fmov.d @%[s]+, dr4\n\t"
+        "fmov.d @%[s]+, dr6\n\t"
+        "add    #32, %[d]\n\t"
+        "fmov.d dr6, @-%[d]\n\t"
+        "fmov.d dr4, @-%[d]\n\t"
+        "fmov.d dr2, @-%[d]\n\t"
+        "fmov.d dr0, @-%[d]\n\t"
+        "fschg\n\t"
+        "mov.l  %[f], @%[d]\n\t"
+        "pref   @%[d]"
+        : [s] "+r" (s), [d] "+r" (d), "=m" (*(uint8_t (*)[32]) v)
+        : [f] "r" (flags), "m" (*(const uint8_t (*)[32]) src)
+        : "fr0", "fr1", "fr2", "fr3", "fr4", "fr5", "fr6", "fr7");
+#else
+    *v = *(const pvr_vertex_t *) src;
+    v->flags = flags;
+    sq_send(v);
+#endif
+}
+
+// One triangle from three separately stored vertices (the front-end's baked-vertex cache).
+__attribute__((section(".sub0.sm64_hot"))) void pvr_submit_op_tri(const dc_fast_t *a, const dc_fast_t *b,
+                                                                   const dc_fast_t *c) {
+    pvr_emit_op_header();
+    if (__builtin_expect(sOpFade >= FADE_VTX, 0)) {
+        op_tri_faded(a, b, c);
+        return;
+    }
+    uint32_t addr = pvr_dr_addr;
+    HASH_VERTEX(PVR_KIND_OP, sHashOpHdr, a, PVR_CMD_VERTEX);
+    sq_put_vertex(sq_next(&addr), a, PVR_CMD_VERTEX);
+    HASH_VERTEX(PVR_KIND_OP, sHashOpHdr, b, PVR_CMD_VERTEX);
+    sq_put_vertex(sq_next(&addr), b, PVR_CMD_VERTEX);
+    HASH_VERTEX(PVR_KIND_OP, sHashOpHdr, c, PVR_CMD_VERTEX_EOL);
+    sq_put_vertex(sq_next(&addr), c, PVR_CMD_VERTEX_EOL);
+    pvr_dr_addr = addr;
+    PROF_COUNT_OP((const pvr_vertex_t *) a, (const pvr_vertex_t *) b, (const pvr_vertex_t *) c);
 }
 
 // 2D quad depth counter owned by the front-end (gfx_draw_rectangle increments it).
 // GLdc's start_frame reset it each frame; the PVR backend must too, or it grows
 // unbounded. Positive base because PVR z is inverse-depth (negative would clip).
 extern float screen_2d_z;
+extern float gfx_frame_invw_max;
+
+// A transition cover starts (gfx_dc_tags.h, gfx_retro_dc.c gfx_dc_tag). Its OP polys write depth
+// above world_z_max, the frame's largest world 1/w, so the scene's PT and TR fail the depth test
+// under it and cost no fill. 2D drawn before the cover in PT/TR (the HUD) would land on top of it:
+// those lists composite after OP, with the depth test off. As on the N64 the cover must hide it
+// and the transition's hole must show it, so lift that 2D (the z >= 1.0 overlay band; far-pinned
+// backdrops stay) above the world and below the cover, and depth-test it. 2D drawn after the
+// cover continues above it through screen_2d_z.
+void gfx_pvr_cover_begin(float world_z_max) {
+    PvrBucket *buckets[2] = { &sPunch, &sTR };
+    for (int k = 0; k < 2; k++) {
+        PvrBucket *b = buckets[k];
+        for (int i = 0; i < b->nbatch; i++) {
+            PvrBatch *bt = &b->batch[i];
+            pvr_vertex_t *v = &b->verts[bt->start];
+            uint32_t n = bt->count, j;
+            if (bt->hdr.m1.depth_cmp != PVR_DEPTHCMP_ALWAYS || !n) continue;
+            for (j = 0; j < n && v[j].z >= 1.0f; j++) {}
+            if (j < n) continue;   // not all in the overlay band: leave the batch as it is
+            for (j = 0; j < n; j++) v[j].z += world_z_max;
+            bt->hdr.m1.depth_cmp = PVR_DEPTHCMP_GEQUAL;
+        }
+        b->dirty = 1;   // later 2D starts a batch with its own (test-off) header
+    }
+    screen_2d_z += world_z_max + 1.0f;
+}
+
 static void gfx_pvr_draw_triangles(float buf_vbo[], UNUSED size_t buf_vbo_len,
                                    size_t buf_vbo_num_tris) {
     // STAGE 3a: front-end now bakes screen-space dc_fast_t (gfx_sp_tri1 PVR path). dc_fast_t
@@ -650,10 +998,18 @@ static void gfx_pvr_draw_quad_2d(void *quad, UNUSED size_t buf_vbo_len, UNUSED s
         pvr_emit_op_header();
         for (int i = 0; i < 4; i++) {
             pvr_vertex_t *o = (pvr_vertex_t *) pvr_dr_target(sDrState);
+            if (sOpFade >= FADE_VTX) {
+                pvr_vertex_t t = *(const pvr_vertex_t *) &q[i];
+                fade_vertex(&t, sOpFade);
+                *o = t;
+            } else
             *o = *(const pvr_vertex_t *) &q[i];
             o->flags = (i == 3) ? PVR_CMD_VERTEX_EOL : PVR_CMD_VERTEX;
+            HASH_VERTEX(PVR_KIND_OP, sHashOpHdr, &q[i], (i == 3) ? PVR_CMD_VERTEX_EOL : PVR_CMD_VERTEX);
             pvr_dr_commit(o);
         }
+        PROF_COUNT_OP((const pvr_vertex_t *) &q[0], (const pvr_vertex_t *) &q[1], (const pvr_vertex_t *) &q[2]);
+        PROF_COUNT_OP((const pvr_vertex_t *) &q[1], (const pvr_vertex_t *) &q[2], (const pvr_vertex_t *) &q[3]);
         return;
     }
 
@@ -663,6 +1019,8 @@ static void gfx_pvr_draw_quad_2d(void *quad, UNUSED size_t buf_vbo_len, UNUSED s
         if (b->nbatch >= b->max_batch) { if (sDropB++ < 8) printf("PVR_DROP batch %d\n", kind); return; }
         b->cur = b->nbatch++;
         pvr_compile_header(&b->batch[b->cur].hdr, kind);
+        b->batch[b->cur].fade = sHdrFade;
+        PROF_BATCH_ALPHA(&b->batch[b->cur], kind);
         b->batch[b->cur].start = b->nverts;
         b->batch[b->cur].count = 0;
         b->dirty = 0;
@@ -676,21 +1034,54 @@ static void gfx_pvr_draw_quad_2d(void *quad, UNUSED size_t buf_vbo_len, UNUSED s
     b->batch[b->cur].count += 4;
 }
 
+// The 240p mode (gDcVideo240p): the video mode it is shown in. NTSC 320x240 is progressive (240p);
+// on VGA it is line-doubled. 640x480 is interlaced on a TV. KOS's pvr_init sets the vertical
+// scaler by the mode: the flicker filter only for interlaced TV output.
+static int sVideo240p;   // the mode the PVR runs in
+int gDcVideo240p = DC_VIDEO_240P;
+
+static int pvr_video_mode(int lo) {
+    const int vga = vid_check_cable() == CT_VGA;
+    return lo ? (vga ? DM_320x240_VGA : DM_320x240_NTSC) : (vga ? DM_640x480_VGA : DM_640x480_NTSC_IL);
+}
+
+static void pvr_fb_size(int lo) {
+    sVideo240p = lo;
+    sFbW = lo ? 320 : 640;
+    sFbH = lo ? 240 : 480;
+    sRenderW = sFbW << sPvrParams.fsaa_enabled;
+}
+
 static void gfx_pvr_init(void) {
-#ifdef __DREAMCAST__
-#if LOWRES
-    // Native 240p (progressive). NTSC 320x240 is non-interlaced; VGA has a 320x240 mode too.
-    vid_set_mode(vid_check_cable() != CT_VGA ? DM_320x240_NTSC : DM_320x240_VGA, PM_RGB888);//_565);
-#else
-    if (vid_check_cable() != CT_VGA)
-        vid_set_mode(DM_640x480_NTSC_IL, PM_RGB888);//, PM_RGB565);
-    else
-        vid_set_mode(DM_640x480_VGA, PM_RGB888);//, PM_RGB565);
+    // enDjinn sets the video mode and starts the PVR, with this port's mode and parameters. AICAflow
+    // or audio_dc keeps the AICA, the port reads the controllers itself, and there is no soft reset.
+    enj_state_init_defaults();
+    enj_state_t *state = enj_state_get();
+    // The same specific modes as below, not a generic one (which takes PAL's 50 Hz on a PAL
+    // console): enDjinn's field has the generic type, but vid_set_mode takes either.
+    pvr_fb_size(gDcVideo240p);
+    state->video.display_mode = (vid_display_mode_generic_t) pvr_video_mode(gDcVideo240p);
+    state->video.pixel_mode = PM_RGB888;   // XRGB8888, 32-bit (KOS PM_RGB0888): measured 1% faster to render than packed 24-bit
+    state->video.pvr_params = sPvrParams;
+    state->flags.soft_reset_enabled = 0;
+    state->flags.no_snd_init = 1;
+    state->flags.no_input_init = 1;
+    if (enj_state_startup() != 0) {
+        printf("gfx_pvr: enDjinn could not start the video\n");
+    }
+    pvr_post_init();
+}
+
+// Everything set after pvr_init, again after a restart (gfx_pvr_restart).
+static void pvr_post_init(void) {
+#if DC_PT_CHUNK != 64
+    // Punch-through chunk of the tile renderer: ISP_FEED_CFG (PVR register 0x098) bits 13..4, in
+    // vertices. Per tile the ISP takes PT polygons this many vertices at a time and repeats its
+    // passes per chunk. pvr_init writes 0x00800408 (chunk 64); only the chunk field changes.
+#ifndef PVR_ISP_FEED_CFG
+#define PVR_ISP_FEED_CFG PVR_UNK_0098   /* KOS before 315741eb named it by its address */
 #endif
-#endif
-    pvr_init(&sPvrParams);
-#if defined(__DREAMCAST__) && LOWRES
-    PVR_SET(PVR_SCALER_CFG, 0x400);   // 240p: disable the vertical flicker/scanline filter
+    PVR_SET(PVR_ISP_FEED_CFG, 0x00800008u | ((unsigned) DC_PT_CHUNK << 4));
 #endif
 #define PM_DITHER_BIT 8
     uint32_t cfg = PVR_GET(PVR_FB_CFG_2);
@@ -707,6 +1098,81 @@ static void gfx_pvr_init(void) {
     pvr_set_bg_color(0.0f, 0.0f, 0.0f);
 
     // Headers are compiled lazily per depth/texture/list state at draw time.
+    fade_hook_render_done();
+}
+
+static int sFsaaWant = 1;
+#define FSAA_WANT sFsaaWant
+
+// The player's choice (dc_video_options.h): off, on, or on except the scenes whose fill does not
+// fit 60 fps with it. gfx_pvr_start_frame switches before the next scene begins.
+int gDcFsaaMode = DC_FSAA_MODE;
+
+static void gfx_pvr_request_fsaa_for_scene(int level, int area) {
+    static const s16 kOff[] = { DC_FSAA_OFF_SCENES };
+    if (gDcFsaaMode == DC_FSAA_MODE_TOGGLE_X || gDcFsaaMode == DC_FSAA_MODE_TOGGLE_B) {
+        return;   // the button's choice, kept across scenes
+    }
+    sFsaaWant = gDcFsaaMode != DC_FSAA_MODE_OFF;
+    if (gDcFsaaMode != DC_FSAA_MODE_CURATED) return;
+    for (unsigned i = 0; i < sizeof(kOff) / sizeof(kOff[0]); i++) {
+        if (kOff[i] == FSAA_SCENE(level, area)) sFsaaWant = 0;
+    }
+}
+
+// area.c load_area: a course's first area, or another of its areas (a warp inside the course).
+void gfx_pvr_area_loaded(void) {
+    gfx_pvr_request_fsaa_for_scene(gCurrLevelNum, gCurrAreaIndex);
+}
+
+// The debug menu changed gDcFsaaMode (pc_main.c): the current scene's mode by it, switched before
+// the next frame as at an area load.
+void gfx_pvr_fsaa_mode_changed(void) {
+    gfx_pvr_request_fsaa_for_scene(gCurrLevelNum, gCurrAreaIndex);
+}
+
+// The toggle button (DC_FSAA_MODE_TOGGLE_X/_B, controller_dc.c): the other mode, switched before
+// the next frame as at an area load.
+void gfx_pvr_fsaa_toggle(void) {
+    sFsaaWant = !sFsaaWant;
+    printf("FSAA: %s by the toggle button\n", sFsaaWant ? "on" : "off");
+}
+
+extern void reset_texcache(void);
+extern void gfx_dc_set_screen(int width, int height, int fsaa);
+
+// Restart the PVR in the wanted FSAA and video modes (the DKR/enDjinn recipe). pvr_shutdown resets
+// the VRAM allocator, so every texture pointer is forgotten, never freed, and the front-end cache
+// is wiped: the course's textures upload again on first use, in the new mode.
+static void gfx_pvr_restart(void) {
+    pvr_wait_ready();
+    pvr_shutdown();
+    sPvrParams.fsaa_enabled = FSAA_WANT;
+    if (gDcVideo240p != sVideo240p) {
+        vid_set_mode(pvr_video_mode(gDcVideo240p), PM_RGB888);
+        enj_state_get()->video.display_mode = (vid_display_mode_generic_t) pvr_video_mode(gDcVideo240p);
+    }
+    pvr_fb_size(gDcVideo240p);
+    pvr_init(&sPvrParams);
+    enj_state_get()->video.pvr_params.fsaa_enabled = FSAA_WANT;   // enDjinn's copy of the parameters
+    pvr_post_init();
+    dc_overlay_pvr_reset();
+    for (uint32_t i = 0; i < PVR_TEX_MAX; i++) {
+        sTextures[i].addr = NULL;
+        sTextures[i].alloc_size = 0;
+    }
+    sTexCount = 0;
+    sBoundTex = 0;
+    sCurBound = 0;
+    reset_texcache();
+    gfx_dc_set_screen(sFbW, sFbH, sPvrParams.fsaa_enabled);
+    pvr_mark_dirty();
+    printf("gfx_pvr: video %dx%d%s\n", sFbW, sFbH, sPvrParams.fsaa_enabled ? ", FSAA" : "");
+}
+
+// The FSAA or 240p option changed since the PVR started: restart it before the frame.
+static inline int pvr_mode_stale(void) {
+    return FSAA_WANT != sPvrParams.fsaa_enabled || gDcVideo240p != sVideo240p;
 }
 
 static void gfx_pvr_on_resize(void) { }
@@ -726,14 +1192,12 @@ static inline void sm_rgba5551_to_rgbf(uint16_t c, float *r, float *g, float *b)
 
 static void gfx_pvr_start_frame(void) {
     float cr, cg, cb;
-    pvr_wait_ready();
-    pvr_scene_begin();
     // drive the PVR background plane from the game's clear_color (set last game-loop iteration).
     sm_rgba5551_to_rgbf((uint16_t) clear_color, &cr, &cg, &cb);
     pvr_set_bg_color(cr, cg, cb);
     // OP list open + live for the whole frame (guaranteed-opaque geometry only).
     // Anything with alpha (blend or alpha-test cutout) is deferred to the TR bucket.
-    pvr_list_begin(PVR_LIST_OP_POLY);
+    // enj_render_scene has opened it already (gfx_pvr_render_frame).
     pvr_dr_init(&sDrState);
     sCurrentList = PVR_LIST_OP_POLY;
     // 2D depth base: PVR z is 1/w, larger == nearer. The per-rect +0.0005 increment
@@ -766,32 +1230,63 @@ static void gfx_pvr_start_frame(void) {
     // (menu glyph text). Prev-frame value avoids draw-order races within the frame.
     prev_frame_had_persp = cur_frame_persp;
     cur_frame_persp = 0;
+    gfx_frame_invw_max = 0.0f;   // the frame's world 1/w bound (transition covers)
     has_done_3d = 0;   // reset: no 3D drawn yet this frame (title bg -> far until flag)
+    fade_frame_start();
+}
+
+// enDjinn's deferred rendering (enj_render.c): the frame is queued as list renderers, and
+// enj_render_scene waits for the PVR, begins the scene, opens each list that has renderers queued,
+// calls them in order and finishes the scene. The display list runs in the OP list's renderer, so
+// opaque geometry still streams live while it is translated; PT and TR fill their buckets then, and
+// their renderers are queued from it only when there is something to send (a list without
+// renderers is never opened). Native geometry (gfx_native.c) queues renderers of its own.
+extern void enj_render_list_add(pvr_list_t renderlist, void (*renderer)(void *data), void *data);
+extern void enj_render_scene(void);
+
+static void pvr_render_pt(UNUSED void *data) {
+    pvr_dr_init(&sDrState);
+    pvr_flush_bucket(&sPunch);
+}
+
+static void pvr_render_tr(UNUSED void *data) {
+    pvr_dr_init(&sDrState);
+    pvr_flush_bucket(&sTR);
+    dc_overlay_draw();   // last, over everything
+}
+
+static void (*sOpRenderer)(void *);
+static void pvr_render_op(void *data) {
+    sOpRenderer(data);
+}
+
+void gfx_pvr_render_frame(void (*op_renderer)(void *data), void *data) {
+    if (pvr_mode_stale()) {
+        gfx_pvr_restart();
+    }
+    sOpRenderer = op_renderer;
+    enj_render_list_add(PVR_LIST_OP_POLY, pvr_render_op, data);
 }
 
 static void gfx_pvr_end_frame(void) {
-    pvr_list_finish();   // close the OP list (opened once this frame)
-
-    // Flush the deferred buckets, each into its own list opened once. PT FIRST: alpha-test
-    // cutouts are opaque pixels that write depth, so they must be down before TR composites.
+    fade_registers();
+    // The deferred buckets, each into its own list. PT before TR: alpha-test cutouts are opaque
+    // pixels that write depth, so they must be down before TR composites over OP + PT.
     if (sPunch.nbatch > 0) {
-        pvr_list_begin(PVR_LIST_PT_POLY);
-        pvr_dr_init(&sDrState);
-        pvr_flush_bucket(&sPunch);
-        pvr_list_finish();
+        enj_render_list_add(PVR_LIST_PT_POLY, pvr_render_pt, NULL);
     }
-    // TR SECOND: real alpha-blend surfaces, autosorted, composited over OP + PT (depth-tested).
-    if (sTR.nbatch > 0) {
-        pvr_list_begin(PVR_LIST_TR_POLY);
-        pvr_dr_init(&sDrState);
-        pvr_flush_bucket(&sTR);
-        pvr_list_finish();
+    if (sTR.nbatch > 0 || DC_OVERLAY_SHOWN) {
+        enj_render_list_add(PVR_LIST_TR_POLY, pvr_render_tr, NULL);
     }
 }
 
+// The x scale of the PVR's current mode: 2 with FSAA (twice as wide), else 1.
+int gfx_pvr_fsaa_x(void) {
+    return sPvrParams.fsaa_enabled ? 2 : 1;
+}
+
 static void gfx_pvr_finish_render(void) {
-    // Submits the scene to the GPU and flips.
-    pvr_scene_finish();
+    // Nothing to do: enj_render_scene submitted the scene and flips.
 }
 
 struct GfxRenderingAPI gfx_pvr_api = {

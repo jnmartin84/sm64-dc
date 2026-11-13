@@ -29,6 +29,14 @@
 #define BHV_CMD_GET_ADDR_OF_CMD(index) (uintptr_t)(&gCurBhvCommand[index])
 
 static u16 gRandomSeed16;
+// The seed, for the TAS slices (src/game/tas_slice.c).
+u16 tas_random_seed16(void) {
+    return gRandomSeed16;
+}
+
+void tas_random_seed16_set(u16 seed) {
+    gRandomSeed16 = seed;
+}
 
 // Generate a pseudorandom integer from 0 to 65535 from the random seed, and update the seed.
 u16 random_u16(void) {
@@ -62,7 +70,9 @@ u16 random_u16(void) {
 // Generate a pseudorandom float in the range [0, 1).
 f32 random_float(void) {
     f32 rnd = random_u16();
-    return rnd*0.00001526f;// / (double) 0x10000;
+    // rnd / (double) 0x10000 on the N64. 0x1p-16f is that exactly: a power of two, so the float
+    // multiply rounds nothing and gives the same bits, without a double division.
+    return rnd * 0x1p-16f;
 }
 
 // Return either -1 or 1 with a 50:50 chance.
@@ -718,7 +728,7 @@ static s32 bhv_cmd_scale(void) {
     UNUSED u8 unusedField = BHV_CMD_GET_2ND_U8(0);
     s16 percent = BHV_CMD_GET_2ND_S16(0);
 
-    cur_obj_scale(percent*0.01f);// / 100.0f);
+    cur_obj_scale(percent / 100.0f);
 
     gCurBhvCommand++;
     return BHV_PROC_CONTINUE;
@@ -731,11 +741,11 @@ static s32 bhv_cmd_set_obj_physics(void) {
     UNUSED f32 unused1, unused2;
 
     gCurrentObject->oWallHitboxRadius = BHV_CMD_GET_1ST_S16(1);
-    gCurrentObject->oGravity = BHV_CMD_GET_2ND_S16(1)*0.01f;// / 100.0f;
-    gCurrentObject->oBounciness = BHV_CMD_GET_1ST_S16(2)*0.01f;// / 100.0f;
-    gCurrentObject->oDragStrength = BHV_CMD_GET_2ND_S16(2)*0.01f;// / 100.0f;
-    gCurrentObject->oFriction = BHV_CMD_GET_1ST_S16(3)*0.01f;// / 100.0f;
-    gCurrentObject->oBuoyancy = BHV_CMD_GET_2ND_S16(3)*0.01f;// / 100.0f;
+    gCurrentObject->oGravity = BHV_CMD_GET_2ND_S16(1) / 100.0f;
+    gCurrentObject->oBounciness = BHV_CMD_GET_1ST_S16(2) / 100.0f;
+    gCurrentObject->oDragStrength = BHV_CMD_GET_2ND_S16(2) / 100.0f;
+    gCurrentObject->oFriction = BHV_CMD_GET_1ST_S16(3) / 100.0f;
+    gCurrentObject->oBuoyancy = BHV_CMD_GET_2ND_S16(3) / 100.0f;
 
     unused1 = BHV_CMD_GET_1ST_S16(4);//*0.01f;// / 100.0f;
     unused2 = BHV_CMD_GET_2ND_S16(4);//*0.01f;// / 100.0f;

@@ -3,15 +3,15 @@
 #include <math.h>
 #include <stdint.h>
 
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
 void guOrthoF(float m[4][4], float left, float right, float bottom, float top, float near, float far, float scale) {
     int row;
     int col;
     guMtxIdentF(m);
-    f32 recip_rsubl = shz_fast_invf((right - left));
-    f32 recip_tsubb = shz_fast_invf((top - bottom));
-    f32 recip_fsubn = shz_fast_invf((far - near));
+    f32 recip_rsubl = shz_invf((right - left));
+    f32 recip_tsubb = shz_invf((top - bottom));
+    f32 recip_fsubn = shz_invf((far - near));
     m[0][0] = 2.0f * recip_rsubl;
     m[1][1] = 2.0f * recip_tsubb;
     m[2][2] = -2.0f * recip_fsubn;

@@ -64,18 +64,18 @@ s32 envfx_init_snow(s32 mode) {
             return 0;
 
         case ENVFX_SNOW_NORMAL:
-            gSnowParticleMaxCount = 140 / 2;
+            gSnowParticleMaxCount = 140;
             gSnowParticleCount = 5;
             break;
 
         case ENVFX_SNOW_WATER:
-            gSnowParticleMaxCount = 30 / 2;
-            gSnowParticleCount = 30 / 2;
+            gSnowParticleMaxCount = 30;
+            gSnowParticleCount = 30;
             break;
 
         case ENVFX_SNOW_BLIZZARD:
-            gSnowParticleMaxCount = 140 / 2;
-            gSnowParticleCount = 140 / 2;
+            gSnowParticleMaxCount = 140;
+            gSnowParticleCount = 140;
             break;
     }
 
@@ -112,7 +112,7 @@ void envfx_update_snowflake_count(s32 mode, Vec3s marioPos) {
             waterLevel = find_water_level(marioPos[0], marioPos[2]);
 
             gSnowParticleCount =
-                (((s32)((waterLevel - 400.f - (f32) marioPos[1]) * 1.0e-3f) << 0x10) >> 0x10) * 5;
+                (((s32)((waterLevel - 400.f - (f32) marioPos[1]) * 1.0e-3) << 0x10) >> 0x10) * 5;
 
             if (gSnowParticleCount < 0) {
                 gSnowParticleCount = 0;
@@ -142,7 +142,7 @@ void envfx_cleanup_snow(void *snowParticleArray) {
     }
 }
 
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
 /**
  * Given two points, return the vector from one to the other represented
@@ -153,8 +153,8 @@ void orbit_from_positions(Vec3s from, Vec3s to, s16 *radius, s16 *pitch, s16 *ya
     f32 dy = to[1] - from[1];
     f32 dz = to[2] - from[2];
 
-    *radius = (s16) shz_sqrtf_fsrra(shz_mag_sqr3f(dx, dy, dz)); //sqrtf(dx * dx + dy * dy + dz * dz);
-    *pitch = atan2s(shz_sqrtf_fsrra(dx * dx + dz * dz), dy);
+    *radius = (s16) shz_sqrtf(dx * dx + dy * dy + dz * dz);
+    *pitch = atan2s(shz_sqrtf(dx * dx + dz * dz), dy);
     *yaw = atan2s(dz, dx);
 }
 
@@ -226,9 +226,9 @@ void envfx_update_snow_normal(s32 snowCylinderX, s32 snowCylinderY, s32 snowCyli
             (gEnvFxBuffer + i)->yPos = 200.0f * random_float() + snowCylinderY;
             (gEnvFxBuffer + i)->isAlive = 1;
         } else {
-            (gEnvFxBuffer + i)->xPos += random_float() * 2.0f - 1.0f + (s16)(deltaX * 0.83333333f /* / 1.2 */);
-            (gEnvFxBuffer + i)->yPos -= 2 -(s16)(deltaY * 0.8f);
-            (gEnvFxBuffer + i)->zPos += random_float() * 2.0f - 1.0f + (s16)(deltaZ * 0.83333333f /* / 1.2 */);
+            (gEnvFxBuffer + i)->xPos += random_float() * 2.0f - 1.0f + (s16)(deltaX / 1.2);
+            (gEnvFxBuffer + i)->yPos -= 2 - (s16)(deltaY * 0.8);
+            (gEnvFxBuffer + i)->zPos += random_float() * 2.0f - 1.0f + (s16)(deltaZ / 1.2);
         }
     }
 
@@ -260,9 +260,9 @@ void envfx_update_snow_blizzard(s32 snowCylinderX, s32 snowCylinderY, s32 snowCy
             (gEnvFxBuffer + i)->yPos = 400.0f * random_float() - 200.0f + snowCylinderY;
             (gEnvFxBuffer + i)->isAlive = 1;
         } else {
-            (gEnvFxBuffer + i)->xPos += random_float() * 2.0f - 1.0f + (s16)(deltaX * 0.83333333f /* / 1.2 */) + 20.0f;
+            (gEnvFxBuffer + i)->xPos += random_float() * 2.0f - 1.0f + (s16)(deltaX / 1.2) + 20.0f;
             (gEnvFxBuffer + i)->yPos -= 5 -(s16)(deltaY * 0.8);
-            (gEnvFxBuffer + i)->zPos += random_float() * 2.0f - 1.0f + (s16)(deltaZ * 0.83333333f /* / 1.2 */);
+            (gEnvFxBuffer + i)->zPos += random_float() * 2.0f - 1.0f + (s16)(deltaZ / 1.2);
         }
     }
 
@@ -466,7 +466,10 @@ Gfx *envfx_update_snow(s32 snowMode, Vec3s marioPos, Vec3s camFrom, Vec3s camTo)
         gSPDisplayList(gfx++, &tiny_bubble_dl_0B006CD8); // snowflake with blue edge
     }
 
-    for (i = 0; i < gSnowParticleCount; i += 5) {
+    // The N64's snow, but only every other group of five flakes drawn (half the fill). All of
+    // them are simulated: their respawns draw on the game's random numbers, which the game logic
+    // shares, so the count has to be the N64's for the game to play as it does there.
+    for (i = 0; i < gSnowParticleCount; i += 10) {
         append_snowflake_vertex_buffer(gfx++, i, (s16 *) &vertex1, (s16 *) &vertex2, (s16 *) &vertex3);
 
         gSP1Triangle(gfx++, 0, 1, 2, 0);

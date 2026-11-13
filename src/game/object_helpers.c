@@ -27,7 +27,7 @@
 #include "spawn_object.h"
 #include "spawn_sound.h"
 
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
 s8 D_8032F0A0[] = { 0xF8, 0x08, 0xFC, 0x04 };
 s16 D_8032F0A4[] = { 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80 };
@@ -292,7 +292,7 @@ f32 lateral_dist_between_objects(struct Object *obj1, struct Object *obj2) {
     f32 dx = obj1->oPosX - obj2->oPosX;
     f32 dz = obj1->oPosZ - obj2->oPosZ;
 
-    return shz_sqrtf_fsrra(dx * dx + dz * dz);
+    return shz_sqrtf(dx * dx + dz * dz);
 }
 
 f32 dist_between_objects(struct Object *obj1, struct Object *obj2) {
@@ -300,7 +300,7 @@ f32 dist_between_objects(struct Object *obj1, struct Object *obj2) {
     f32 dy = obj1->oPosY - obj2->oPosY;
     f32 dz = obj1->oPosZ - obj2->oPosZ;
 
-    return shz_sqrtf_fsrra(shz_mag_sqr3f(dx, dy, dz));
+    return shz_sqrtf(shz_mag_sqr3f(dx, dy, dz));
     //sqrtf(dx * dx + dy * dy + dz * dz);
 }
 
@@ -405,7 +405,7 @@ s16 obj_turn_toward_object(struct Object *obj, struct Object *target, s16 angleI
         case O_FACE_ANGLE_PITCH_INDEX:
             a = target->oPosX - obj->oPosX;
             c = target->oPosZ - obj->oPosZ;
-            a = shz_sqrtf_fsrra(a * a + c * c);
+            a = shz_sqrtf(a * a + c * c);
 
             b = -obj->oPosY;
             d = -target->oPosY;
@@ -1292,7 +1292,7 @@ static s32 cur_obj_move_xz(f32 steepSlopeNormalY, s32 careAboutEdgesAndSteepSlop
 }
 
 static void cur_obj_move_update_underwater_flags(void) {
-    f32 decelY = (f32)(shz_sqrtf_fsrra(o->oVelY * o->oVelY) * (o->oDragStrength * 0.07f)); // 7.0f)) / 100.0L;
+    f32 decelY = (f32)(shz_sqrtf(o->oVelY * o->oVelY) * (o->oDragStrength * 0.07f)); // 7.0f)) / 100.0L;
 
     if (o->oVelY > 0) {
         o->oVelY -= decelY;
@@ -1518,7 +1518,7 @@ f32 cur_obj_lateral_dist_from_mario_to_home(void) {
     f32 dx = o->oHomeX - gMarioObject->oPosX;
     f32 dz = o->oHomeZ - gMarioObject->oPosZ;
 
-    dist = shz_sqrtf_fsrra(dx * dx + dz * dz);
+    dist = shz_sqrtf(dx * dx + dz * dz);
     return dist;
 }
 
@@ -1527,7 +1527,7 @@ f32 cur_obj_lateral_dist_to_home(void) {
     f32 dx = o->oHomeX - o->oPosX;
     f32 dz = o->oHomeZ - o->oPosZ;
 
-    dist = shz_sqrtf_fsrra(dx * dx + dz * dz);
+    dist = shz_sqrtf(dx * dx + dz * dz);
     return dist;
 }
 
@@ -1575,6 +1575,7 @@ void cur_obj_set_pos_to_home(void) {
     o->oPosX = o->oHomeX;
     o->oPosY = o->oHomeY;
     o->oPosZ = o->oHomeZ;
+    o->header.gfx.skipInterpolationTimestamp = gGlobalTimer;
 }
 
 void cur_obj_set_pos_to_home_and_stop(void) {
@@ -1848,7 +1849,7 @@ void cur_obj_move_standard(s16 steepSlopeAngleDegrees) {
         if (o->oForwardVel < 0) {
             negativeSpeed = TRUE;
         }
-        o->oForwardVel = shz_sqrtf_fsrra(sqr(o->oVelX) + sqr(o->oVelZ));
+        o->oForwardVel = shz_sqrtf(sqr(o->oVelX) + sqr(o->oVelZ));
         if (negativeSpeed == TRUE) {
             o->oForwardVel = -o->oForwardVel;
         }
@@ -2041,7 +2042,7 @@ s32 cur_obj_follow_path(void) {
     objToNextX = targetWaypoint->pos[0] - o->oPosX;
     objToNextY = targetWaypoint->pos[1] - o->oPosY;
     objToNextZ = targetWaypoint->pos[2] - o->oPosZ;
-    objToNextXZ = shz_sqrtf_fsrra(sqr(objToNextX) + sqr(objToNextZ));
+    objToNextXZ = shz_sqrtf(sqr(objToNextX) + sqr(objToNextZ));
 
     o->oPathedTargetYaw = atan2s(objToNextZ, objToNextX);
     o->oPathedTargetPitch = atan2s(objToNextXZ, -objToNextY);
@@ -2236,7 +2237,7 @@ void spawn_mist_particles_with_sound(u32 sp18) {
 void cur_obj_push_mario_away(f32 radius) {
     f32 marioRelX = gMarioObject->oPosX - o->oPosX;
     f32 marioRelZ = gMarioObject->oPosZ - o->oPosZ;
-    f32 marioDist = shz_sqrtf_fsrra(sqr(marioRelX) + sqr(marioRelZ));
+    f32 marioDist = shz_sqrtf(sqr(marioRelX) + sqr(marioRelZ));
 
     if (marioDist < radius) {
         //! If this function pushes Mario out of bounds, it will trigger Mario's
@@ -2385,7 +2386,7 @@ s32 cur_obj_mario_far_away(void) {
     f32 dx = o->oHomeX - gMarioObject->oPosX;
     f32 dy = o->oHomeY - gMarioObject->oPosY;
     f32 dz = o->oHomeZ - gMarioObject->oPosZ;
-    f32 marioDistToHome = shz_sqrtf_fsrra(shz_mag_sqr3f(dx, dy, dz)); //sqrtf(dx * dx + dy * dy + dz * dz);
+    f32 marioDistToHome = shz_sqrtf(shz_mag_sqr3f(dx, dy, dz)); //sqrtf(dx * dx + dy * dy + dz * dz);
 
     if (o->oDistanceToMario > 2000.0f && marioDistToHome > 2000.0f) {
         return TRUE;

@@ -250,7 +250,14 @@ void create_task_structure(void) {
 }
 
 /** Starts rendering the scene. */
+#if defined(TARGET_DC)
+#include "screen_transition.h"
+#endif
+
 void init_render_image(void) {
+#if defined(TARGET_DC)
+    dc_fade_frame_begin();   // first: the frame's fade, if it gets one (screen_transition.c)
+#endif
     move_segment_table_to_dmem();
     my_rdp_init();
     my_rsp_init();
@@ -350,7 +357,7 @@ void display_and_vsync(void) {
     }
     gGlobalTimer++;
 }
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 // take the updated controller struct and calculate
 // the new x, y, and distance floats.
 void adjust_analog_stick(struct Controller *controller) {
@@ -377,12 +384,12 @@ void adjust_analog_stick(struct Controller *controller) {
 
     // calculate f32 magnitude from the center by vector length.
     controller->stickMag =
-        shz_sqrtf_fsrra(controller->stickX * controller->stickX + controller->stickY * controller->stickY);
+        shz_sqrtf(controller->stickX * controller->stickX + controller->stickY * controller->stickY);
 
     // magnitude cannot exceed 64.0f: if it does, modify the values appropriately to
     // flatten the values down to the allowed maximum value.
     if (controller->stickMag > 64) {
-        f32 invmag64 = 64.0f * shz_fast_invf(controller->stickMag);
+        f32 invmag64 = 64.0f * shz_invf(controller->stickMag);
         controller->stickX *= invmag64; // 64.0f / controller->stickMag;
         controller->stickY *= invmag64; // 64.0f / controller->stickMag;
         controller->stickMag = 64;
@@ -391,6 +398,7 @@ void adjust_analog_stick(struct Controller *controller) {
 
 // if a demo sequence exists, this will run the demo
 // input list until it is complete. called every frame.
+
 void run_demo_inputs(void) {
     // eliminate the unused bits.
     gControllers[0].controllerData->button &= VALID_BUTTONS;
@@ -587,6 +595,9 @@ void thread5_game_loop(UNUSED void *arg) {
 void game_loop_one_iteration(void) {
         // if the reset timer is active, run the process to reset the game.
         if (gResetTimer) {
+#if defined(ENABLE_RUMBLE) && !defined(VERSION_SH)
+            cancel_rumble();
+#endif
             draw_reset_bars();
             return;
         }
@@ -606,6 +617,11 @@ void game_loop_one_iteration(void) {
         read_controller_inputs();
         levelCommandAddr = level_script_execute(levelCommandAddr);
         display_and_vsync();
+#if defined(ENABLE_RUMBLE) && !defined(VERSION_SH)
+        // The Shindou version's rumble thread woke at every vertical blank: two per game frame.
+        rumble_update_vi();
+        rumble_update_vi();
+#endif
 
 #if 0
         // when debug info is enabled, print the "BUF %d" information.

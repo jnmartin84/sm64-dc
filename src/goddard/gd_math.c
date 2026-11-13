@@ -8,7 +8,7 @@
 #include "macros.h"
 #include "renderer.h"
 
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
 /**
  * Finds the square root of a float by treating
@@ -260,7 +260,7 @@ void gd_create_origin_lookat(Mat4f *mtx, struct GdVec3f *vec, f32 roll) {
 
     gd_set_identity_mat4(mtx);
     if (hMag != 0.0f) {
-        invertedHMag = shz_fast_invf(hMag);
+        invertedHMag = shz_invf(hMag);
         (*mtx)[0][0] = ((-unit.z * c) - (s * unit.y * unit.x)) * invertedHMag;
         (*mtx)[1][0] = ((unit.z * s) - (c * unit.y * unit.x)) * invertedHMag;
         (*mtx)[2][0] = -unit.x;
@@ -415,7 +415,7 @@ s32 gd_normalize_vec3f(struct GdVec3f *vec) {
         return FALSE;
     }
 
-    mag = shz_fast_invf(mag);
+    mag = shz_invf(mag);
 
     vec->x *= mag;
     vec->y *= mag;
@@ -465,7 +465,7 @@ void gd_inverse_mat4f(Mat4f *src, Mat4f *dst) {
     }
 #endif
 
-    f32 invdet = shz_fast_invf(determinant);
+    f32 invdet = shz_invf(determinant);
 
     for (i = 0; i < 4; i++) {
         for (j = 0; j < 4; j++) {
@@ -748,8 +748,8 @@ void gd_rotate_and_translate_vec3f(struct GdVec3f *vec, const Mat4f *mtx) {
     temp[3][2] = 0;
     temp[3][3] = 0;
 
-    shz_xmtrx_load_4x4((const shz_matrix_4x4_t *)&temp);
-    shz_vec3_t res = shz_xmtrx_trans_vec3((shz_vec3_t) { .x = vec->x, .y = vec->y, .z = vec->z} );
+    shz_xmtrx_load_unaligned_4x4((const float *)&temp);
+    shz_vec3_t res = shz_xmtrx_transform_vec3((shz_vec3_t) { .x = vec->x, .y = vec->y, .z = vec->z} );
 
     res.x += (*mtx)[3][0];
     res.y += (*mtx)[3][1];
@@ -776,8 +776,8 @@ void gd_mat4f_mult_vec3f(struct GdVec3f *vec, const Mat4f *mtx) {
     temp[3][2] = 0;
     temp[3][3] = 0;
 
-    shz_xmtrx_load_4x4((const shz_matrix_4x4_t *)&temp);
-    shz_vec3_t res = shz_xmtrx_trans_vec3((shz_vec3_t) { .x = vec->x, .y = vec->y, .z = vec->z} );
+    shz_xmtrx_load_unaligned_4x4((const float *)&temp);
+    shz_vec3_t res = shz_xmtrx_transform_vec3((shz_vec3_t) { .x = vec->x, .y = vec->y, .z = vec->z} );
 
     vec->x = res.x;
     vec->y = res.y;
@@ -788,8 +788,13 @@ void gd_mat4f_mult_vec3f(struct GdVec3f *vec, const Mat4f *mtx) {
  * Multiplies two Mat4f matrices and puts it in dst.
  */
 void gd_mult_mat4f(const Mat4f *mA, const Mat4f *mB, Mat4f *dst) {
-    shz_xmtrx_load_4x4_apply_store((shz_matrix_4x4_t *)dst,
-        (const shz_matrix_4x4_t *)mB, (const shz_matrix_4x4_t *)mA);
+    // The unaligned XMTRX loads/stores, as in mtxf_mul: the aligned forms use paired fmov.d moves,
+    // which need 8-byte alignment, and goddard's matrices (in structs, on the stack) are only
+    // 4-byte aligned. Whether one happened to be aligned depended on layout, so the crash came and
+    // went with the optimisation level.
+    shz_xmtrx_load_unaligned_4x4((const float *)mB);
+    shz_xmtrx_apply_unaligned_4x4((const float *)mA);
+    shz_xmtrx_store_unaligned_4x4((float *)dst);
 }
 
 /**

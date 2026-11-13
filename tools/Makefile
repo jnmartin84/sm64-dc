@@ -65,4 +65,7 @@ endef
 
 $(foreach p,$(PROGRAMS),$(eval $(call COMPILE,$(p))))
 
+# tabledesign links libaudiofile.a; without this, parallel builds can link it first.
+tabledesign: | $(LIBAUDIOFILE)
+
 .PHONY: all clean default

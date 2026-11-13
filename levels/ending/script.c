@@ -8,6 +8,7 @@
 
 #include "game/area.h"
 #include "game/level_update.h"
+#include "game/tas_slice.h"
 
 #include "levels/scripts.h"
 
@@ -31,7 +32,10 @@ const LevelScript level_ending_entry[] = {
     /*12*/ TRANSITION(/*transType*/ WARP_TRANSITION_FADE_FROM_COLOR, /*time*/ 75, /*color*/ 0x00, 0x00, 0x00),
     /*14*/ SLEEP(/*frames*/ 120),
     /*15*/ CALL(/*arg*/ 0, /*func*/ lvl_play_the_end_screen_sound),
-    // L1:
-    /*17*/ SLEEP(/*frames*/ 1),
-    /*18*/ JUMP(level_ending_entry + 17),
+    // The end screen stays, as on the N64, unless the debug menu's TAS replay leaves it
+    // (tas_slice.c): then the game starts again from the splash screen, as at power-on.
+    /*17*/ CALL_LOOP(/*arg*/ 0, /*func*/ tas_ending_wait),
+    /*19*/ CLEAR_LEVEL(),
+    /*20*/ SLEEP_BEFORE_EXIT(/*frames*/ 1),
+    /*22*/ EXIT(),
 };

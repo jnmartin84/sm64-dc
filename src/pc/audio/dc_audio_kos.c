@@ -24,11 +24,20 @@
 
 #include "audio_dc.h"
 #include "macros.h"
+#include "sh4zam_port.h"
 
 #define MEM_BARRIER() asm volatile("" : : : "memory");
 #define MEM_BARRIER_PREF(ptr) asm volatile("pref @%0" : : "r"((ptr)) : "memory")
 
 void n64_memcpy(void* dst, const void* src, size_t size) {
+    // From 32 bytes into cached main RAM: SH4ZAM's copy (whole 32-byte lines with movca.l, 8-byte
+    // FPU pair moves). Not into uncached or hardware space (P2, AICA, PVR, store queues), where
+    // those writes may not be safe. Smaller copies stay on the word loop below: shz_memcpy copies
+    // byte by byte under 32 bytes.
+    if (size >= 32 && ((uintptr_t) dst >> 24) == 0x8c) {
+        shz_memcpy(dst, src, size);
+        return;
+    }
     __builtin_prefetch(src);
     uint8_t* bdst = (uint8_t*) dst;
     uint8_t* bsrc = (uint8_t*) src;

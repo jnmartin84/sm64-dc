@@ -16,7 +16,16 @@ typedef signed int             s32;
 typedef unsigned int           u32;
 
 typedef float  f32;
+#ifdef TARGET_DC
+// The SH4 build uses -m4-single, where double is a real 64-bit type: every f64 operation switches
+// FPSCR to double precision, and GCC can then schedule sh4zam's single-precision FPU asm (fsrra,
+// fipr, ftrv) inside the double-precision window, where it computes garbage (goddard's gd_sqrt_d
+// hung the title screen that way). SM64's f64 math never needed doubles; keep it single, as the
+// original -m4-single-only port did.
+typedef float f64;
+#else
 typedef double f64;
+#endif
 
 #ifdef TARGET_N64
 typedef signed long long int   s64;

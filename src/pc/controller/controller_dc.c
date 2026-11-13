@@ -54,12 +54,89 @@ struct ControllerAPI {
 #include <dc/maple.h>
 #include <dc/maple/controller.h>
 
+// Rumble (src/game/thread6.c): the game switches the Rumble Pak's one motor on and off at each of
+// the N64's vertical blanks, and sets a strength by the share of them it is on. That share over the
+// last eight becomes the Puru Puru pack's strength, 1 to 7, sent only when it moves by two steps or
+// the motor starts or stops, so maple sees changes only. Diddy Kong Racing's port does the same.
+// Neither a TAS replay nor the title's demos rumble: nobody holds the controller then.
+#include <dc/maple/purupuru.h>
+#include <enDjinn/enj_rumble.h>
+
+#define RUMBLE_FREQ 26   // the Puru Puru's vibration frequency setting
+
+extern void enj_rumble_init_local_devices(void);
+
+static uint8_t sRumbleHistory;   // one bit per vertical blank, the newest lowest
+static uint8_t sRumbleSent;      // the strength sent last, 0 for stopped
+
+static void rumble_send(int strength) {
+    maple_device_t *cont = maple_enum_type(0, MAPLE_FUNC_CONTROLLER);   // the game's controller
+    if (cont != NULL) {
+        purupuru_effect_t effect = { .motor = 1 };   // a raw 0 would not be sent: this stops it
+        if (strength != 0) {
+            effect = (purupuru_effect_t) { .cont = 1, .motor = 1, .fpow = strength, .freq = RUMBLE_FREQ };
+        }
+        enj_rumble_effect_set(cont->port, effect);
+    }
+    sRumbleSent = (uint8_t) strength;
+}
+
+void controller_dc_rumble_motor(int on) {
+    extern int dc_tas_playing(void);
+    extern s32 tas_show_fast(void);
+    if (dc_tas_playing() || tas_show_fast()) {
+        on = 0;   // a replay rumbles nobody's hands, nor does Show star's way back
+    }
+    sRumbleHistory = (uint8_t) ((sRumbleHistory << 1) | (on != 0));
+    int frames = __builtin_popcount(sRumbleHistory);
+    int strength = frames == 0 ? 0 : 1 + ((frames - 1) * 6 + 3) / 7;   // 1..8 of 8 -> 1..7
+    int sent = sRumbleSent;
+    if (strength == sent || (strength != 0 && sent != 0 && strength - sent < 2 && sent - strength < 2)) {
+        return;
+    }
+    rumble_send(strength);
+}
+
+// No game frames run (the debug menu is open): the motor stops now, not when the game goes on.
+void controller_dc_rumble_stop(void) {
+    sRumbleHistory = 0;
+    if (sRumbleSent != 0) {
+        rumble_send(0);
+    }
+}
+
 static void controller_dc_init(void) {
+    // enDjinn's loop sends the effects (enj_rumble_update); the game's maple code leaves its input
+    // layer unstarted (no_input_init), so the packs are found here.
+    enj_rumble_init_local_devices();
+}
+
+#include "pc/dc_video_options.h"
+extern void gfx_pvr_fsaa_toggle(void);
+
+// The debug menu's FSAA row can give X or B to FSAA (DC_FSAA_MODE_TOGGLE_X/_B): the other of the
+// two plays the N64's B alone.
+static uint32_t fsaa_button(void) {
+    return gDcFsaaMode == DC_FSAA_MODE_TOGGLE_X ? CONT_X : gDcFsaaMode == DC_FSAA_MODE_TOGGLE_B ? CONT_B : 0;
+}
+
+// At every input read of the game: a press of the button switches
+// FSAA, but not with both triggers held, where X is part of the debug menu's combination.
+void controller_dc_fsaa_poll(void) {
+    static uint32_t held;
+    maple_device_t *cont = maple_enum_type(0, MAPLE_FUNC_CONTROLLER);
+    if (!cont)
+        return;
+    cont_state_t *state = (cont_state_t *) maple_dev_status(cont);
+    uint32_t pressed = state->buttons & ~held;
+    held = state->buttons;
+    if ((pressed & fsaa_button()) && !((uint8_t) state->ltrig >= 128 && (uint8_t) state->rtrig >= 128))
+        gfx_pvr_fsaa_toggle();
 }
 
 // n64 controls https://strategywiki.org/wiki/Super_Mario_64/Controls
 // DC -> N64 control mapping
-//  B, X     -> B
+//  B, X     -> B (one of them toggles FSAA instead, if the debug menu says so)
 //  A        -> A
 //  Y        -> R Trigger
 //  L Trig   -> Z Trigger
@@ -94,7 +171,9 @@ static void controller_dc_read(OSContPad *pad) {
     }
     if (state->buttons & CONT_START)
         pad->button |= START_BUTTON;
-    if ((state->buttons & CONT_B) || (state->buttons & CONT_X))
+    uint32_t b_buttons = CONT_B | CONT_X;
+    b_buttons &= ~fsaa_button();
+    if (state->buttons & b_buttons)
         pad->button |= B_BUTTON;
     if (state->buttons & CONT_A)
         pad->button |= A_BUTTON;

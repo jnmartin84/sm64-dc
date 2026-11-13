@@ -204,7 +204,7 @@ s8 get_vibrato_pitch_change(struct VibratoState *vib) {
 }
 #endif
 
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
 f32 get_vibrato_freq_scale(struct VibratoState *vib) {
     s32 pitchChange;

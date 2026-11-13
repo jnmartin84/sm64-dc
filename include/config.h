@@ -23,6 +23,12 @@
 /// Fixes bug where it shows a star when you grab a key in bowser battle stages
 #define BUGFIX_STAR_BOWSER_KEY (0 || VERSION_US || VERSION_EU)
 
+// Rumble: the Shindou version's Rumble Pak calls (src/game/thread6.c). The Dreamcast has them too,
+// for a Puru Puru pack in the controller; they never change the game's logic, only the motor.
+#if defined(VERSION_SH) || defined(TARGET_DC)
+#define ENABLE_RUMBLE 1
+#endif
+
 // Screen Size Defines
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 240

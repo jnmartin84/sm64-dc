@@ -20,13 +20,15 @@
 #define MIN_SWIM_STRENGTH 160
 #define MIN_SWIM_SPEED 16.0f
 
-static s16 sWasAtSurface = FALSE;
-static s16 sSwimStrength = MIN_SWIM_STRENGTH;
+// Not static: they last from one level into the next, so a TAS slice carries them over
+// (src/game/tas_slice.c).
+s16 sWasAtSurface = FALSE;
+s16 sSwimStrength = MIN_SWIM_STRENGTH;
 static s16 sWaterCurrentSpeeds[] = { 28, 12, 8, 4 };
 
-static s16 D_80339FD0;
-static s16 D_80339FD2;
-static f32 D_80339FD4;
+s16 D_80339FD0;
+s16 D_80339FD2;
+f32 D_80339FD4;
 
 static void set_swimming_at_surface_particles(struct MarioState *m, u32 particleFlag) {
     s16 atSurface = m->pos[1] >= m->waterLevel - 130;
@@ -439,7 +441,7 @@ static void common_swimming_step(struct MarioState *m, s16 swimStrength) {
 
     update_swimming_yaw(m);
     update_swimming_pitch(m);
-    update_swimming_speed(m, swimStrength * 0.1f); // / 10.0f);
+    update_swimming_speed(m, swimStrength / 10.0f);
 
     switch (perform_water_step(m)) {
         case WATER_STEP_HIT_FLOOR:
@@ -554,7 +556,7 @@ static s32 act_breaststroke(struct MarioState *m) {
         reset_float_globals(m);
     }
 
-#ifdef VERSION_SH
+#ifdef ENABLE_RUMBLE
     if (m->actionTimer < 6) {
         func_sh_8024CA04();
     }
@@ -802,7 +804,7 @@ static s32 act_water_throw(struct MarioState *m) {
 
     if (m->actionTimer++ == 5) {
         mario_throw_held_object(m);
-#ifdef VERSION_SH
+#ifdef ENABLE_RUMBLE
         queue_rumble_data(3, 50);
 #endif
     }
@@ -978,7 +980,7 @@ static s32 act_water_plunge(struct MarioState *m) {
 
         m->particleFlags |= PARTICLE_WATER_SPLASH;
         m->actionState = 1;
-#ifdef VERSION_SH
+#ifdef ENABLE_RUMBLE
         if (m->prevAction & ACT_FLAG_AIR) {
             queue_rumble_data(5, 80);
         }
@@ -1087,7 +1089,7 @@ static s32 act_caught_in_whirlpool(struct MarioState *m) {
     set_mario_animation(m, MARIO_ANIM_GENERAL_FALL);
     vec3f_copy(m->marioObj->header.gfx.pos, m->pos);
     vec3s_set(m->marioObj->header.gfx.angle, 0, m->faceAngle[1], 0);
-#ifdef VERSION_SH
+#ifdef ENABLE_RUMBLE
     reset_rumble_timers();
 #endif
 

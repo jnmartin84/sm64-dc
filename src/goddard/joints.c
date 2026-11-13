@@ -308,7 +308,7 @@ void func_8018F4CC(struct ObjJoint *j) {
         j->unkB4.z = D_801BA968.z;
     }
 }
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 /* 23DCF0 -> 23E06C */
 void func_8018F520(struct ObjBone *b) {
     struct ObjJoint *spAC;

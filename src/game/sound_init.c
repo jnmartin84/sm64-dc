@@ -154,7 +154,7 @@ void play_menu_sounds(s16 soundMenuFlags) {
     if (soundMenuFlags & 0x100) {
         play_menu_sounds_extra(20, NULL);
     }
-#ifdef VERSION_SH
+#ifdef ENABLE_RUMBLE
     if ((soundMenuFlags & 0x20) != 0) {
         queue_rumble_data(10, 60);
     }

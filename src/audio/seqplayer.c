@@ -1729,6 +1729,12 @@ void sequence_player_process_sequence(struct SequencePlayer *seqPlayer) {
                             break;
                         }
                         state->pc = seqPlayer->seqData + u16v;
+#ifdef DC_AUDIO_RECORD
+                        {
+                            extern void aica_record(u8 cmd, u8 ch, u8 vol, u8 pan, u32 freq, u32 key, u8 reverb);
+                            aica_record(4 /* AICA_REC_SEQ_JUMP */, (u8) (seqPlayer - gSequencePlayers), 0, 0, 0, u16v, 0);
+                        }
+#endif
                         break;
 
 #ifdef VERSION_EU

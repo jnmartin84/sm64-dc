@@ -560,6 +560,29 @@ ifeq ($(FOR_DCLOAD),1)
   PLATFORM_CFLAGS += -DFOR_DCLOAD=1
 endif
 
+# The game runs at 60 fps (each 30 Hz logic step drawn interpolated, then exact) with KOS's
+# horizontal 2x FSAA where it fits, both changeable in the debug menu (src/pc/dc_video_options.h):
+# hold both triggers and press Up+X+Y. The frame loop, the PVR render lists, the menu and its
+# frame-rate overlay come from enDjinn (third_party/endjinn); music and sounds play on AICAflow
+# (third_party/aicaflow, src/pc/audio/sm64_aicaflow.c).
+ENDJINN_DIR ?= third_party/endjinn
+PLATFORM_CFLAGS += -I$(ENDJINN_DIR)/include -DENJ_CBASEPATH=\"/cd/\" -DENJ_FSAA=1 -DENJ_DEBUG_MENU=1
+# SH4ZAM 0.10 under __FAST_MATH__ (our -ffast-math) computes sincos as two __builtin_sinf/cosf
+# calls on float radians instead of one FSCA on the 16-bit angle, which differs by one unit on
+# ~17% of angles and moves the game's sins/coss. include/sh4zam_port.h keeps FSCA, as
+# SH4ZAM 0.9 had it, by reading SH4ZAM's inline routines without __FAST_MATH__.
+# GCC flags stock SM64 code (mario_actions_moving.c) as maybe-uninitialized.
+PLATFORM_CFLAGS += -Wno-error=maybe-uninitialized
+# GCC 16 also flags stock SM64 code (camera.c posReturn) as unused-but-set.
+PLATFORM_CFLAGS += -Wno-error=unused-but-set-variable
+
+# KOS dropped genwait_wait()'s callback argument in Nov 2025 without a version bump,
+# so detect the signature from the installed header. The same KOS deprecates
+# pvr_dr_init (now a no-op), which -Werror would otherwise reject.
+ifeq ($(shell grep -c callback $(KOS_BASE)/include/kos/genwait.h 2>/dev/null),0)
+  PLATFORM_CFLAGS += -DKOS_GENWAIT_3ARG -Wno-error=deprecated-declarations
+endif
+
 # GFX_BACKEND - selects the renderer backend (DC):
 #   pvr  - raw KOS PVR direct-render (gfx_pvr.c)
   PLATFORM_CFLAGS += -DGFX_BACKEND_PVR=1
@@ -567,7 +590,40 @@ endif
 # need to finish working through these
 #  PLATFORM_CFLAGS += -Wdouble-promotion
 
-  PLATFORM_LDFLAGS := -Wl,--gc-sections  -Wl,-Map=output.map
+  PLATFORM_LDFLAGS := -Wl,--gc-sections  -Wl,-Map=output.map -lsh4zam
+  # SM_WARM (gfx_retro_dc.c): hot code that does not fit in .sub0, placed on I-cache sets
+  # DC_SM_WARM_SET.. by an ld ordering file. .sub1 starts one I-cache size after .sub0, so the offset
+  # into .sub1 is the I-cache index. Pick the set from samples: lines .sub0 leaves cold.
+  # 232: the sets after .sub0's 7.4 KB, which holds the rest of the
+  # native renderer's hot code (2026-11-04).
+  DC_SM_WARM_SET ?= 232
+  # tri_state_setup in .sub2 at I-cache set DC_SM_WARM2_SET (gfx_retro_dc.c SM_WARM2). It is ~4.1 KB
+  # and must end within .sub2's 8 KB: set 126 left 24 bytes, too few once it grew to 0x1048.
+  DC_SM_WARM2_SET ?= 122
+  # The renderer's hot data (.data.sm64_hot: rsp, rdp, sTri, the vertex bake buffers) at a fixed
+  # offset from .sub0 mod the 16 KB operand cache, so it keeps its O-cache sets relative to the hot
+  # code and its literal pools when code or .rodata grows (.sub0 moves in 8 KB steps). It goes into
+  # .sub3, which starts 24 KB after .sub0 (8 KB steps, .sub1/.sub2 in use), i.e. at .sub0 + 8 KB
+  # mod 16 KB; the Dreamcast has no MMU, so data there is fine. The offset must stay within
+  # 0x2000..0x3fff minus the block's ~5.3 KB. 0x22c0 is the offset in the build whose title-screen
+  # D-cache stalls were lowest (5.9% of display-list cycles). .bss starts on a 16 KB boundary.
+  DC_HOT_DATA_RESIDUE ?= 0x22c0
+  PLATFORM_LDFLAGS += -Wl,--section-ordering-file=$(BUILD_DIR)/sm_warm.ld
+  # src/audio keeps the N64 sequencer path besides AICAflow's: tools/aica/recorder builds it to
+  # record the songs and sounds from the ROM.
+  AICAFLOW_DIR ?= third_party/aicaflow
+  PLATFORM_CFLAGS += -DDC_AICAFLOW -I$(AICAFLOW_DIR)/driver/include -I$(AICAFLOW_DIR)/driver/format/include \
+    -I$(AICAFLOW_DIR)/driver/sh4/include
+  # The songs and sounds (build/us_dc/afx_stage/afx, tools/aica/sm64_audio_assets.sh) are read from
+  # the disc's /afx, or with FOR_DCLOAD=1 through dcload from this machine's build folder.
+  ifeq ($(FOR_DCLOAD),1)
+    DC_AICAFLOW_ROOT ?= /pc$(abspath $(BUILD_DIR))/afx_stage/afx
+  else
+    DC_AICAFLOW_ROOT ?= /cd/afx
+  endif
+  PLATFORM_CFLAGS += -DDC_AICAFLOW_ROOT=\"$(DC_AICAFLOW_ROOT)\"
+  # The debug menu's TAS replay and level select read tas.m64 and tas_slices.bin (tas/) from there.
+  PLATFORM_CFLAGS += -DDC_TAS_ROOT=\"$(DC_AICAFLOW_ROOT)\"
 endif
 ifeq ($(TARGET_WEB),1)
   PLATFORM_CFLAGS  := -DTARGET_WEB
@@ -667,6 +723,8 @@ all: $(ROM)
 ifeq ($(COMPARE),1)
 	@$(SHA1SUM) -c $(TARGET).sha1 || (echo 'The build succeeded, but did not match the official ROM. This is expected if you are making changes to the game.\nTo silence this message, use "make COMPARE=0"'. && false)
 endif
+else ifeq ($(TARGET_DC),1)
+all: $(EXE) $(BUILD_DIR)/afx_stage/afx/tas_slices.bin
 else
 all: $(EXE)
 endif
@@ -835,7 +893,35 @@ $(SOUND_BIN_DIR)/sound_data.tbl.inc.c: $(SOUND_BIN_DIR)/sound_data.tbl
 # built sound_data banks (timestamp-gated; only re-runs when the banks change).
 # scipy-optional -- a clean checkout builds with stock python3.
 AICA_TOOLS := $(filter-out tools/aica/compare_encoders.py tools/aica/adpcm_quality.py,$(wildcard tools/aica/*.py)) tools/aica/ya2beam.c
-SOUND_OBJ_FILES += $(SOUND_BIN_DIR)/aica_pool.o $(SOUND_BIN_DIR)/aica_sample_table.o
+# The AICAflow host library, rebuilt when its sources change, and its ARM7 firmware as a C array.
+AICAFLOW_LIB := $(AICAFLOW_DIR)/driver/sh4/libaicaflow_host.a
+SOUND_OBJ_FILES += $(BUILD_DIR)/aicaflow_firmware.o $(AICAFLOW_LIB)
+$(AICAFLOW_LIB): $(wildcard $(AICAFLOW_DIR)/driver/sh4/src/*.c $(AICAFLOW_DIR)/driver/sh4/include/aicaflow/*.h \
+                   $(AICAFLOW_DIR)/driver/include/aicaflow/*.h $(AICAFLOW_DIR)/driver/format/src/*.c \
+                   $(AICAFLOW_DIR)/driver/format/include/aicaflow/*.h)
+	$(MAKE) -C $(AICAFLOW_DIR)/driver/sh4
+$(BUILD_DIR)/aicaflow_firmware.c: $(AICAFLOW_DIR)/firmware/aicaflow.drv
+	$(PYTHON) -c 'import sys; d = open(sys.argv[1], "rb").read(); print("const unsigned char gAicaflowFirmware[] __attribute__((aligned(32))) = {" + ",".join(str(b) for b in d) + "};\nconst unsigned int gAicaflowFirmwareSize = sizeof(gAicaflowFirmware);")' $< > $@
+$(BUILD_DIR)/aicaflow_firmware.o: $(BUILD_DIR)/aicaflow_firmware.c
+	$(CC) -c -o $@ $<
+# Each sound's script reverb (sound scripts do not run under AICAflow), for the reverb send.
+$(BUILD_DIR)/sm64_sfx_reverb.h: sound/sequences/00_sound_player.s tools/aica/sm64_sfx_reverb.py
+	$(PYTHON) tools/aica/sm64_sfx_reverb.py $< > $@
+$(BUILD_DIR)/src/pc/audio/sm64_aicaflow.o: $(BUILD_DIR)/sm64_sfx_reverb.h
+
+# The enDjinn sources the frame loop, the render lists, the debug menu and the overlay's quick
+# font need, built with its own C dialect.
+ENDJINN_SRCS := enj_qfont.c enj_font.c enj_draw.c enj_bitmap.c enj_render.c enj_state.c enj_mode.c \
+                enj_ctrl.c enj_rumble.c enj_pacing.c enj_debug_menu.c enj_debug_menu_mode.c
+ENDJINN_O_FILES := $(addprefix $(BUILD_DIR)/endjinn/,$(ENDJINN_SRCS:.c=.o))
+SOUND_OBJ_FILES += $(ENDJINN_O_FILES)
+# The overlay loads the quick font itself (dc_overlay.c, for the debug menu too), so enDjinn's
+# startup must not load it too.
+ENJ_QFONT_DEFINE := -DENJ_INJECT_QFONT=1
+$(BUILD_DIR)/endjinn/enj_state.o: ENJ_QFONT_DEFINE :=
+$(BUILD_DIR)/endjinn/%.o: $(ENDJINN_DIR)/code/%.c
+	@mkdir -p $(dir $@)
+	$(CC) -std=gnu23 -O2 -c -I$(ENDJINN_DIR)/include -I$(KOS_BASE)/utils -DENJ_CBASEPATH=\"/cd/\" -DENJ_FSAA=1 $(ENJ_QFONT_DEFINE) -DENJ_DEBUG_MENU=1 -o $@ $<
 
 $(SOUND_BIN_DIR)/aica_pool.c: $(SOUND_BIN_DIR)/sound_data.tbl $(SOUND_BIN_DIR)/sound_data.ctl $(AICA_TOOLS)
 	PYTHONPATH=tools/aica $(PYTHON) tools/aica/sm64_emit.py \
@@ -989,16 +1075,38 @@ $(BUILD_DIR)/src/engine/math_util.o: CFLAGS += -O3
 $(BUILD_DIR)/src/pc/mixer.o: CFLAGS += -O3
 $(BUILD_DIR)/src/pc/gfx/gfx_retro_dc.o: CFLAGS += -O3
 $(BUILD_DIR)/src/pc/gfx/gfx_pvr.o: CFLAGS += -O3
+# sh-elf GCC 15.2 hits an internal compiler error (reload, gen_reg_rtx) in
+# bhv_haunted_chair_loop above -Os, so keep this file at -Os and out of LTO, which would otherwise
+# recompile it at the link-time level.
+$(BUILD_DIR)/src/game/obj_behaviors_2.o: CFLAGS += -Os -fno-lto
+# The game logic (src/game, src/engine) without the float shortcuts the rest of the build takes
+# (-ffast-math reorders, -ffp-contract=fast fuses multiply-add into FMAC, rounding once where the N64
+# rounds twice; -fsingle-precision-constant makes the double constants float), so it computes what
+# the N64 does and the TAS replay (tas/) stays in sync. -fno-math-errno keeps sqrtf the FPU's fsqrt,
+# correctly rounded as the N64's sqrt.s is. DC_EXACT_MATH makes sh4zam's approximations exact
+# there too (include/sh4zam_port.h).
+$(BUILD_DIR)/src/game/%.o $(BUILD_DIR)/src/engine/%.o: CFLAGS += -fno-fast-math -fno-math-errno -ffp-contract=off -fno-single-precision-constant -DDC_EXACT_MATH=1
 
 ifeq ($(TARGET_DC),1)
 # Unused for now, might be later
 include $(KOS_BASE)/Makefile.rules
-  $(EXE): $(O_FILES) $(MIO0_FILES:.mio0=.o) $(SOUND_OBJ_FILES) $(ULTRA_O_FILES) $(GODDARD_O_FILES) romdisk.o
+  $(EXE): $(O_FILES) $(MIO0_FILES:.mio0=.o) $(SOUND_OBJ_FILES) $(ULTRA_O_FILES) $(GODDARD_O_FILES) romdisk.o $(BUILD_DIR)/sm_warm.ld
 else
   $(EXE): $(O_FILES) $(MIO0_FILES:.mio0=.o) $(SOUND_OBJ_FILES) $(ULTRA_O_FILES) $(GODDARD_O_FILES)
 endif
 	@echo "Linking $@"
 	@$(LD) -L $(BUILD_DIR) -o $@ $(O_FILES) $(SOUND_OBJ_FILES) $(ULTRA_O_FILES) $(GODDARD_O_FILES) $(LDFLAGS) -flto
+ifeq ($(TARGET_DC),1)
+# gfx_retro_dc.c's SM_WARM code must sit on I-cache sets DC_SM_WARM_SET.. inside .sub1, or it is
+# back on whatever lines the link gives it. LTO may rename a static symbol to name.lto_priv.N.
+	@sh-elf-nm $@ | awk -v r=$$(( $(DC_HOT_DATA_RESIDUE) )) 'function hex(s,  i, n) { n = 0; for (i = 1; i <= length(s); i++) n = n * 16 + index("0123456789abcdef", substr(s, i, 1)) - 1; return n } \
+	  $$3 == "__sub0_start" { s0 = hex($$1) } $$3 == "__sub2_start" { s2 = hex($$1) } $$3 ~ /^_tri_state_setup(\.lto_priv\.[0-9]+)?$$/ { ts = hex($$1) } \
+	  $$3 == "__sub1_start" { s = hex($$1) } $$3 ~ /^_cc_eval_float/ { f = hex($$1) } $$3 ~ /^_(sTriStateEpoch|clip_rej|rsp)(\.lto_priv\.[0-9]+)?$$/ { h = (!h || hex($$1) < h) ? hex($$1) : h } \
+	  END { if (!s || s % 8192 || f != s + $(DC_SM_WARM_SET) * 32) { print "SM_WARM placement broken: cc_eval_float is not at .sub1 + $(DC_SM_WARM_SET) * 32"; exit 1 } \
+	        if (!s2 || ts != s2 + $(DC_SM_WARM2_SET) * 32) { print "SM_WARM2 placement broken: tri_state_setup is not at .sub2 + $(DC_SM_WARM2_SET) * 32"; exit 1 } \
+	        d = (h - s0) % 16384; if (d < r || d >= r + 8192) { printf "hot data at .sub0 + %d mod 16384, not near $(DC_HOT_DATA_RESIDUE)\n", d; exit 1 } \
+	        printf "SM_WARM: cc_eval_float on I-cache sets $(DC_SM_WARM_SET).., tri_state_setup on $(DC_SM_WARM2_SET)..; hot data at .sub0 + 0x%x mod 16 KB\n", d }' || { rm -f $@; exit 1; }
+endif
 ifeq ($(TARGET_PSP),1)
 	psp-fixup-imports $@
 	psp-prxgen $@ $@.prx
@@ -1014,16 +1122,37 @@ pbp: $(EXE)
 .PHONY: pbp
 endif
 ifeq ($(TARGET_DC),1)
+$(BUILD_DIR)/sm_warm.ld: Makefile
+	@printf '/* SM_WARM code (gfx_retro_dc.c) on I-cache sets $(DC_SM_WARM_SET).. */\n.sub1 : {\n  . = MAX(., %d); *(.sub1.sm64_warm)\n}\n' $$(( $(DC_SM_WARM_SET) * 32 )) > $@
+	@printf '/* SM_WARM2 code on I-cache sets $(DC_SM_WARM2_SET).. */\n.sub2 : {\n  . = MAX(., %d); *(.sub2.sm64_warm)\n}\n' $$(( $(DC_SM_WARM2_SET) * 32 )) >> $@
+	@printf '/* The hot data at .sub0 + $(DC_HOT_DATA_RESIDUE) mod 16 KB, .bss from a 16 KB boundary (O-cache sets). */\n.sub3 : {\n  . = MAX(., %d); *(.data.sm64_hot)\n}\n.bss : {\n  . = ALIGN(0x4000);\n}\n' $$(( ($(DC_HOT_DATA_RESIDUE) + 0x2000) & 0x3fff )) >> $@
+
 elf: $(EXE)
 	sh-elf-objcopy -R .stack -O binary $< $<.bin
 
 scramble: elf
 	$(KOS_BASE)/utils/scramble/scramble $(EXE).bin $(BUILD_DIR)/1ST_READ.bin
 
-cdi: $(EXE)
+# The songs and sounds, recorded from the ROM's audio driver on this machine and turned into AICAflow
+# assets (tools/aica/sm64_audio_assets.sh): build/us_dc/afx_stage/afx, the disc's /afx.
+AICAFORGE_DIR ?= third_party/aicaforge
+$(BUILD_DIR)/afx_sm64: tools/aica/afx_sm64.c $(AICAFORGE_DIR)/src/afx_compile_c.c $(AICAFORGE_DIR)/src/afx_compile_c.h
+	cc -std=c11 -O2 -I$(AICAFLOW_DIR)/driver/format/include -I$(AICAFORGE_DIR)/src -o $@ $< \
+	  $(AICAFORGE_DIR)/src/afx_compile_c.c $(AICAFLOW_DIR)/driver/format/src/codec.c -lm
+$(BUILD_DIR)/afx_stage/afx/scene_core.smp: $(BUILD_DIR)/afx_sm64 $(SOUND_BIN_DIR)/aica_sample_table.c \
+    $(SOUND_BIN_DIR)/sequences.bin $(wildcard tools/aica/*.py tools/aica/recorder/*) \
+    tools/aica/sm64_audio_assets.sh tools/aica/sm64_sound_choices.json
+	rm -rf $(BUILD_DIR)/afx_stage
+	DC_GEN=$(BUILD_DIR) AFX_SM64=$(BUILD_DIR)/afx_sm64 MAKE=$(MAKE) PYTHON=$(PYTHON) \
+	  tools/aica/sm64_audio_assets.sh $(BUILD_DIR)/afx_stage
+# The TAS movie and its slices, for the debug menu (src/game/tas_slice.c).
+$(BUILD_DIR)/afx_stage/afx/tas_slices.bin: $(BUILD_DIR)/afx_stage/afx/scene_core.smp tas/tas.m64 tas/tas_slices.bin
+	cp tas/tas.m64 tas/tas_slices.bin $(BUILD_DIR)/afx_stage/afx/
+
+cdi: $(EXE) $(BUILD_DIR)/afx_stage/afx/tas_slices.bin
 	sh-elf-objcopy -R .stack -O binary $< sm64.bin
 	kos-cc loader.c -o loader.elf
-	mkdcdisc -n "Super Mario 64" -N -f sm64.bin -e loader.elf -o mario64.cdi
+	mkdcdisc -n "Super Mario 64" -N -f sm64.bin -e loader.elf -d $(BUILD_DIR)/afx_stage/afx -o mario64.cdi
 
 .PHONY: scramble
 .PHONY: elf

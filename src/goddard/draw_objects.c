@@ -13,6 +13,7 @@
 #include "renderer.h"
 #include "shape_helper.h"
 #include "draw_objects.h"
+#include "gd_native.h"
 
 /**
  * @file draw_objects.c
@@ -686,7 +687,7 @@ void func_80179B64(struct ObjGroup *group) {
                                     | OBJ_TYPE_JOINTS | OBJ_TYPE_BONES,
                                 (applyproc_t) Unknown80179ACC, group);
 }
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 /* 22836C -> 228498 */
 void func_80179B9C(struct GdVec3f *pos, struct ObjCamera *cam, struct ObjView *view) {
     gd_rotate_and_translate_vec3f(pos, (const Mat4f *)&cam->unkE8);
@@ -1030,7 +1031,7 @@ void Proc8017A980(struct ObjLight *light) {
         sp20 = -gd_dot_vec3f(&sLightPositionCache[light->id], &light->unk80);
         sp1C = 1.0f - light->unk38 * 0.01111111f; // / 90.0;
         if (sp20 > sp1C) {
-            sp20 = (sp20 - sp1C) * shz_fast_invf(1.0f - sp1C); // (1.0 / (1.0 - sp1C));
+            sp20 = (sp20 - sp1C) * shz_invf(1.0f - sp1C); // (1.0 / (1.0 - sp1C));
             if (sp20 > 1.0f) {
                 sp20 = 1.0f;
             } else if (sp20 < 0.0f) {
@@ -1120,6 +1121,10 @@ create_shape_gddl(struct ObjShape *s) {
     enddl = gd_enddlsplist_parent();
     shape->gdDls[0] = shapedl;
     shape->gdDls[1] = shapedl;
+    // Its geometry drawn as native meshes (gd_native.c), or else compiled as it stands.
+    if (!gd_native_shape(shape, Unknown8019BE40(shapedl), enddl)) {
+        gd_native_stable_dl(shapedl, enddl);
+    }
 
     if (shape->name[0] != '\0') {
         printf("Generated '%s' (%d) display list ok.(%d)\n", shape->name, shapedl, enddl);
@@ -1211,7 +1216,7 @@ void calc_vtx_normal(struct ObjVertex *vtx, struct ObjGroup *facegrp) {
     }
 
     if (facesAdded != 0) {
-        f32 invFacesAdded = shz_fast_invf(facesAdded);
+        f32 invFacesAdded = shz_invf(facesAdded);
         vtx->normal.x *= invFacesAdded; // /= facesAdded;
         vtx->normal.y *= invFacesAdded; // /= facesAdded;
         vtx->normal.z *= invFacesAdded; // /= facesAdded;

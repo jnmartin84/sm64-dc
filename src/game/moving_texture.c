@@ -73,7 +73,7 @@
 #define MOVTEX_ATTR_COLORED_S 7
 #define MOVTEX_ATTR_COLORED_T 8
 
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
 /**
  * An object containing all info for a mesh with moving textures.
@@ -313,7 +313,7 @@ Gfx *geo_wdw_set_initial_water_level(s32 callContext, UNUSED struct GraphNode *n
         gWdwWaterLevelSet = 0;
     } else if (callContext == GEO_CONTEXT_RENDER && gEnvironmentRegions != NULL
                && gWdwWaterLevelSet == 0) {
-        if (gPaintingMarioYEntry <= 1382.4f) {
+        if (gPaintingMarioYEntry <= 1382.4) {
             wdwWaterHeight = 31;
         } else if (gPaintingMarioYEntry >= 1600.0f) {
             wdwWaterHeight = 2816;
@@ -708,11 +708,19 @@ void update_moving_texture_offset(s16 *movtexVerts, s32 attr) {
  * vertex's coordinates as base on which to apply offset.
  * The first vertex has offset 0 by definition, simplifying the calculations a bit.
  */
+/* Dreamcast: lava movtexes are drawn opaque. As translucent
+ * surfaces they covered up to two thirds of the screen in the PVR's TR list, which FSAA makes
+ * twice as expensive (LLL: ~6 ms of PVR time a frame); at alpha 0xb4-0xc8 the floor under the
+ * lava barely showed anyway. */
+static inline s32 movtex_opaque_lava(const struct MovtexObject *m) {
+    return m->textureId == TEXTURE_LAVA;
+}
+
 void movtex_write_vertex_first(Vtx *vtx, s16 *movtexVerts, struct MovtexObject *c, s8 attrLayout) {
     s16 x = movtexVerts[MOVTEX_ATTR_X];
     s16 y = movtexVerts[MOVTEX_ATTR_Y];
     s16 z = movtexVerts[MOVTEX_ATTR_Z];
-    u8 alpha = c->a;
+    u8 alpha = movtex_opaque_lava(c) ? 255 : c->a;
     u8 r1;
     u8 g1;
     u8 b1;
@@ -749,7 +757,7 @@ void movtex_write_vertex_first(Vtx *vtx, s16 *movtexVerts, struct MovtexObject *
  */
 void movtex_write_vertex_index(Vtx *verts, s32 index, s16 *movtexVerts, struct MovtexObject *d,
                                s8 attrLayout) {
-    u8 alpha = d->a;
+    u8 alpha = movtex_opaque_lava(d) ? 255 : d->a;
     s16 x;
     s16 y;
     s16 z;
@@ -843,7 +851,8 @@ Gfx *geo_movtex_draw_nocolor(s32 callContext, struct GraphNode *node, UNUSED Mat
         while (gMovtexNonColored[i].movtexVerts != 0) {
             if (gMovtexNonColored[i].geoId == asGenerated->parameter) {
                 asGenerated->fnNode.node.flags =
-                    (asGenerated->fnNode.node.flags & 0xFF) | (gMovtexNonColored[i].layer << 8);
+                    (asGenerated->fnNode.node.flags & 0xFF)
+                    | ((movtex_opaque_lava(&gMovtexNonColored[i]) ? LAYER_OPAQUE : gMovtexNonColored[i].layer) << 8);
                 movtexVerts = segmented_to_virtual(gMovtexNonColored[i].movtexVerts);
                 update_moving_texture_offset(movtexVerts, MOVTEX_ATTR_NOCOLOR_S);
                 gfx = movtex_gen_list(movtexVerts, &gMovtexNonColored[i],
@@ -871,7 +880,8 @@ Gfx *geo_movtex_draw_colored(s32 callContext, struct GraphNode *node, UNUSED Mat
         while (gMovtexColored[i].movtexVerts != 0) {
             if (gMovtexColored[i].geoId == asGenerated->parameter) {
                 asGenerated->fnNode.node.flags =
-                    (asGenerated->fnNode.node.flags & 0xFF) | (gMovtexColored[i].layer << 8);
+                    (asGenerated->fnNode.node.flags & 0xFF)
+                    | ((movtex_opaque_lava(&gMovtexColored[i]) ? LAYER_OPAQUE : gMovtexColored[i].layer) << 8);
                 movtexVerts = segmented_to_virtual(gMovtexColored[i].movtexVerts);
                 update_moving_texture_offset(movtexVerts, MOVTEX_ATTR_COLORED_S);
                 gfx = movtex_gen_list(movtexVerts, &gMovtexColored[i], MOVTEX_LAYOUT_COLORED);
@@ -902,7 +912,8 @@ Gfx *geo_movtex_draw_colored_no_update(s32 callContext, struct GraphNode *node, 
         while (gMovtexColored[i].movtexVerts != 0) {
             if (gMovtexColored[i].geoId == asGenerated->parameter) {
                 asGenerated->fnNode.node.flags =
-                    (asGenerated->fnNode.node.flags & 0xFF) | (gMovtexColored[i].layer << 8);
+                    (asGenerated->fnNode.node.flags & 0xFF)
+                    | ((movtex_opaque_lava(&gMovtexColored[i]) ? LAYER_OPAQUE : gMovtexColored[i].layer) << 8);
                 movtexVerts = segmented_to_virtual(gMovtexColored[i].movtexVerts);
                 gfx = movtex_gen_list(movtexVerts, &gMovtexColored[i], MOVTEX_LAYOUT_COLORED);
                 break;

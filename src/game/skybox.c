@@ -145,7 +145,7 @@ u8 sSkyboxColors[][3] = {
  *                 (how far is the camera rotated from 0, scaled 0 to 1)   *
  *                 (the screen width)
  */
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 
 #ifdef BETTER_SKYBOX_POSITION_PRECISION
 f32
@@ -332,7 +332,7 @@ Gfx *init_skybox_display_list(s8 player, s8 background, s8 colorIndex) {
     }
     return skybox;
 }
-#include "sh4zam.h"
+#include "sh4zam_port.h"
 /**
  * Draw a skybox facing the direction from pos to foc.
  *
@@ -361,7 +361,7 @@ Gfx *create_skybox_facing_camera(s8 player, s8 background, f32 fov,
     //! the first frame, which causes a floating point divide by 0
     fov = 90.0f;
     sSkyBoxInfo[player].yaw = atan2s(cameraFaceZ, cameraFaceX);
-    sSkyBoxInfo[player].pitch = atan2s(shz_sqrtf_fsrra (cameraFaceX * cameraFaceX + cameraFaceZ * cameraFaceZ), cameraFaceY);
+    sSkyBoxInfo[player].pitch = atan2s(shz_sqrtf(cameraFaceX * cameraFaceX + cameraFaceZ * cameraFaceZ), cameraFaceY);
     sSkyBoxInfo[player].scaledX = calculate_skybox_scaled_x(player, fov);
     sSkyBoxInfo[player].scaledY = calculate_skybox_scaled_y(player, fov);
     sSkyBoxInfo[player].upperLeftTile = get_top_left_tile_idx(player);

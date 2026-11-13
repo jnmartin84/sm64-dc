@@ -1,3 +1,7 @@
+#if defined(TARGET_DC)
+#include "pc/gfx/gfx_dc_tags.h"
+#endif
+
 // 0x0700B238 - 0x0700B328
 static const Vtx ttc_seg7_vertex_0700B238[] = {
     {{{  -204,   4475,   -511}, 0, { -1052,  -5142}, {0x66, 0x66, 0x66, 0xff}}},
@@ -865,6 +869,9 @@ static const Gfx ttc_seg7_dl_0700DC98[] = {
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, machine_09000000),
     gsDPLoadSync(),
     gsDPLoadBlock(G_TX_LOADTILE, 0, 0, 32 * 32 - 1, CALC_DXT(32, G_IM_SIZ_16b_BYTES)),
+#if defined(TARGET_DC)
+    gsDPNoOpTag(DC_GFX_RAIL_TR_BEGIN),
+#endif
     gsSPVertex(ttc_seg7_vertex_0700B238, 15, 0),
     gsSP2Triangles( 0,  1,  2, 0x0,  0,  3,  1, 0x0),
     gsSP2Triangles( 0,  2,  4, 0x0,  0,  5,  6, 0x0),
@@ -1024,6 +1031,9 @@ static const Gfx ttc_seg7_dl_0700DC98[] = {
     gsSP2Triangles( 0,  1,  2, 0x0,  3,  4,  5, 0x0),
     gsSP2Triangles( 6,  7,  8, 0x0,  7,  9,  8, 0x0),
     gsSP1Triangle( 0,  2, 10, 0x0),
+#if defined(TARGET_DC)
+    gsDPNoOpTag(DC_GFX_RAIL_TR_END),
+#endif
     gsSPEndDisplayList(),
 };
 
