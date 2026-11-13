@@ -33,6 +33,10 @@ A prior copy of the game is required to extract the assets. Specifically you wil
   songs and sounds are recorded from the game's original audio driver on the build machine and
   converted with [AICAforge](https://github.com/dfchil/AICAforge) when you build. They are packed
   per scene and loaded with the level, and the N64's reverb runs on the AICA's DSP.
+- **Rumble.** A Puru Puru pack in the controller rumbles where the Shindou version of the game
+  rumbles its Rumble Pak: landings, hits, fall damage, pipes, Whomp's and Bowser's steps and
+  more. Only those calls are taken from that version; its gameplay changes are not. A TAS replay
+  and the title's demos do not rumble.
 - **Debug menu.** Hold both triggers and press Up+X+Y. It switches the frame rate (60 fps that
   drops a late frame, which is the default; 60 fps that slows down instead; or 30 fps), FSAA
   (curated, on, off, or a button that toggles it), 640x480 or 320x240 (240p), the reverb, and a

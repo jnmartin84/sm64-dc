@@ -4,15 +4,18 @@
 #include "buffers/buffers.h"
 #include "main.h"
 #include "thread6.h"
+#include "game_init.h"
 
-#ifdef VERSION_SH
+#ifdef ENABLE_RUMBLE
 
 static s8 D_SH_8030CCB4;
 static s32 sUnusedDisableRumble;
+s32 gRumblePakTimer;
+
+#ifdef VERSION_SH
 static s32 sRumblePakThreadActive;
 static s32 sRumblePakActive;
 static s32 sRumblePakErrorCount;
-s32 gRumblePakTimer;
 
 // These void* are OSPfs* but we don't have that header
 extern s32 osMotorStop(void *);
@@ -64,6 +67,25 @@ static void stop_rumble(void) {
 
     release_rumble_pak_control();
 }
+#else
+// The Dreamcast has no rumble thread: rumble_update_vi runs its loop's body, twice per game frame,
+// and the motor's on and off go to a Puru Puru pack (src/pc/controller/controller_dc.c).
+extern void controller_dc_rumble_motor(s32 on);
+
+// main.c has these in the Shindou version; the ports leave main.c out.
+struct RumbleData gRumbleDataQueue[3];
+struct StructSH8031D9B0 gCurrRumbleSettings;
+
+static s32 sMotorOn;
+
+static void start_rumble(void) {
+    sMotorOn = TRUE;
+}
+
+static void stop_rumble(void) {
+    sMotorOn = FALSE;
+}
+#endif
 
 static void update_rumble_pak(void) {
     if (D_SH_8030CCB4 > 0) {
@@ -225,6 +247,7 @@ void func_sh_8024CA04(void) {
     gCurrRumbleSettings.unk0C = 4;
 }
 
+#ifdef VERSION_SH
 static void thread6_rumble_loop(UNUSED void *a0) {
     OSMesg msg;
 
@@ -285,5 +308,29 @@ void rumble_thread_update_vi(void) {
     // 0x56525443 = 'VRTC'
     osSendMesg(&gRumbleThreadVIMesgQueue, (OSMesg) 0x56525443, OS_MESG_NOBLOCK);
 }
+#else
+void rumble_update_vi(void) {
+    update_rumble_data_queue();
+    update_rumble_pak();
+    if (gRumblePakTimer > 0) {
+        gRumblePakTimer--;
+    }
+    controller_dc_rumble_motor(sMotorOn && gCurrDemoInput == NULL);
+}
+
+void cancel_rumble(void) {
+    sMotorOn = FALSE;
+    controller_dc_rumble_motor(FALSE);
+
+    gRumbleDataQueue[0].unk00 = 0;
+    gRumbleDataQueue[1].unk00 = 0;
+    gRumbleDataQueue[2].unk00 = 0;
+
+    gCurrRumbleSettings.unk04 = 0;
+    gCurrRumbleSettings.unk0A = 0;
+
+    gRumblePakTimer = 0;
+}
+#endif
 
 #endif

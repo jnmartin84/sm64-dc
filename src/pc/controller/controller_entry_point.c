@@ -87,6 +87,11 @@ void dc_tas_stop(void) {
     sTasOn = 0;
 }
 
+// The movie plays the game, not the controller (no rumble then: controller_dc.c).
+int dc_tas_playing(void) {
+    return sTas != NULL && sTasOn;
+}
+
 void osContGetReadData(OSContPad *pad) {
     size_t i;
 

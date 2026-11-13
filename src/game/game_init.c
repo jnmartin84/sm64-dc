@@ -595,6 +595,9 @@ void thread5_game_loop(UNUSED void *arg) {
 void game_loop_one_iteration(void) {
         // if the reset timer is active, run the process to reset the game.
         if (gResetTimer) {
+#if defined(ENABLE_RUMBLE) && !defined(VERSION_SH)
+            cancel_rumble();
+#endif
             draw_reset_bars();
             return;
         }
@@ -614,6 +617,11 @@ void game_loop_one_iteration(void) {
         read_controller_inputs();
         levelCommandAddr = level_script_execute(levelCommandAddr);
         display_and_vsync();
+#if defined(ENABLE_RUMBLE) && !defined(VERSION_SH)
+        // The Shindou version's rumble thread woke at every vertical blank: two per game frame.
+        rumble_update_vi();
+        rumble_update_vi();
+#endif
 
 #if 0
         // when debug info is enabled, print the "BUF %d" information.

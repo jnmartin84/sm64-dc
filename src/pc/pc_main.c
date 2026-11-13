@@ -230,7 +230,9 @@ static void enj_frame(UNUSED void *data) {
 static int sMenuFrame;   // this frame is the one behind the menu
 
 static void dbg_menu_behind(UNUSED void *data) {
+    extern void controller_dc_rumble_stop(void);
     sMenuFrame = 1;
+    controller_dc_rumble_stop();
     dc_overlay_font_ready();
     if (sStepped && gGfxSPTask != NULL) {   // else nothing has been drawn: the background colour
         gfx_run((Gfx *) gGfxSPTask->task.t.data_ptr);

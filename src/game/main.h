@@ -1,6 +1,8 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+#include "config.h"
+
 struct RumbleData {
     u8 unk00;
     u8 unk01;
@@ -49,7 +51,8 @@ extern OSMesgQueue gSIEventMesgQueue;
 #ifdef VERSION_SH
 extern OSMesg gRumblePakSchedulerMesgBuf[1];
 extern OSMesg gRumbleThreadVIMesgBuf[1];
-
+#endif
+#ifdef ENABLE_RUMBLE
 extern struct RumbleData gRumbleDataQueue[3];
 extern struct StructSH8031D9B0 gCurrRumbleSettings;
 #endif

@@ -1512,7 +1512,7 @@ void update_mario_health(struct MarioState *m) {
         // Play a noise to alert the player when Mario is close to drowning.
         if (((m->action & ACT_GROUP_MASK) == ACT_GROUP_SUBMERGED) && (m->health < 0x300)) {
             play_sound(SOUND_MOVING_ALMOST_DROWNING, gDefaultSoundArgs);
-#ifdef VERSION_SH
+#ifdef ENABLE_RUMBLE
             if (!gRumblePakTimer) {
                 gRumblePakTimer = 36;
                 if (is_rumble_finished_and_queue_empty()) {
@@ -1678,7 +1678,7 @@ void mario_update_hitbox_and_cap_model(struct MarioState *m) {
     }
 }
 
-#ifdef VERSION_SH
+#ifdef ENABLE_RUMBLE
 void func_sh_8025574C(void) {
     if (gMarioState->particleFlags & PARTICLE_HORIZONTAL_STAR) {
         queue_rumble_data(5, 80);
@@ -1782,7 +1782,7 @@ s32 execute_mario_action(UNUSED struct Object *o) {
 
         play_infinite_stairs_music();
         gMarioState->marioObj->oInteractStatus = 0;
-#ifdef VERSION_SH
+#ifdef ENABLE_RUMBLE
         func_sh_8025574C();
 #endif
 
