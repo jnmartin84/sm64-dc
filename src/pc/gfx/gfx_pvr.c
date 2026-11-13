@@ -57,12 +57,14 @@ static int sRenderW = 640 << 1;
 #ifndef DC_FSAA_OFF_SCENES
 // Water and lava, whose TR fill covers much of the screen: WDW 1-2, JRB 1, THI 1, LLL 2, DDD 1-2,
 // COTMC 1. And the scenes under 98% of frames on time with FSAA on in a 120-star playthrough:
-// VCUTM 97.1%, SL 93.5%, BITDW 97.9%, Bowser 1 94%. TTC holds 99.2% with its grid in TR.
+// VCUTM 97.1%, SL 93.5%, BITDW 97.9%, Bowser 1 94%, and THI 3, the Wiggler's room, 88.6%. TTC holds
+// 99.2% with its grid in TR.
 #define DC_FSAA_OFF_SCENES                                                                         \
     FSAA_SCENE(LEVEL_WDW, 1), FSAA_SCENE(LEVEL_WDW, 2), FSAA_SCENE(LEVEL_JRB, 1),                  \
-    FSAA_SCENE(LEVEL_THI, 1), FSAA_SCENE(LEVEL_LLL, 2), FSAA_SCENE(LEVEL_DDD, 1),                  \
-    FSAA_SCENE(LEVEL_DDD, 2), FSAA_SCENE(LEVEL_COTMC, 1), FSAA_SCENE(LEVEL_VCUTM, 1),              \
-    FSAA_SCENE(LEVEL_SL, 1), FSAA_SCENE(LEVEL_BITDW, 1), FSAA_SCENE(LEVEL_BOWSER_1, 1)
+    FSAA_SCENE(LEVEL_THI, 1), FSAA_SCENE(LEVEL_THI, 3), FSAA_SCENE(LEVEL_LLL, 2),                  \
+    FSAA_SCENE(LEVEL_DDD, 1), FSAA_SCENE(LEVEL_DDD, 2), FSAA_SCENE(LEVEL_COTMC, 1),                \
+    FSAA_SCENE(LEVEL_VCUTM, 1), FSAA_SCENE(LEVEL_SL, 1), FSAA_SCENE(LEVEL_BITDW, 1),               \
+    FSAA_SCENE(LEVEL_BOWSER_1, 1)
 #endif
 static void pvr_post_init(void);
 static void gfx_pvr_request_fsaa_for_scene(int level, int area);
