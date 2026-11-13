@@ -2,7 +2,9 @@
 // (tas/tas.m64) from the moment a level is entered, with the game state carried over from before:
 // the save data, the random seed, the timers, Mario's lives and health, the act and the few globals
 // that cross a level change. tas/tas_slices.bin holds one per level change of the 120-star run,
-// recorded while the whole movie played. A replay sends the next level change to a slice's level
+// recorded while the whole movie played, and first the game's start after the file select: that
+// slice has no warp, so its level starts as a new game does, and the whole run begins with the
+// intro (Lakitu, Peach's letter, the pipe). A replay sends the next level change to a slice's level
 // instead, restores that state there and plays the movie on from the slice's sample, and when the
 // level is left goes on to the next slice. Every level of the run is reached in seconds, and plays
 // exactly as in the full run: the game logic is built without float shortcuts (Makefile), so it
@@ -361,7 +363,7 @@ void tas_slice_init_level(void) {
             memcpy(sItems[i].addr, p, sItems[i].size);
             p += sItems[i].size;
         }
-        sWarpDest = sPending->warp;
+        sWarpDest = sPending->warp;   // the start slice's: no warp, so the level starts as a new game
         tas_random_seed16_set(sPending->seed);
         if (!sMovie) {
             dc_tas_stop();   // the level select's: the controller plays from here
